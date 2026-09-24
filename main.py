@@ -26,26 +26,50 @@ def get_user_profile():
 def get_roadmaps():
     return [
         {
-            "id": "1",
+            "id": "rd_101",
             "title": "Junior Full-Stack Engineer",
-            "role": "Software Engineering",
-            "status": "active",
-            "progress": 45,
-            "tasksCount": "3 of 8 completed",
-            "date": "Sep 2026",
-            "readiness": 75,
-        },
-        {
-            "id": "2",
-            "title": "Frontend Engineer — React",
-            "role": "Frontend Development",
-            "status": "active",
-            "progress": 72,
-            "tasksCount": "8 of 11 completed",
-            "date": "Aug 2026",
-            "readiness": 88,
+            "readinessScore": 75,
+            "projects": [
+                {
+                    "id": "proj_1",
+                    "title": "Core Junior Full-Stack Engineer Foundations",
+                    "description": "Customized roadmap track focusing on Software Engineering.",
+                    "level": "INTERMEDIATE",
+                    "tasks": [
+                        {
+                            "id": "task_1",
+                            "label": "Configure repository & build environment",
+                            "completed": True,
+                        },
+                        {
+                            "id": "task_2",
+                            "label": "Implement core backend API services",
+                            "completed": False,
+                        },
+                        {
+                            "id": "task_3",
+                            "label": "Deploy frontend client to Vercel",
+                            "completed": False,
+                        },
+                    ],
+                }
+            ],
         }
     ]
+
+# Task status update route
+@app.patch("/api/v1/tasks/{task_id}")
+def update_task_status(task_id: str, data: dict):
+    return {"status": "success", "task_id": task_id, "completed": data.get("completed")}
+
+
+@app.get("/")
+def read_root():
+    return {
+        "status": "online",
+        "system": "JobHunter API",
+        "docs": "http://127.0.0.1:8000/docs"
+    }
 
 # Job Applications Endpoint
 @app.get("/api/v1/applications")

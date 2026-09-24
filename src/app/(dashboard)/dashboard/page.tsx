@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { ProjectCard } from "@/components/dashboard/project-card";
 import { SavedRoadmaps } from "@/components/dashboard/saved-roadmaps";
 import { GeneratorModal } from "@/components/dashboard/generator-modal";
+import { fetcher } from "@/lib/api";
 
 interface Task {
   id: string;
@@ -33,13 +34,14 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadRoadmaps() {
       try {
-        const res = await fetch("/api/roadmap");
-        if (!res.ok) return;
+        const data = await fetcher<any>("/roadmaps");
 
-        const data = await res.json();
-        if (data.success && data.roadmaps?.length > 0) {
-          setRoadmaps(data.roadmaps);
-          setActiveRoadmap(data.roadmaps[0]);
+        // Support both array and object responses
+        const roadmapList = Array.isArray(data) ? data : data?.roadmaps || [];
+
+        if (roadmapList.length > 0) {
+          setRoadmaps(roadmapList);
+          setActiveRoadmap(roadmapList[0]);
         }
       } catch (err) {
         console.error("Failed to load roadmaps:", err);
@@ -75,10 +77,10 @@ export default function DashboardPage() {
     });
 
     try {
-      await fetch("/api/task", {
+      // Updated to toggle task status via FastAPI helper
+      await fetcher(`/tasks/${taskId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId, completed: nextCompleted }),
+        body: JSON.stringify({ completed: nextCompleted }),
       });
     } catch (err) {
       console.error("Failed to update task state:", err);
