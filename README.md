@@ -1,7 +1,6 @@
 # Job Hunter App
 
-[![CI][ci-shield]][ci-url]
-[![MIT License][license-shield]][license-url]
+
 
 Job Hunter is a web application designed to streamline the job search process. It helps users track job applications, manage contacts, and stay organized while looking for their next career opportunity.
 
