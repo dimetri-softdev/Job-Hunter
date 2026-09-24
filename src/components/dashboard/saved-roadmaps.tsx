@@ -39,31 +39,33 @@ const mockRoadmaps: SavedRoadmap[] = [
 export function SavedRoadmaps() {
   return (
     <div className="bg-[#12131a] border border-[#1f212d] rounded-2xl p-5 space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center pb-2 border-b border-[#1f212d]">
         <h3 className="font-semibold text-white text-sm">Saved Roadmaps</h3>
         <span className="text-xs bg-[#1f212d] text-slate-400 px-2 py-0.5 rounded-full font-mono">
           {mockRoadmaps.length}
         </span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {mockRoadmaps.map((item) => (
           <div
             key={item.id}
-            className={`p-3.5 rounded-xl border transition cursor-pointer ${
+            className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               item.active
-                ? "bg-[#181a24] border-blue-500/50"
-                : "bg-[#090a0f] border-[#1f212d] hover:border-slate-700"
+                ? "bg-[#181a24] border-blue-500/50 shadow-lg shadow-blue-500/5"
+                : "bg-[#090a0f] border-[#1f212d] hover:border-slate-700 hover:bg-[#0e0f17]"
             }`}
           >
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${item.indicatorColor}`} />
-                <h4 className="text-xs font-medium text-white truncate max-w-[150px]">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${item.indicatorColor}`}
+                />
+                <h4 className="text-xs font-semibold text-slate-100 truncate">
                   {item.title}
                 </h4>
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">
+              <span className="text-[10px] text-slate-400 font-mono shrink-0">
                 {item.date}
               </span>
             </div>
@@ -71,11 +73,11 @@ export function SavedRoadmaps() {
             <div className="flex items-center gap-3">
               <div className="flex-1 bg-[#1f212d] h-1.5 rounded-full overflow-hidden">
                 <div
-                  className="bg-blue-500 h-full rounded-full"
+                  className="bg-blue-500 h-full rounded-full transition-all duration-300"
                   style={{ width: `${item.progress}%` }}
                 />
               </div>
-              <span className="text-[10px] text-slate-400 font-mono">
+              <span className="text-[10px] text-slate-400 font-mono w-7 text-right">
                 {item.progress}%
               </span>
             </div>
