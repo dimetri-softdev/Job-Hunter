@@ -1,314 +1,186 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Checkbox } from "@/components/ui/checkbox";
+import React, { useState, useEffect } from "react";
+import { UserNav } from "@/components/dashboard/user-nav";
+import { GeneratorForm } from "@/components/dashboard/generator-form";
+import { ProjectCard } from "@/components/dashboard/project-card";
+import { SavedRoadmaps } from "@/components/dashboard/saved-roadmaps";
 
-interface Step {
-  order: number;
-  title: string;
-  description: string;
+interface Task {
+  id: string;
+  label: string;
+  completed: boolean;
 }
 
-interface Project {
+interface ProjectTrack {
+  id: string;
   title: string;
   description: string;
-  difficulty: string;
-  skillsTargeted: string[];
-  steps: Step[];
+  level: string;
+  tasks: Task[];
 }
 
-interface RoadmapData {
+interface Roadmap {
+  id: string;
+  title: string;
   readinessScore: number;
-  gapAnalysis: string;
-  projects: Project[];
-  targetRole: string;
+  projects: ProjectTrack[];
 }
 
-export default function Home() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    targetRole: "",
-    currentTechStack: "",
-    resumeText: "",
-  });
+export default function DashboardPage() {
+  const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
+  const [activeRoadmap, setActiveRoadmap] = useState<Roadmap | null>(null);
 
-  const [loading, setLoading] = useState(false);
-  const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Track completed steps using keys like "projectIndex-stepIndex"
-  const [completedSteps, setCompletedSteps] = useState<Record<string, boolean>>({});
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setCompletedSteps({}); // Reset completed steps for new roadmap
-
-    try {
-      const res = await fetch("/api/roadmap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          currentTechStack: formData.currentTechStack
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
-        }),
-      });
-
-      const text = await res.text();
-
-      let data;
+  // Fetch initial roadmap on load
+  useEffect(() => {
+    async function loadRoadmaps() {
       try {
-        data = JSON.parse(text);
-      } catch {
-        console.error("Server HTML Response:", text);
-        throw new Error(`Server returned status ${res.status}. Check your terminal logs.`);
-      }
+        const res = await fetch("/api/roadmap");
 
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to generate roadmap");
-      }
+        if (!res.ok) {
+          throw new Error(`API responded with status ${res.status}`);
+        }
 
-      setRoadmap(data.roadmap);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An error occurred");
+        const data = await res.json();
+        if (data.success && data.roadmaps?.length > 0) {
+          setRoadmaps(data.roadmaps);
+          setActiveRoadmap(data.roadmaps[0]);
+        }
+      } catch (err) {
+        console.error("Failed to load roadmaps:", err);
       }
-    } finally {
-      setLoading(false);
+    }
+
+    loadRoadmaps();
+  }, []);
+
+  // Handler when a new roadmap is created
+  const handleRoadmapGenerated = (newRoadmap: Roadmap) => {
+    setActiveRoadmap(newRoadmap);
+    setRoadmaps((prev) => [newRoadmap, ...prev]);
+  };
+
+  const handleToggleTask = async (
+    taskId: string,
+    currentCompleted: boolean,
+  ) => {
+    if (!activeRoadmap) return;
+
+    const nextCompleted = !currentCompleted;
+
+    // Optimistic UI Update
+    const updatedProjects = activeRoadmap.projects.map((project) => ({
+      ...project,
+      tasks: project.tasks.map((task) =>
+        task.id === taskId ? { ...task, completed: nextCompleted } : task,
+      ),
+    }));
+
+    setActiveRoadmap({
+      ...activeRoadmap,
+      projects: updatedProjects,
+    });
+
+    // Send API update
+    try {
+      await fetch("/api/task", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId, completed: nextCompleted }),
+      });
+    } catch (err) {
+      console.error("Failed to update task state:", err);
     }
   };
 
-  const toggleStep = (pIdx: number, stepIdx: number) => {
-    const key = `${pIdx}-${stepIdx}`;
-    setCompletedSteps((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  // Calculate total steps and total completed steps for overall progress
-  const totalSteps = roadmap
-    ? roadmap.projects.reduce((acc, proj) => acc + (proj.steps?.length || 0), 0)
-    : 0;
-
-  const completedCount = Object.values(completedSteps).filter(Boolean).length;
-  const overallProgress = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+  // Safely handle missing or empty projects array
+  // src/app/page.tsx
+const allTasks = activeRoadmap?.projects?.flatMap((p) => p.tasks) || [];
+  const completedTasksCount = allTasks.filter((t) => t.completed).length;
+  const totalTasksCount = allTasks.length;
+  const progressPercentage =
+    totalTasksCount > 0
+      ? Math.round((completedTasksCount / totalTasksCount) * 100)
+      : 0;
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 md:p-12">
-      <div className="max-w-4xl mx-auto space-y-8">
-        
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">
-            Jobhunter Career Co-Pilot 🚀
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Turn your current tech stack into a targeted, hiring-manager-ready portfolio.
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#090a0f] text-slate-200 flex flex-col">
+      <UserNav />
 
-        {/* Input Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Build Your Personalized Roadmap</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Your Name</label>
-                  <Input
-                    placeholder="e.g. Alex Johnson"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Email</label>
-                  <Input
-                    type="email"
-                    placeholder="alex@example.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
-                </div>
+      <div className="flex-1 grid grid-cols-12 gap-6 p-6 max-w-[1800px] w-full mx-auto">
+        {/* Left Column: Form Controls */}
+        <aside className="col-span-12 lg:col-span-3">
+          <GeneratorForm onRoadmapGenerated={handleRoadmapGenerated} />
+        </aside>
+
+        {/* Center Column: Overview Stats & Project Tracks */}
+        <main className="col-span-12 lg:col-span-6 space-y-6">
+          {/* Header Metric Cards */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-[#12131a] border border-[#1f212d] rounded-2xl p-5">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider font-mono">
+                Overall Progress
+              </span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-3xl font-bold text-white">
+                  {progressPercentage}%
+                </span>
+                <span className="text-xs text-slate-400">
+                  {completedTasksCount} of {totalTasksCount} tasks
+                </span>
               </div>
-
-              <div>
-                <label className="text-sm font-medium mb-1 block">Target Job Role *</label>
-                <Input
-                  required
-                  placeholder="e.g. Junior Full-Stack React & Node Developer"
-                  value={formData.targetRole}
-                  onChange={(e) => setFormData({ ...formData, targetRole: e.target.value })}
+              <div className="w-full bg-[#1f212d] h-2 rounded-full mt-3 overflow-hidden">
+                <div
+                  className="bg-blue-500 h-full rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercentage}%` }}
                 />
               </div>
-
-              <div>
-                <label className="text-sm font-medium mb-1 block">
-                  Current Tech Stack (comma separated) *
-                </label>
-                <Input
-                  required
-                  placeholder="e.g. React, JavaScript, HTML, Tailwind, Express"
-                  value={formData.currentTechStack}
-                  onChange={(e) => setFormData({ ...formData, currentTechStack: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-1 block">
-                  Resume Summary / Background Details (Optional)
-                </label>
-                <textarea
-                  className="w-full min-h-[100px] p-3 rounded-md border text-sm bg-background"
-                  placeholder="Paste brief highlights from your resume, projects, or background..."
-                  value={formData.resumeText}
-                  onChange={(e) => setFormData({ ...formData, resumeText: e.target.value })}
-                />
-              </div>
-
-              {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Analyzing Profile & Generating Roadmap..." : "Generate Portfolio Roadmap"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Generated Roadmap Output */}
-        {roadmap && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            
-            {/* Market Readiness & Portfolio Execution Progress */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xl">Market Readiness Score</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-3xl font-bold">{roadmap.readinessScore}% Match</span>
-                    <Badge variant={roadmap.readinessScore > 70 ? "default" : "secondary"}>
-                      {roadmap.targetRole}
-                    </Badge>
-                  </div>
-                  <Progress value={roadmap.readinessScore} className="h-3" />
-                  <div className="pt-2">
-                    <h4 className="font-semibold text-sm mb-1">Gap Analysis:</h4>
-                    <p className="text-sm text-muted-foreground">{roadmap.gapAnalysis}</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Execution Progress Bar */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xl">Portfolio Execution Progress</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-3xl font-bold">{overallProgress}% Done</span>
-                    <span className="text-sm text-muted-foreground font-medium">
-                      {completedCount} of {totalSteps} steps completed
-                    </span>
-                  </div>
-                  <Progress value={overallProgress} className="h-3" />
-                  <p className="text-xs text-muted-foreground pt-2">
-                    Check off steps below as you build out your projects!
-                  </p>
-                </CardContent>
-              </Card>
             </div>
 
-            {/* Recommended Projects */}
-            <h2 className="text-2xl font-bold">Recommended Portfolio Projects</h2>
-            <div className="space-y-4">
-              {roadmap.projects?.map((proj, pIdx) => {
-                const projSteps = proj.steps || [];
-                const projCompleted = projSteps.filter((_, sIdx) => completedSteps[`${pIdx}-${sIdx}`]).length;
-                
-                return (
-                  <Card key={pIdx}>
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            {proj.title}
-                            {projCompleted === projSteps.length && projSteps.length > 0 && (
-                              <Badge variant="default" className="bg-green-600 text-white">
-                                Completed 🎉
-                              </Badge>
-                            )}
-                          </CardTitle>
-                          <p className="text-sm text-muted-foreground mt-1">{proj.description}</p>
-                        </div>
-                        <Badge variant="outline">{proj.difficulty}</Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {proj.skillsTargeted?.map((skill, sIdx) => (
-                          <Badge key={sIdx} variant="secondary" className="text-xs">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </CardHeader>
-
-                    <CardContent>
-                      <h4 className="font-semibold text-sm mb-2">Execution Steps:</h4>
-                      <div className="space-y-2">
-                        {projSteps.map((step, stepIdx) => {
-                          const isDone = !!completedSteps[`${pIdx}-${stepIdx}`];
-                          return (
-                            <div
-                              key={stepIdx}
-                              onClick={() => toggleStep(pIdx, stepIdx)}
-                              className={`p-3 rounded-lg border text-sm flex items-start gap-3 cursor-pointer transition-colors ${
-                                isDone
-                                  ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 line-through opacity-75"
-                                  : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
-                              }`}
-                            >
-                              <Checkbox
-                                checked={isDone}
-                                onCheckedChange={() => toggleStep(pIdx, stepIdx)}
-                                className="mt-0.5"
-                              />
-                              <div>
-                                <p className="font-medium">
-                                  Step {step.order}: {step.title}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  {step.description}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+            <div className="bg-[#12131a] border border-[#1f212d] rounded-2xl p-5">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider font-mono">
+                Skill Readiness Score
+              </span>
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-3xl font-bold text-amber-400">
+                  {activeRoadmap?.readinessScore || 0}
+                  <span className="text-sm text-slate-500 font-normal">
+                    /100
+                  </span>
+                </span>
+                <span className="text-[10px] px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full font-medium">
+                  • Moderate Gap
+                </span>
+              </div>
             </div>
           </div>
-        )}
 
+          {/* Project Tracks */}
+          {activeRoadmap?.projects && activeRoadmap.projects.length > 0 ? (
+            activeRoadmap.projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                id={project.id}
+                title={project.title}
+                description={project.description}
+                level={project.level}
+                tasks={project.tasks}
+                onToggleTask={handleToggleTask}
+              />
+            ))
+          ) : (
+            <div className="p-8 text-center bg-[#12131a] border border-[#1f212d] rounded-2xl text-slate-500 text-sm">
+              No project tracks loaded yet. Use the generator on the left to
+              create your first roadmap!
+            </div>
+          )}
+        </main>
+
+        {/* Right Column: Saved Tracks */}
+        <aside className="col-span-12 lg:col-span-3">
+          <SavedRoadmaps />
+        </aside>
       </div>
-    </main>
+    </div>
   );
 }

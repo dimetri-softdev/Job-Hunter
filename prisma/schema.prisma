@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 generator client {
@@ -10,17 +10,38 @@ model User {
   id        String    @id @default(uuid())
   email     String    @unique
   name      String?
-  roadmaps  Roadmap[]
   createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  roadmaps  Roadmap[]
 }
 
 model Roadmap {
-  id             String   @id @default(uuid())
+  id             String         @id @default(uuid())
+  title          String
+  readinessScore Int            @default(0)
   userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  targetRole     String
-  readinessScore Int
-  gapAnalysis    String
-  projects       String   // Changed from Json to String for SQLite compatibility
-  createdAt      DateTime @default(now())
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects       ProjectTrack[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model ProjectTrack {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  level       String   // e.g. "Beginner", "Intermediate", "Advanced"
+  roadmapId   String
+  roadmap     Roadmap  @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  createdAt   DateTime @default(now())
+}
+
+model Task {
+  id             String       @id @default(uuid())
+  label          String
+  completed      Boolean      @default(false)
+  projectTrackId String
+  projectTrack   ProjectTrack @relation(fields: [projectTrackId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
 }
