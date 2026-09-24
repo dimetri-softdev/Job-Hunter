@@ -1,43 +1,46 @@
 "use client";
 
-import React, { useState } from "react";
-import { Compass, Plus, ArrowUpRight, CheckCircle2, Clock } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Plus, ArrowUpRight, Loader2 } from "lucide-react";
+import { fetcher } from "@/lib/api";
+
+interface Roadmap {
+  id: string;
+  title: string;
+  role: string;
+  status: "active" | "completed";
+  progress: number;
+  tasksCount: string;
+  date: string;
+}
 
 export default function RoadmapsPage() {
+  const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
   const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
 
-  const roadmaps = [
-    {
-      id: "1",
-      title: "Junior Full-Stack Engineer",
-      role: "Software Engineering",
-      status: "active",
-      progress: 45,
-      tasksCount: "3 of 8 completed",
-      date: "Sep 2026",
-      readiness: 75,
-    },
-    {
-      id: "2",
-      title: "Frontend Specialist — React / Next.js",
-      role: "Frontend Development",
-      status: "active",
-      progress: 72,
-      tasksCount: "8 of 11 completed",
-      date: "Aug 2026",
-      readiness: 88,
-    },
-    {
-      id: "3",
-      title: "DevOps & Cloud Architect",
-      role: "Platform Engineering",
-      status: "completed",
-      progress: 100,
-      tasksCount: "6 of 6 completed",
-      date: "Jul 2026",
-      readiness: 92,
-    },
-  ];
+  useEffect(() => {
+    async function getRoadmaps() {
+      try {
+        const data = await fetcher<Roadmap[]>("/roadmaps");
+        setRoadmaps(data);
+      } catch (err) {
+        console.error("Failed to load roadmaps:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    getRoadmaps();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-slate-400 gap-2">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        <span>Fetching career roadmaps...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-6">
@@ -57,7 +60,6 @@ export default function RoadmapsPage() {
         </button>
       </div>
 
-      {/* Filter Tabs */}
       <div className="flex items-center gap-2">
         {["all", "active", "completed"].map((tab) => (
           <button
@@ -74,7 +76,6 @@ export default function RoadmapsPage() {
         ))}
       </div>
 
-      {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {roadmaps
           .filter((r) => filter === "all" || r.status === filter)
