@@ -1,40 +1,39 @@
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider  = "prisma-client-py"
+  interface = "asyncio"
 }
 
 model User {
   id        String    @id @default(uuid())
   email     String    @unique
   name      String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
   roadmaps  Roadmap[]
+  createdAt DateTime  @default(now())
 }
 
 model Roadmap {
   id             String         @id @default(uuid())
   title          String
-  readinessScore Int            @default(0)
+  readinessScore Int            @default(75)
   userId         String
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   projects       ProjectTrack[]
   createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
 }
 
 model ProjectTrack {
   id          String   @id @default(uuid())
   title       String
   description String
-  level       String   // e.g. "Beginner", "Intermediate", "Advanced"
+  level       String   @default("INTERMEDIATE")
   roadmapId   String
   roadmap     Roadmap  @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
   tasks       Task[]
-  createdAt   DateTime @default(now())
 }
 
 model Task {
@@ -43,5 +42,4 @@ model Task {
   completed      Boolean      @default(false)
   projectTrackId String
   projectTrack   ProjectTrack @relation(fields: [projectTrackId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
 }

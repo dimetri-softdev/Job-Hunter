@@ -13,7 +13,7 @@ interface ProjectCardProps {
   title: string;
   description: string;
   level: "Beginner" | "Intermediate" | "Advanced" | string;
-  tasks: TaskItem[];
+  tasks?: TaskItem[];
   onToggleTask: (taskId: string, currentCompleted: boolean) => void;
 }
 
@@ -21,13 +21,14 @@ export function ProjectCard({
   title,
   description,
   level,
-  tasks,
+  tasks = [],
   onToggleTask,
 }: ProjectCardProps) {
+  const normalizedLevel = level.toUpperCase();
   const levelColor =
-    level === "Beginner"
+    normalizedLevel === "BEGINNER"
       ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-      : level === "Intermediate"
+      : normalizedLevel === "INTERMEDIATE"
         ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
         : "bg-purple-500/10 text-purple-400 border-purple-500/20";
 
@@ -50,10 +51,11 @@ export function ProjectCard({
       {/* Interactive Task Checklist */}
       <div className="space-y-2 pt-2">
         {tasks.map((task) => (
-          <div
+          <button
             key={task.id}
+            type="button"
             onClick={() => onToggleTask(task.id, task.completed)}
-            className="flex items-center gap-3 p-2.5 bg-[#090a0f] border border-[#1f212d] rounded-xl cursor-pointer hover:border-slate-700 transition"
+            className="w-full flex items-center gap-3 p-2.5 bg-[#090a0f] border border-[#1f212d] rounded-xl cursor-pointer hover:border-slate-700 transition text-left focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <div
               className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] transition ${
@@ -73,7 +75,7 @@ export function ProjectCard({
             >
               {task.label}
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </div>
