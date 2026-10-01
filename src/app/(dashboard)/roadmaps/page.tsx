@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { ArrowUpRight, Loader2 } from "lucide-react";
 import { fetcher } from "@/lib/api";
 import { GeneratorModal } from "@/components/dashboard/generator-modal";
+import { DashboardPageHeader } from "@/components/dashboard/page-header";
 
 interface Task {
   id: string;
@@ -56,21 +57,15 @@ export default function RoadmapsPage() {
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1f212d]">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Career Roadmaps
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Manage your tailored AI pathways and track targeted role readiness.
-          </p>
-        </div>
-
+      <DashboardPageHeader
+        title="Career Roadmaps"
+        description="Manage your tailored AI pathways and track targeted role readiness."
+      >
         <GeneratorModal
           buttonLabel="New Roadmap"
           onRoadmapGenerated={handleRoadmapGenerated}
         />
-      </div>
+      </DashboardPageHeader>
 
       <div className="flex items-center gap-2">
         {["all", "active", "completed"].map((tab) => (

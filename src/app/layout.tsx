@@ -1,5 +1,6 @@
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { RouteTransition } from "@/components/dashboard/route-transition";
 
 export default function RootLayout({
   children,
@@ -9,7 +10,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="bg-[#090a0f] text-slate-200 antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <RouteTransition>{children}</RouteTransition>
+        </AuthProvider>
       </body>
     </html>
   );

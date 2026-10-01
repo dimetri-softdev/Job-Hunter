@@ -7,12 +7,18 @@ datasource db {
 }
 
 model User {
-  id           String        @id
-  email        String        @unique
-  name         String?
-  roadmaps     Roadmap[]
-  applications Application[]
-  createdAt    DateTime      @default(now())
+  id                String        @id
+  email             String        @unique
+  name              String?
+  careerSummary     String?
+  skills            String?
+  experienceLevel   String?
+  targetRoles       String?
+  preferredLocation String?
+  workArrangement   String?
+  roadmaps          Roadmap[]
+  applications      Application[]
+  createdAt         DateTime       @default(now())
 }
 
 model Roadmap {
@@ -44,13 +50,16 @@ model Task {
 }
 
 model Application {
-  id        String   @id @default(cuid())
-  company   String
-  position  String
-  status    String   @default("APPLIED")
-  notes     String?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  company        String
+  position       String
+  status         String   @default("APPLIED")
+  notes          String?
+  jobUrl         String?
+  jobDescription String?
+  jobSummary     String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

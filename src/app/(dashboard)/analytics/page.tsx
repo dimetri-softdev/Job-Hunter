@@ -9,6 +9,7 @@ import {
   ListChecks,
 } from "lucide-react";
 import { fetcher } from "@/lib/api";
+import { DashboardPageHeader } from "@/components/dashboard/page-header";
 
 interface Roadmap {
   id: string;
@@ -95,14 +96,10 @@ export default function AnalyticsPage() {
 
   return (
     <div className="w-full space-y-6">
-      <div className="border-b border-[#1f212d] pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-white">
-          Analytics & Insights
-        </h1>
-        <p className="mt-1 text-xs text-slate-400">
-          Progress calculated from your roadmaps and completed tasks.
-        </p>
-      </div>
+      <DashboardPageHeader
+        title="Analytics & Insights"
+        description="Progress calculated from your roadmaps and completed tasks."
+      />
 
       {loading ? (
         <div className="flex h-48 items-center justify-center gap-2 text-slate-400">

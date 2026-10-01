@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { SiGithub, SiGoogle } from "@icons-pack/react-simple-icons";
+import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { AuthSidebar } from "@/components/auth/auth-sidebar";
 
@@ -37,7 +39,7 @@ export default function SignupPage() {
     if (error) {
       setErrorMsg(error.message);
     } else if (data.session) {
-      router.push("/");
+      router.push("/dashboard");
     } else {
       setSuccessMsg("Account created! Check your email for confirmation.");
     }
@@ -56,12 +58,10 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090a0f] text-slate-200 flex">
-      {/* Left Column - Sidebar */}
+    <div className="flex min-h-dvh flex-col bg-[#090a0f] text-slate-200 md:flex-row">
       <AuthSidebar mode="signup" />
 
-      {/* Right Column - Form */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-[#090a0f]">
+      <main className="flex flex-1 items-center justify-center px-6 py-9 sm:px-10 md:px-8 lg:px-12">
         <div className="w-full max-w-md space-y-6">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">
@@ -87,22 +87,24 @@ export default function SignupPage() {
           {/* Social OAuth Buttons */}
           <div className="grid grid-cols-2 gap-3">
             <button
+              type="button"
               onClick={() => handleOAuthSignIn("github")}
-              className="flex items-center justify-center gap-2 py-2.5 px-4 bg-[#12131a] hover:bg-[#1a1c27] border border-[#1f212d] rounded-xl text-sm font-medium text-slate-200 transition"
+              className="flex h-11 items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-200 transition-colors hover:border-blue-500/40 hover:bg-blue-600/10"
             >
-              <span>🐱</span> GitHub
+              <SiGithub className="size-4" /> GitHub
             </button>
             <button
+              type="button"
               onClick={() => handleOAuthSignIn("google")}
-              className="flex items-center justify-center gap-2 py-2.5 px-4 bg-[#12131a] hover:bg-[#1a1c27] border border-[#1f212d] rounded-xl text-sm font-medium text-slate-200 transition"
+              className="flex h-11 items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-200 transition-colors hover:border-blue-500/40 hover:bg-blue-600/10"
             >
-              <span>🔍</span> Google
+              <SiGoogle className="size-4" /> Google
             </button>
           </div>
 
           <div className="relative flex items-center justify-center">
-            <div className="border-t border-[#1f212d] w-full" />
-            <span className="bg-[#090a0f] px-3 text-xs text-slate-500 font-mono absolute">
+            <div className="w-full border-t border-[#1f212d]" />
+            <span className="absolute bg-[#090a0f] px-3 font-mono text-xs text-slate-500">
               or register with email
             </span>
           </div>
@@ -155,7 +157,11 @@ export default function SignupPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-sm"
                 >
-                  {showPassword ? "🙈" : "👁️"}
+                  {showPassword ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -179,7 +185,7 @@ export default function SignupPage() {
             </Link>
           </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { ProjectCard } from "@/components/dashboard/project-card";
 import { SavedRoadmaps } from "@/components/dashboard/saved-roadmaps";
 import { GeneratorModal } from "@/components/dashboard/generator-modal";
+import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import type { GeneratedRoadmap } from "@/components/RoadmapGenerator";
 import { fetcher } from "@/lib/api";
 
@@ -80,23 +81,15 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1f212d]">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Career Dashboard
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Track your active skills roadmap, learning tracks, and project
-            tasks.
-          </p>
-        </div>
-
+      <DashboardPageHeader
+        title="Career Dashboard"
+        description="Track your active skills roadmap, learning tracks, and project tasks."
+      >
         <GeneratorModal
           buttonLabel="Generate New Roadmap"
           onRoadmapGenerated={handleRoadmapGenerated}
         />
-      </div>
+      </DashboardPageHeader>
 
       {/* Main Grid */}
       <div className="grid grid-cols-12 gap-6 items-start">
