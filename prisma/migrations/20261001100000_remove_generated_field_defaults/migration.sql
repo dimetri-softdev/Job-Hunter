@@ -1,0 +1,2 @@
+ALTER TABLE "Roadmap" ALTER COLUMN "readinessScore" DROP DEFAULT;
+ALTER TABLE "ProjectTrack" ALTER COLUMN "level" DROP DEFAULT;

@@ -1,16 +1,38 @@
 "use client";
 
-import React, { useState } from "react";
-import { User, Key, Bell, Shield, Save } from "lucide-react";
+import { useEffect, useState } from "react";
+import { User, Loader2 } from "lucide-react";
+import { fetcher } from "@/lib/api";
+
+interface UserProfile {
+  id: string;
+  name: string | null;
+  email: string;
+}
 
 export default function SettingsPage() {
-  const [saved, setSaved] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const userProfile = await fetcher<UserProfile>("/user");
+        setProfile(userProfile);
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Unable to load account details.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProfile();
+  }, []);
 
   return (
     <div className="w-full space-y-6 max-w-4xl">
@@ -19,81 +41,39 @@ export default function SettingsPage() {
           Account Settings
         </h1>
         <p className="text-xs text-slate-400 mt-1">
-          Manage your developer profile, API credentials, and integration keys.
+          Review the profile associated with your account.
         </p>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
-        {/* Profile Card */}
-        <div className="bg-[#12131a] border border-[#1f212d] rounded-2xl p-6 space-y-4">
-          <div className="flex items-center gap-2 text-white font-semibold text-sm pb-3 border-b border-[#1f212d]">
+      {loading ? (
+        <div className="flex h-40 items-center justify-center gap-2 text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-xs">Loading account details...</span>
+        </div>
+      ) : error ? (
+        <p role="alert" className="text-sm text-rose-400">
+          {error}
+        </p>
+      ) : profile ? (
+        <section className="max-w-2xl rounded-xl border border-[#1f212d] bg-[#12131a] p-6">
+          <div className="mb-5 flex items-center gap-2 border-b border-[#1f212d] pb-4 text-sm font-semibold text-white">
             <User className="h-4 w-4 text-blue-400" />
-            Developer Profile
+            Account Profile
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="space-y-1.5">
-              <label className="text-slate-400 font-mono">Full Name</label>
-              <input
-                type="text"
-                defaultValue="Alex Developer"
-                className="w-full bg-[#090a0f] border border-[#1f212d] rounded-xl px-3.5 py-2.5 text-white focus:border-blue-500 outline-none"
-              />
+          <dl className="grid gap-5 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs text-slate-400">Name</dt>
+              <dd className="mt-1 text-slate-100">
+                {profile.name || "Not set"}
+              </dd>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-slate-400 font-mono">Email Address</label>
-              <input
-                type="email"
-                defaultValue="alex@dev.io"
-                className="w-full bg-[#090a0f] border border-[#1f212d] rounded-xl px-3.5 py-2.5 text-white focus:border-blue-500 outline-none"
-              />
+            <div>
+              <dt className="text-xs text-slate-400">Email</dt>
+              <dd className="mt-1 break-all text-slate-100">{profile.email}</dd>
             </div>
-          </div>
-        </div>
-
-        {/* API Credentials */}
-        <div className="bg-[#12131a] border border-[#1f212d] rounded-2xl p-6 space-y-4">
-          <div className="flex items-center gap-2 text-white font-semibold text-sm pb-3 border-b border-[#1f212d]">
-            <Key className="h-4 w-4 text-amber-400" />
-            Backend & AI Integration
-          </div>
-
-          <div className="space-y-4 text-xs">
-            <div className="space-y-1.5">
-              <label className="text-slate-400 font-mono">
-                FastAPI Backend Endpoint
-              </label>
-              <input
-                type="text"
-                defaultValue="http://127.0.0.1:8000/api/v1"
-                className="w-full bg-[#090a0f] border border-[#1f212d] rounded-xl px-3.5 py-2.5 text-white font-mono focus:border-blue-500 outline-none"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-slate-400 font-mono">
-                OpenAI API Key (Optional)
-              </label>
-              <input
-                type="password"
-                defaultValue="sk-proj-xxxxxxxxxxxxxxxxxxxx"
-                className="w-full bg-[#090a0f] border border-[#1f212d] rounded-xl px-3.5 py-2.5 text-white font-mono focus:border-blue-500 outline-none"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Submit */}
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition-all"
-          >
-            <Save className="h-4 w-4" />
-            {saved ? "Saved Changes!" : "Save Settings"}
-          </button>
-        </div>
-      </form>
+          </dl>
+        </section>
+      ) : null}
     </div>
   );
 }

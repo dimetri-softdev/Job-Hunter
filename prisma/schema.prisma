@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -19,7 +18,7 @@ model User {
 model Roadmap {
   id             String         @id @default(uuid())
   title          String
-  readinessScore Int            @default(75)
+  readinessScore Int
   userId         String
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   projects       ProjectTrack[]
@@ -30,7 +29,7 @@ model ProjectTrack {
   id          String   @id @default(uuid())
   title       String
   description String
-  level       String   @default("INTERMEDIATE")
+  level       String
   roadmapId   String
   roadmap     Roadmap  @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
   tasks       Task[]

@@ -80,22 +80,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      {/* System Status / Plan Badge */}
-      {!collapsed && (
-        <div className="m-3 p-3 bg-[#12131a] border border-[#1f212d] rounded-xl text-xs space-y-2">
-          <div className="flex items-center justify-between text-slate-400 font-mono">
-            <span>FastAPI Backend</span>
-            <span className="flex items-center gap-1 text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              Connected
-            </span>
-          </div>
-          <div className="w-full bg-[#1f212d] h-1.5 rounded-full overflow-hidden">
-            <div className="bg-blue-500 h-full w-[85%]" />
-          </div>
-        </div>
-      )}
     </aside>
   );
 }

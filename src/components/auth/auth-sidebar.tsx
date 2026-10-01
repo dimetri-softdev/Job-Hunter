@@ -43,7 +43,6 @@ export function AuthSidebar({ mode }: AuthSidebarProps) {
               <div className="text-xs uppercase tracking-wider text-slate-500 font-mono mb-4">
                 What you get for free
               </div>
-              <CheckFeatureItem text="3 AI-generated roadmaps free" />
               <CheckFeatureItem text="Real portfolio project tracks" />
               <CheckFeatureItem text="Live skill readiness score" />
               <CheckFeatureItem text="No credit card required" />
@@ -51,28 +50,6 @@ export function AuthSidebar({ mode }: AuthSidebarProps) {
           )}
         </div>
       </div>
-
-      {/* Testimonial Box (Sign up view) */}
-      {mode === "signup" && (
-        <div className="p-5 bg-[#12131a]/90 border border-[#1f212d] rounded-2xl backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex -space-x-2">
-              <span className="w-7 h-7 rounded-full bg-blue-500 border-2 border-[#12131a] block" />
-              <span className="w-7 h-7 rounded-full bg-purple-500 border-2 border-[#12131a] block" />
-              <span className="w-7 h-7 rounded-full bg-emerald-500 border-2 border-[#12131a] block" />
-            </div>
-            <span className="text-xs text-slate-400 font-medium">
-              Joined by 4,200+ developers
-            </span>
-          </div>
-          <p className="text-sm italic text-slate-300 leading-relaxed">
-            "The roadmap got me from tutorial hell to landing my first dev job in 4 months."
-          </p>
-          <p className="text-xs text-slate-500 font-mono mt-2">
-            — Priya S., Junior Frontend Engineer
-          </p>
-        </div>
-      )}
 
       {/* Footer */}
       <p className="text-xs text-slate-600 font-mono">© 2026 Career Co-Pilot</p>

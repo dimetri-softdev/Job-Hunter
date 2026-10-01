@@ -1,99 +1,194 @@
 "use client";
 
-import React from "react";
-import { BarChart3, TrendingUp, CheckCircle2, Clock, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  CheckCircle2,
+  ClipboardList,
+  Loader2,
+  Target,
+  ListChecks,
+} from "lucide-react";
+import { fetcher } from "@/lib/api";
+
+interface Roadmap {
+  id: string;
+  title: string;
+  readinessScore: number;
+  projects: {
+    id: string;
+    title: string;
+    tasks: { id: string; completed: boolean }[];
+  }[];
+}
 
 export default function AnalyticsPage() {
-  const stats = [
-    { label: "Roadmaps Completed", value: "3", change: "+1 this month", icon: CheckCircle2, color: "text-emerald-400" },
-    { label: "Tasks Finished", value: "24/32", change: "75% completion rate", icon: Zap, color: "text-blue-400" },
-    { label: "Study Time", value: "38 hrs", change: "+12 hrs vs last week", icon: Clock, color: "text-amber-400" },
-    { label: "Readiness Delta", value: "+18%", change: "Score up to 75/100", icon: TrendingUp, color: "text-indigo-400" },
-  ];
+  const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const skills = [
-    { name: "Next.js / React", level: 85, category: "Frontend" },
-    { name: "FastAPI / Python", level: 78, category: "Backend" },
-    { name: "Tailwind CSS", level: 92, category: "UI/UX" },
-    { name: "PostgreSQL / Prisma", level: 64, category: "Database" },
-    { name: "Docker & CI/CD", level: 45, category: "DevOps" },
+  useEffect(() => {
+    async function loadRoadmaps() {
+      try {
+        const data = await fetcher<Roadmap[]>("/roadmaps");
+        setRoadmaps(Array.isArray(data) ? data : []);
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Unable to load roadmap analytics.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadRoadmaps();
+  }, []);
+
+  const projects = roadmaps.flatMap((roadmap) =>
+    roadmap.projects.map((project) => ({
+      ...project,
+      roadmapTitle: roadmap.title,
+    })),
+  );
+  const tasks = projects.flatMap((project) => project.tasks);
+  const completedTasks = tasks.filter((task) => task.completed).length;
+  const completedRoadmaps = roadmaps.filter((roadmap) => {
+    const roadmapTasks = roadmap.projects.flatMap((project) => project.tasks);
+    return (
+      roadmapTasks.length > 0 && roadmapTasks.every((task) => task.completed)
+    );
+  }).length;
+  const averageReadiness = roadmaps.length
+    ? Math.round(
+        roadmaps.reduce((total, roadmap) => total + roadmap.readinessScore, 0) /
+          roadmaps.length,
+      )
+    : null;
+
+  const stats = [
+    {
+      label: "Roadmaps",
+      value: String(roadmaps.length),
+      icon: ClipboardList,
+      color: "text-blue-400",
+    },
+    {
+      label: "Completed Roadmaps",
+      value: `${completedRoadmaps}/${roadmaps.length}`,
+      icon: CheckCircle2,
+      color: "text-emerald-400",
+    },
+    {
+      label: "Tasks Completed",
+      value: `${completedTasks}/${tasks.length}`,
+      icon: ListChecks,
+      color: "text-amber-400",
+    },
+    {
+      label: "Average Readiness",
+      value: averageReadiness === null ? "--" : `${averageReadiness}/100`,
+      icon: Target,
+      color: "text-rose-400",
+    },
   ];
 
   return (
     <div className="w-full space-y-6">
-      <div className="pb-4 border-b border-[#1f212d]">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Analytics & Insights</h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Monitor your skill progression, learning velocity, and roadmap activity.
+      <div className="border-b border-[#1f212d] pb-4">
+        <h1 className="text-2xl font-bold tracking-tight text-white">
+          Analytics & Insights
+        </h1>
+        <p className="mt-1 text-xs text-slate-400">
+          Progress calculated from your roadmaps and completed tasks.
         </p>
       </div>
 
-      {/* Top Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div key={item.label} className="bg-[#12131a] border border-[#1f212d] rounded-2xl p-5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-mono">
-                  {item.label}
-                </span>
-                <Icon className={`h-4 w-4 ${item.color}`} />
-              </div>
-              <div className="text-2xl font-bold text-white mt-2">{item.value}</div>
-              <p className="text-[11px] text-slate-500 mt-1 font-mono">{item.change}</p>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-12 gap-6">
-        {/* Skill Mastery Breakdown */}
-        <div className="col-span-12 lg:col-span-8 bg-[#12131a] border border-[#1f212d] rounded-2xl p-6 space-y-5">
-          <div className="flex justify-between items-center pb-3 border-b border-[#1f212d]">
-            <h2 className="font-semibold text-white text-sm">Skill Proficiency Matrix</h2>
-            <span className="text-xs text-slate-400 font-mono">5 Tracked Skills</span>
-          </div>
-
-          <div className="space-y-4">
-            {skills.map((skill) => (
-              <div key={skill.name} className="space-y-1.5">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-200 font-medium">{skill.name}</span>
-                  <span className="text-slate-400 font-mono">{skill.level}%</span>
-                </div>
-                <div className="w-full bg-[#1f212d] h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-blue-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${skill.level}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+      {loading ? (
+        <div className="flex h-48 items-center justify-center gap-2 text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-xs">Loading your analytics...</span>
         </div>
+      ) : error ? (
+        <p role="alert" className="text-sm text-rose-400">
+          {error}
+        </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {stats.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.label}
+                  className="rounded-xl border border-[#1f212d] bg-[#12131a] p-5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 font-mono">
+                      {item.label}
+                    </span>
+                    <Icon className={`h-4 w-4 ${item.color}`} />
+                  </div>
+                  <div className="mt-2 text-2xl font-bold text-white">
+                    {item.value}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-        {/* Velocity Card */}
-        <div className="col-span-12 lg:col-span-4 bg-[#12131a] border border-[#1f212d] rounded-2xl p-6 space-y-4 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-blue-400 mb-2">
-              <BarChart3 className="h-5 w-5" />
-              <h3 className="font-semibold text-white text-sm">Weekly Velocity</h3>
+          <section className="rounded-xl border border-[#1f212d] bg-[#12131a] p-6">
+            <div className="mb-5 border-b border-[#1f212d] pb-3">
+              <h2 className="text-sm font-semibold text-white">
+                Project Progress
+              </h2>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              You are completing tasks <span className="text-emerald-400 font-semibold">18% faster</span> than last month. At this rate, your Full-Stack Engineer target will be reached in 3 weeks.
-            </p>
-          </div>
+            {projects.length === 0 ? (
+              <p className="py-8 text-center text-xs text-slate-500">
+                Your project progress will appear here when you have a roadmap.
+              </p>
+            ) : (
+              <div className="space-y-5">
+                {projects.map((project) => {
+                  const completed = project.tasks.filter(
+                    (task) => task.completed,
+                  ).length;
+                  const progress = project.tasks.length
+                    ? Math.round((completed / project.tasks.length) * 100)
+                    : 0;
 
-          <div className="p-4 bg-[#090a0f] border border-[#1f212d] rounded-xl space-y-2">
-            <span className="text-[10px] uppercase font-mono text-slate-500">Suggested Action</span>
-            <p className="text-xs text-slate-300 font-medium">
-              Complete the Docker deployment module to boost DevOps score by +15 pts.
-            </p>
-          </div>
-        </div>
-      </div>
+                  return (
+                    <div
+                      key={`${project.roadmapTitle}-${project.id}`}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-xs font-medium text-slate-200">
+                            {project.title}
+                          </h3>
+                          <p className="mt-1 truncate text-[10px] text-slate-500">
+                            {project.roadmapTitle}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xs font-mono text-slate-400">
+                          {completed}/{project.tasks.length} · {progress}%
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-[#1f212d]">
+                        <div
+                          className="h-full rounded-full bg-blue-500 transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }

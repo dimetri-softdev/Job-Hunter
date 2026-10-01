@@ -4,45 +4,22 @@ import React, { useState, useEffect } from "react";
 import { ProjectCard } from "@/components/dashboard/project-card";
 import { SavedRoadmaps } from "@/components/dashboard/saved-roadmaps";
 import { GeneratorModal } from "@/components/dashboard/generator-modal";
+import type { GeneratedRoadmap } from "@/components/RoadmapGenerator";
 import { fetcher } from "@/lib/api";
 
-interface Task {
-  id: string;
-  label: string;
-  completed: boolean;
-}
-
-interface ProjectTrack {
-  id: string;
-  title: string;
-  description: string;
-  level: string;
-  tasks: Task[];
-}
-
-interface Roadmap {
-  id: string;
-  title: string;
-  readinessScore: number;
-  projects: ProjectTrack[];
-}
-
 export default function DashboardPage() {
-  const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
-  const [activeRoadmap, setActiveRoadmap] = useState<Roadmap | null>(null);
+  const [roadmaps, setRoadmaps] = useState<GeneratedRoadmap[]>([]);
+  const [activeRoadmapId, setActiveRoadmapId] = useState<string | null>(null);
+  const activeRoadmap =
+    roadmaps.find((roadmap) => roadmap.id === activeRoadmapId) ?? null;
 
   useEffect(() => {
     async function loadRoadmaps() {
       try {
-        const data = await fetcher<any>("/roadmaps");
-
-        // Support both array and object responses
-        const roadmapList = Array.isArray(data) ? data : data?.roadmaps || [];
-
-        if (roadmapList.length > 0) {
-          setRoadmaps(roadmapList);
-          setActiveRoadmap(roadmapList[0]);
-        }
+        const data = await fetcher<GeneratedRoadmap[]>("/roadmaps");
+        const roadmapList = Array.isArray(data) ? data : [];
+        setRoadmaps(roadmapList);
+        setActiveRoadmapId(roadmapList[0]?.id ?? null);
       } catch (err) {
         console.error("Failed to load roadmaps:", err);
       }
@@ -51,9 +28,12 @@ export default function DashboardPage() {
     loadRoadmaps();
   }, []);
 
-  const handleRoadmapGenerated = (newRoadmap: Roadmap) => {
-    setActiveRoadmap(newRoadmap);
-    setRoadmaps((prev) => [newRoadmap, ...prev]);
+  const handleRoadmapGenerated = (newRoadmap: GeneratedRoadmap) => {
+    setRoadmaps((currentRoadmaps) => [
+      newRoadmap,
+      ...currentRoadmaps.filter((roadmap) => roadmap.id !== newRoadmap.id),
+    ]);
+    setActiveRoadmapId(newRoadmap.id);
   };
 
   const handleToggleTask = async (
@@ -71,10 +51,13 @@ export default function DashboardPage() {
       ),
     }));
 
-    setActiveRoadmap({
-      ...activeRoadmap,
-      projects: updatedProjects,
-    });
+    setRoadmaps((currentRoadmaps) =>
+      currentRoadmaps.map((roadmap) =>
+        roadmap.id === activeRoadmap.id
+          ? { ...roadmap, projects: updatedProjects }
+          : roadmap,
+      ),
+    );
 
     try {
       // Updated to toggle task status via FastAPI helper
@@ -109,7 +92,10 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <GeneratorModal onRoadmapGenerated={handleRoadmapGenerated} />
+        <GeneratorModal
+          buttonLabel="Generate New Roadmap"
+          onRoadmapGenerated={handleRoadmapGenerated}
+        />
       </div>
 
       {/* Main Grid */}
@@ -124,10 +110,12 @@ export default function DashboardPage() {
               </span>
               <div className="flex items-baseline gap-2 mt-2">
                 <span className="text-3xl font-bold text-white">
-                  {progressPercentage}%
+                  {activeRoadmap ? `${progressPercentage}%` : "--"}
                 </span>
                 <span className="text-xs text-slate-400 font-mono">
-                  ({completedTasksCount}/{totalTasksCount} tasks completed)
+                  {activeRoadmap
+                    ? `(${completedTasksCount}/${totalTasksCount} tasks completed)`
+                    : "No roadmap selected"}
                 </span>
               </div>
               <div className="w-full bg-[#1f212d] h-2 rounded-full mt-3 overflow-hidden">
@@ -144,20 +132,26 @@ export default function DashboardPage() {
               </span>
               <div className="flex items-center gap-3 mt-2">
                 <span className="text-3xl font-bold text-amber-400">
-                  {activeRoadmap?.readinessScore || 75}
-                  <span className="text-sm text-slate-500 font-normal">
-                    /100
-                  </span>
+                  {activeRoadmap ? (
+                    <>
+                      {activeRoadmap.readinessScore}
+                      <span className="text-sm text-slate-500 font-normal">
+                        /100
+                      </span>
+                    </>
+                  ) : (
+                    "--"
+                  )}
                 </span>
-                <span className="text-[10px] px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full font-medium">
-                  • Moderate Gap
+                <span className="text-[10px] text-slate-500">
+                  {activeRoadmap ? "Current roadmap" : "No roadmap selected"}
                 </span>
               </div>
             </div>
           </div>
 
           {/* Active Projects List */}
-          {activeRoadmap?.projects && activeRoadmap.projects.length > 0 ? (
+          {activeRoadmap?.projects.length ? (
             activeRoadmap.projects.map((project) => (
               <ProjectCard
                 key={project.id}
@@ -169,6 +163,10 @@ export default function DashboardPage() {
                 onToggleTask={handleToggleTask}
               />
             ))
+          ) : activeRoadmap ? (
+            <div className="p-12 text-center bg-[#12131a] border border-[#1f212d] rounded-2xl text-slate-500 text-sm">
+              This roadmap has no project tasks yet.
+            </div>
           ) : (
             <div className="p-12 text-center bg-[#12131a] border border-[#1f212d] rounded-2xl text-slate-500 text-sm">
               No active tasks found. Click <strong>Generate New Roadmap</strong>{" "}
@@ -179,7 +177,11 @@ export default function DashboardPage() {
 
         {/* Right / Saved Roadmaps Sidebar Column */}
         <div className="col-span-12 xl:col-span-4">
-          <SavedRoadmaps />
+          <SavedRoadmaps
+            roadmaps={roadmaps}
+            activeRoadmapId={activeRoadmapId}
+            onSelect={setActiveRoadmapId}
+          />
         </div>
       </div>
     </div>

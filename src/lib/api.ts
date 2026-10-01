@@ -1,9 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+import { supabase } from "@/lib/supabase";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
 
@@ -36,7 +31,32 @@ export async function fetcher<T>(endpoint: string, options?: RequestInit): Promi
   });
 
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`);
+    const responseBody = await res.text();
+    let errorDetail = responseBody;
+
+    try {
+      const payload: unknown = JSON.parse(responseBody);
+      if (payload && typeof payload === "object") {
+        const errorPayload = payload as {
+          detail?: unknown;
+          error?: unknown;
+          message?: unknown;
+        };
+        const detail =
+          errorPayload.detail ?? errorPayload.error ?? errorPayload.message;
+        if (typeof detail === "string") {
+          errorDetail = detail;
+        } else if (detail !== undefined) {
+          errorDetail = JSON.stringify(detail);
+        }
+      }
+    } catch {
+      // Keep the raw response body when the API did not return JSON.
+    }
+
+    throw new Error(
+      `API error: ${res.status} ${errorDetail || res.statusText}`,
+    );
   }
 
   return res.json();

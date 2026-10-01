@@ -3,10 +3,24 @@
 import { useState } from "react";
 import { fetcher } from "@/lib/api";
 
+export interface GeneratedRoadmap {
+  id: string;
+  title: string;
+  readinessScore: number;
+  createdAt: string;
+  projects: {
+    id: string;
+    title: string;
+    description: string;
+    level: string;
+    tasks: { id: string; label: string; completed: boolean }[];
+  }[];
+}
+
 export function RoadmapGenerator({
   onRoadmapCreated,
 }: {
-  onRoadmapCreated?: (data: any) => void;
+  onRoadmapCreated?: (data: GeneratedRoadmap) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"manual" | "cv">("manual");
   const [role, setRole] = useState("");
@@ -29,14 +43,18 @@ export function RoadmapGenerator({
 
     setLoading(true);
     try {
-      const data = await fetcher("/roadmaps/generate", {
+      const data = await fetcher<GeneratedRoadmap>("/roadmaps/generate", {
         method: "POST",
         body: JSON.stringify({ role: role.trim(), targetLevel }),
       });
       if (onRoadmapCreated) onRoadmapCreated(data);
       setRole("");
-    } catch (err: any) {
-      setError(err.message || "Failed to generate roadmap. Please try again.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to generate roadmap. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -68,21 +86,28 @@ export function RoadmapGenerator({
     formData.append("file", cvFile);
 
     try {
-      const data = await fetcher("/roadmaps/generate-from-cv", {
-        method: "POST",
-        body: formData,
-      });
+      const data = await fetcher<GeneratedRoadmap>(
+        "/roadmaps/generate-from-cv",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
       if (onRoadmapCreated) onRoadmapCreated(data);
       setCvFile(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to process resume. Please try again.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to process resume. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="rounded-xl border border-[#1f212d] bg-[#0d0e14] p-6 shadow-xl">
+    <div className="space-y-5">
       {/* Tab Switcher */}
       <div className="mb-6 flex gap-2 border-b border-[#1f212d] pb-3">
         <button
@@ -178,7 +203,7 @@ export function RoadmapGenerator({
             />
           </div>
 
-          <button 
+          <button
             type="submit"
             disabled={loading}
             className="w-full rounded-lg bg-blue-600 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50 transition"
