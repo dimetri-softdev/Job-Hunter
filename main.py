@@ -60,6 +60,12 @@ class GenerateRoadmapRequest(BaseModel):
 class TaskUpdate(BaseModel):
     completed: bool
 
+class ApplicationCreate(BaseModel):
+    company: str
+    position: str
+    status: Optional[str] = "APPLIED" # APPLIED, INTERVIEWING, REJECTED, OFFERED
+    notes: Optional[str] = None
+
 async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
     """
     Decodes Supabase JWT token from Authorization header.
@@ -120,7 +126,7 @@ def build_roadmap_data(data: Dict[str, Any], user_id: str, default_title: str) -
         "projects": {"create": projects_to_create}
     }
 
-# 6. Route Handlers
+# 6. User & Roadmap Route Handlers
 @app.get("/api/v1/user")
 async def get_user_profile(user_id: str = Depends(get_current_user)):
     user = await db.user.find_unique(where={"id": user_id})
@@ -264,3 +270,29 @@ async def generate_roadmap_from_cv(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# 7. Job Application Tracker Handlers
+@app.get("/api/v1/applications")
+async def get_applications(user_id: str = Depends(get_current_user)):
+    """Fetch all job applications for the logged in user."""
+    return await db.application.find_many(
+        where={"userId": user_id},
+        order={"createdAt": "desc"}
+    )
+
+@app.post("/api/v1/applications")
+async def create_application(
+    payload: ApplicationCreate, 
+    user_id: str = Depends(get_current_user)
+):
+    """Log a new job application."""
+    new_app = await db.application.create(
+        data={
+            "company": payload.company,
+            "position": payload.position,
+            "status": payload.status or "APPLIED",
+            "notes": payload.notes,
+            "userId": user_id
+        }
+    )
+    return new_app

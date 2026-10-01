@@ -1,19 +1,19 @@
+generator client {
+  provider = "prisma-client-py"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider  = "prisma-client-py"
-  interface = "asyncio"
-}
-
 model User {
-  id        String    @id @default(uuid())
-  email     String    @unique
-  name      String?
-  roadmaps  Roadmap[]
-  createdAt DateTime  @default(now())
+  id           String        @id
+  email        String        @unique
+  name         String?
+  roadmaps     Roadmap[]
+  applications Application[]
+  createdAt    DateTime      @default(now())
 }
 
 model Roadmap {
@@ -42,4 +42,16 @@ model Task {
   completed      Boolean      @default(false)
   projectTrackId String
   projectTrack   ProjectTrack @relation(fields: [projectTrackId], references: [id], onDelete: Cascade)
+}
+
+model Application {
+  id        String   @id @default(cuid())
+  company   String
+  position  String
+  status    String   @default("APPLIED")
+  notes     String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
