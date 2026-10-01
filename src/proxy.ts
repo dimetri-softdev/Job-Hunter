@@ -1,3 +1,4 @@
+// src/proxy.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
@@ -32,23 +33,22 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // Re-evaluate user auth status on every request
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthPage =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/signup");
+  const pathname = request.nextUrl.pathname;
+  const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/signup");
+  const isProtectedRoute = pathname.startsWith("/dashboard");
 
-  // If user is NOT logged in and trying to access protected routes
-  if (!user && !isAuthPage) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  if (!user && isProtectedRoute) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  // If user IS logged in and trying to access login/signup pages
   if (user && isAuthPage) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return response;

@@ -1,130 +1,194 @@
 "use client";
 
 import { useState } from "react";
+import { fetcher } from "@/lib/api";
 
-export default function RoadmapGenerator({
+export function RoadmapGenerator({
   onRoadmapCreated,
 }: {
-  onRoadmapCreated: () => void;
+  onRoadmapCreated?: (data: any) => void;
 }) {
-  const [role, setRole] = useState("Full-Stack Developer");
-  const [targetLevel, setTargetLevel] = useState("Junior");
-  const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"manual" | "cv">("manual");
+  const [role, setRole] = useState("");
+  const [targetLevel, setTargetLevel] = useState("Intermediate");
+  const [cvFile, setCvFile] = useState<File | null>(null);
 
-  // Handle standard manual role submission
-  const handleManualSubmit = async (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form Validation and Submission
+  const handleGenerateManual = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    // Validation
+    if (!role.trim()) {
+      setError("Please specify a job role or position.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await fetch(
-        "http://127.0.0.1:8000/api/v1/roadmaps/generate",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role, targetLevel, userId: "usr_demo" }),
-        },
-      );
-      if (res.ok) onRoadmapCreated();
-    } catch (err) {
-      console.error(err);
+      const data = await fetcher("/roadmaps/generate", {
+        method: "POST",
+        body: JSON.stringify({ role: role.trim(), targetLevel }),
+      });
+      if (onRoadmapCreated) onRoadmapCreated(data);
+      setRole("");
+    } catch (err: any) {
+      setError(err.message || "Failed to generate roadmap. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle CV upload submission
-  const handleCvUpload = async () => {
-    if (!file) return;
-    setLoading(true);
+  const handleGenerateFromCV = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
 
+    // Validation
+    if (!cvFile) {
+      setError("Please select a PDF file to upload.");
+      return;
+    }
+
+    if (cvFile.type !== "application/pdf") {
+      setError("Only PDF documents are supported.");
+      return;
+    }
+
+    if (cvFile.size > 5 * 1024 * 1024) {
+      // 5MB limit
+      setError("File size exceeds 5MB limit.");
+      return;
+    }
+
+    setLoading(true);
     const formData = new FormData();
-    formData.append("file", file);
-    formData.append("userId", "usr_demo");
+    formData.append("file", cvFile);
 
     try {
-      const res = await fetch(
-        "http://127.0.0.1:8000/api/v1/roadmaps/generate-from-cv",
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
-      if (res.ok) onRoadmapCreated();
-    } catch (err) {
-      console.error(err);
+      const data = await fetcher("/roadmaps/generate-from-cv", {
+        method: "POST",
+        body: formData,
+      });
+      if (onRoadmapCreated) onRoadmapCreated(data);
+      setCvFile(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to process resume. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl text-white space-y-6">
-      <h2 className="text-xl font-bold">Generate Your Career Roadmap</h2>
-
-      {/* CV Upload Section */}
-      <div className="border-2 border-dashed border-slate-700 p-4 rounded-lg text-center bg-slate-800/50">
-        <p className="text-sm text-slate-300 mb-2">
-          Fast Track: Upload your Resume/CV (PDF)
-        </p>
-        <input
-          type="file"
-          accept=".pdf"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-          className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"
-        />
-        {file && (
-          <button
-            onClick={handleCvUpload}
-            disabled={loading}
-            className="mt-3 block w-full bg-green-600 hover:bg-green-500 text-white font-medium py-2 rounded-lg text-sm transition"
-          >
-            {loading
-              ? "Analyzing Resume & Generating..."
-              : "Generate from Resume"}
-          </button>
-        )}
+    <div className="rounded-xl border border-[#1f212d] bg-[#0d0e14] p-6 shadow-xl">
+      {/* Tab Switcher */}
+      <div className="mb-6 flex gap-2 border-b border-[#1f212d] pb-3">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("manual");
+            setError(null);
+          }}
+          className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
+            activeTab === "manual"
+              ? "bg-blue-600 text-white"
+              : "text-slate-400 hover:text-white hover:bg-[#141620]"
+          }`}
+        >
+          Manual Role Entry
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("cv");
+            setError(null);
+          }}
+          className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
+            activeTab === "cv"
+              ? "bg-blue-600 text-white"
+              : "text-slate-400 hover:text-white hover:bg-[#141620]"
+          }`}
+        >
+          Upload Resume (PDF)
+        </button>
       </div>
 
-      <div className="text-center text-xs text-slate-500 uppercase tracking-widest">
-        — OR —
-      </div>
+      {/* Validation Error Alert */}
+      {error && (
+        <div className="mb-4 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-400">
+          ⚠️ {error}
+        </div>
+      )}
 
       {/* Manual Input Form */}
-      <form onSubmit={handleManualSubmit} className="space-y-4">
-        <div>
-          <label className="block text-xs font-semibold mb-1 text-slate-400">
-            Target Role
-          </label>
-          <input
-            type="text"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold mb-1 text-slate-400">
-            Target Level
-          </label>
-          <select
-            value={targetLevel}
-            onChange={(e) => setTargetLevel(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500"
+      {activeTab === "manual" && (
+        <form onSubmit={handleGenerateManual} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1">
+              Target Role
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Full Stack Developer, DevOps Engineer"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full rounded-lg border border-[#1f212d] bg-[#12131a] px-3.5 py-2.5 text-xs text-slate-200 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1">
+              Target Experience Level
+            </label>
+            <select
+              value={targetLevel}
+              onChange={(e) => setTargetLevel(e.target.value)}
+              className="w-full rounded-lg border border-[#1f212d] bg-[#12131a] px-3.5 py-2.5 text-xs text-slate-200 focus:border-blue-500 focus:outline-none"
+            >
+              <option value="Junior">Junior</option>
+              <option value="Intermediate">Intermediate</option>
+              <option value="Senior">Senior</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg bg-blue-600 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50 transition"
           >
-            <option value="Junior">Junior</option>
-            <option value="Mid-Level">Mid-Level</option>
-            <option value="Senior">Senior</option>
-          </select>
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm transition"
-        >
-          {loading ? "Generating Roadmap..." : "Generate Roadmap"}
-        </button>
-      </form>
+            {loading ? "Generating Roadmap..." : "Generate AI Roadmap"}
+          </button>
+        </form>
+      )}
+
+      {/* Resume Upload Form */}
+      {activeTab === "cv" && (
+        <form onSubmit={handleGenerateFromCV} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1">
+              Upload Resume (PDF only)
+            </label>
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={(e) => setCvFile(e.target.files?.[0] || null)}
+              className="w-full cursor-pointer rounded-lg border border-[#1f212d] bg-[#12131a] px-3 py-2 text-xs text-slate-400 file:mr-4 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-white"
+            />
+          </div>
+
+          <button 
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg bg-blue-600 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50 transition"
+          >
+            {loading
+              ? "Analyzing Resume..."
+              : "Generate Custom Roadmap from CV"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }
