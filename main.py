@@ -73,6 +73,9 @@ class JobPostingAnalyzeRequest(BaseModel):
 class CareerProfileUpdate(BaseModel):
     careerSummary: str = Field(default="", max_length=2500)
     skills: str = Field(default="", max_length=2500)
+    workHistory: str = Field(default="", max_length=6000)
+    education: str = Field(default="", max_length=3500)
+    accomplishments: str = Field(default="", max_length=3500)
     experienceLevel: str = Field(default="", max_length=40)
     targetRoles: str = Field(default="", max_length=500)
     preferredLocation: str = Field(default="", max_length=160)
@@ -206,7 +209,8 @@ async def get_user_profile(user_id: str = Depends(get_current_user)):
 @app.get("/api/v1/career-profile")
 async def get_career_profile(user_id: str = Depends(get_current_user)):
     profiles = await db.query_raw(
-        'SELECT "careerSummary", "skills", "experienceLevel", "targetRoles", '
+        'SELECT "careerSummary", "skills", "workHistory", "education", "accomplishments", '
+        '"experienceLevel", "targetRoles", '
         '"preferredLocation", "workArrangement" FROM "User" WHERE "id" = $1',
         user_id,
     )
@@ -230,10 +234,14 @@ async def update_career_profile(
 
     updated = await db.execute_raw(
         'UPDATE "User" SET "careerSummary" = $1, "skills" = $2, "experienceLevel" = $3, '
-        '"targetRoles" = $4, "preferredLocation" = $5, "workArrangement" = $6 WHERE "id" = $7',
+        '"workHistory" = $4, "education" = $5, "accomplishments" = $6, '
+        '"targetRoles" = $7, "preferredLocation" = $8, "workArrangement" = $9 WHERE "id" = $10',
         payload.careerSummary.strip() or None,
         payload.skills.strip() or None,
         experience_level,
+        payload.workHistory.strip() or None,
+        payload.education.strip() or None,
+        payload.accomplishments.strip() or None,
         payload.targetRoles.strip() or None,
         payload.preferredLocation.strip() or None,
         work_arrangement,
@@ -252,15 +260,16 @@ async def recommend_job_roles(
         raise HTTPException(status_code=400, detail="Consent is required to send your career profile for AI recommendations.")
 
     profiles = await db.query_raw(
-        'SELECT "careerSummary", "skills", "experienceLevel", "targetRoles", '
+        'SELECT "careerSummary", "skills", "workHistory", "education", "accomplishments", '
+        '"experienceLevel", "targetRoles", '
         '"preferredLocation", "workArrangement" FROM "User" WHERE "id" = $1',
         user_id,
     )
     if not profiles:
         raise HTTPException(status_code=404, detail="Career profile not found.")
     profile = profiles[0]
-    if not profile.get("careerSummary") and not profile.get("skills"):
-        raise HTTPException(status_code=400, detail="Add your experience summary or skills before requesting role suggestions.")
+    if not any(profile.get(field) for field in ("careerSummary", "skills", "workHistory", "education", "accomplishments")):
+        raise HTTPException(status_code=400, detail="Add experience, education, skills, or accomplishments before requesting role suggestions.")
 
     prompt = f"""
     Suggest up to five realistic job titles based only on the candidate profile below.
@@ -719,12 +728,16 @@ async def prepare_pnet_application_pack(
         raise HTTPException(status_code=400, detail="Add the PNet job description before preparing an application pack.")
 
     profiles = await db.query_raw(
-        'SELECT "careerSummary", "skills", "experienceLevel", "targetRoles" '
+        'SELECT "careerSummary", "skills", "workHistory", "education", "accomplishments", '
+        '"experienceLevel", "targetRoles" '
         'FROM "User" WHERE "id" = $1',
         user_id,
     )
-    if not profiles or (not profiles[0].get("careerSummary") and not profiles[0].get("skills")):
-        raise HTTPException(status_code=400, detail="Add your experience summary or skills to your career profile first.")
+    if not profiles or not any(
+        profiles[0].get(field)
+        for field in ("careerSummary", "skills", "workHistory", "education", "accomplishments")
+    ):
+        raise HTTPException(status_code=400, detail="Add experience, education, skills, or accomplishments to your career profile first.")
 
     prompt = f"""
     Prepare a review-only application pack for this PNet job. Return JSON with

@@ -12,6 +12,9 @@ model User {
   name              String?
   careerSummary     String?
   skills            String?
+  workHistory       String?
+  education         String?
+  accomplishments   String?
   experienceLevel   String?
   targetRoles       String?
   preferredLocation String?

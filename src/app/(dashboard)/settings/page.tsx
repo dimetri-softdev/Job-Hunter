@@ -17,6 +17,9 @@ interface UserProfile {
 interface CareerProfile {
   careerSummary: string;
   skills: string;
+  workHistory: string;
+  education: string;
+  accomplishments: string;
   experienceLevel: string;
   targetRoles: string;
   preferredLocation: string;
@@ -35,6 +38,9 @@ interface JobRoleRecommendation {
 const emptyCareerProfile: CareerProfile = {
   careerSummary: "",
   skills: "",
+  workHistory: "",
+  education: "",
+  accomplishments: "",
   experienceLevel: "",
   targetRoles: "",
   preferredLocation: "",
@@ -69,6 +75,9 @@ export default function SettingsPage() {
         setCareerProfile({
           careerSummary: savedCareerProfile.careerSummary ?? "",
           skills: savedCareerProfile.skills ?? "",
+          workHistory: savedCareerProfile.workHistory ?? "",
+          education: savedCareerProfile.education ?? "",
+          accomplishments: savedCareerProfile.accomplishments ?? "",
           experienceLevel: savedCareerProfile.experienceLevel ?? "",
           targetRoles: savedCareerProfile.targetRoles ?? "",
           preferredLocation: savedCareerProfile.preferredLocation ?? "",
@@ -113,6 +122,9 @@ export default function SettingsPage() {
       setCareerProfile({
         careerSummary: savedProfile.careerSummary ?? "",
         skills: savedProfile.skills ?? "",
+        workHistory: savedProfile.workHistory ?? "",
+        education: savedProfile.education ?? "",
+        accomplishments: savedProfile.accomplishments ?? "",
         experienceLevel: savedProfile.experienceLevel ?? "",
         targetRoles: savedProfile.targetRoles ?? "",
         preferredLocation: savedProfile.preferredLocation ?? "",
@@ -239,6 +251,65 @@ export default function SettingsPage() {
                   maxLength={2500}
                   rows={3}
                   placeholder="Python, SQL, customer support, project coordination..."
+                  className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+                />
+              </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor="career-work-history"
+                  className="text-xs text-slate-300"
+                >
+                  Work history{" "}
+                  <span className="text-slate-500">(optional)</span>
+                </label>
+                <Textarea
+                  id="career-work-history"
+                  value={careerProfile.workHistory}
+                  onChange={(event) =>
+                    updateCareerProfile("workHistory", event.target.value)
+                  }
+                  maxLength={6000}
+                  rows={5}
+                  placeholder="Role, employer, dates, responsibilities, and relevant tools or methods. One position per paragraph."
+                  className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+                />
+              </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor="career-education"
+                  className="text-xs text-slate-300"
+                >
+                  Education <span className="text-slate-500">(optional)</span>
+                </label>
+                <Textarea
+                  id="career-education"
+                  value={careerProfile.education}
+                  onChange={(event) =>
+                    updateCareerProfile("education", event.target.value)
+                  }
+                  maxLength={3500}
+                  rows={3}
+                  placeholder="Qualification, institution, field of study, and completion year."
+                  className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+                />
+              </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor="career-accomplishments"
+                  className="text-xs text-slate-300"
+                >
+                  Accomplishments{" "}
+                  <span className="text-slate-500">(optional)</span>
+                </label>
+                <Textarea
+                  id="career-accomplishments"
+                  value={careerProfile.accomplishments}
+                  onChange={(event) =>
+                    updateCareerProfile("accomplishments", event.target.value)
+                  }
+                  maxLength={3500}
+                  rows={3}
+                  placeholder="Projects delivered, measurable outcomes, awards, certifications, or portfolio work."
                   className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
                 />
               </div>
