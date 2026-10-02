@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Building2, Loader2, Plus } from "lucide-react";
+import { Building2, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,9 +29,20 @@ interface Application {
   position: string;
   status: string;
   createdAt: string;
+  notes?: string | null;
   jobUrl?: string | null;
   jobSummary?: string | null;
 }
+
+const STATUSES = [
+  { value: "APPLIED", label: "Applied" },
+  { value: "INTERVIEWING", label: "Interviewing" },
+  { value: "OFFERED", label: "Offered" },
+  { value: "REJECTED", label: "Rejected" },
+];
+
+const fieldClass =
+  "h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500";
 
 function isPNetListing(jobUrl?: string | null) {
   if (!jobUrl) return false;
@@ -50,6 +61,95 @@ export default function ApplicationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Application | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<Application | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  function replaceApplication(updated: Application) {
+    setApplications((current) =>
+      current.map((app) =>
+        app.id === updated.id ? { ...app, ...updated } : app,
+      ),
+    );
+  }
+
+  async function handleStatusChange(app: Application, status: string) {
+    const previous = app.status;
+    setActionError(null);
+    replaceApplication({ ...app, status });
+    try {
+      const updated = await fetcher<Application>(`/applications/${app.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          company: app.company,
+          position: app.position,
+          status,
+          notes: app.notes ?? null,
+          jobUrl: app.jobUrl ?? null,
+        }),
+      });
+      replaceApplication(updated);
+    } catch (err: unknown) {
+      replaceApplication({ ...app, status: previous });
+      setActionError(
+        err instanceof Error ? err.message : "Failed to update status.",
+      );
+    }
+  }
+
+  async function handleEditSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editing) return;
+    const formData = new FormData(event.currentTarget);
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const updated = await fetcher<Application>(
+        `/applications/${editing.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            company: formData.get("company"),
+            position: formData.get("position"),
+            status: formData.get("status"),
+            notes: formData.get("notes") || null,
+            jobUrl: formData.get("jobUrl") || null,
+          }),
+        },
+      );
+      replaceApplication(updated);
+      setEditing(null);
+    } catch (err: unknown) {
+      setEditError(
+        err instanceof Error ? err.message : "Failed to update application.",
+      );
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await fetcher(`/applications/${deleting.id}`, { method: "DELETE" });
+      setApplications((current) =>
+        current.filter((app) => app.id !== deleting.id),
+      );
+      setDeleting(null);
+    } catch (err: unknown) {
+      setDeleteError(
+        err instanceof Error ? err.message : "Failed to delete application.",
+      );
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   function handleApplicationCreated(application: CreatedApplication) {
     setApplications((current) => [application, ...current]);
@@ -236,6 +336,12 @@ export default function ApplicationsPage() {
         </Dialog>
       </DashboardPageHeader>
 
+      {actionError && (
+        <p role="alert" className="text-xs text-rose-400">
+          {actionError}
+        </p>
+      )}
+
       <div className="bg-[#12131a] border border-[#1f212d] rounded-2xl overflow-hidden">
         {applications.length === 0 ? (
           <div className="p-8 text-center text-slate-500 text-xs">
@@ -250,6 +356,7 @@ export default function ApplicationsPage() {
                   <th className="p-4">Created</th>
                   <th className="p-4">Status</th>
                   <th className="p-4">Next step</th>
+                  <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1f212d] text-slate-300">
@@ -293,9 +400,24 @@ export default function ApplicationsPage() {
                       {new Date(app.createdAt).toLocaleDateString()}
                     </td>
                     <td className="p-4">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-medium border bg-blue-500/10 text-blue-400 border-blue-500/20">
-                        {app.status.replaceAll("_", " ")}
-                      </span>
+                      <select
+                        aria-label={`Status for ${app.position} at ${app.company}`}
+                        value={app.status}
+                        onChange={(e) =>
+                          handleStatusChange(app, e.target.value)
+                        }
+                        className="h-8 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2 text-[11px] font-medium text-blue-300 outline-none focus-visible:ring-2 focus-visible:ring-blue-400/30"
+                      >
+                        {STATUSES.map((s) => (
+                          <option
+                            key={s.value}
+                            value={s.value}
+                            className="bg-[#0d0e14]"
+                          >
+                            {s.label}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="p-4">
                       {isPNetListing(app.jobUrl) && app.jobSummary && (
@@ -306,6 +428,36 @@ export default function ApplicationsPage() {
                         />
                       )}
                     </td>
+                    <td className="p-4">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Edit ${app.position} at ${app.company}`}
+                          className="text-slate-400 hover:bg-[#1f212d] hover:text-white"
+                          onClick={() => {
+                            setEditError(null);
+                            setEditing(app);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Delete ${app.position} at ${app.company}`}
+                          className="text-slate-400 hover:bg-rose-500/10 hover:text-rose-400"
+                          onClick={() => {
+                            setDeleteError(null);
+                            setDeleting(app);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -313,6 +465,176 @@ export default function ApplicationsPage() {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+      >
+        <DialogContent className="border-[#1f212d] bg-[#0d0e14] text-slate-100 sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-white">Edit application</DialogTitle>
+            <DialogDescription>
+              Update the details of this role.
+            </DialogDescription>
+          </DialogHeader>
+          {editing && (
+            <form
+              key={editing.id}
+              className="space-y-4"
+              onSubmit={handleEditSubmit}
+            >
+              <div className="space-y-2">
+                <label
+                  htmlFor="edit-company"
+                  className="text-xs text-slate-300"
+                >
+                  Company
+                </label>
+                <Input
+                  id="edit-company"
+                  name="company"
+                  required
+                  maxLength={120}
+                  defaultValue={editing.company}
+                  className={fieldClass}
+                />
+              </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor="edit-position"
+                  className="text-xs text-slate-300"
+                >
+                  Job title
+                </label>
+                <Input
+                  id="edit-position"
+                  name="position"
+                  required
+                  maxLength={120}
+                  defaultValue={editing.position}
+                  className={fieldClass}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="edit-status" className="text-xs text-slate-300">
+                  Status
+                </label>
+                <select
+                  id="edit-status"
+                  name="status"
+                  defaultValue={editing.status}
+                  className="h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#090a0f] px-3 text-sm text-white outline-none focus-visible:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400/30"
+                >
+                  {STATUSES.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="edit-jobUrl" className="text-xs text-slate-300">
+                  Job posting link{" "}
+                  <span className="text-slate-500">(optional)</span>
+                </label>
+                <Input
+                  id="edit-jobUrl"
+                  name="jobUrl"
+                  type="url"
+                  maxLength={2000}
+                  defaultValue={editing.jobUrl ?? ""}
+                  placeholder="https://"
+                  className={fieldClass}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="edit-notes" className="text-xs text-slate-300">
+                  Notes <span className="text-slate-500">(optional)</span>
+                </label>
+                <Textarea
+                  id="edit-notes"
+                  name="notes"
+                  maxLength={2000}
+                  rows={4}
+                  defaultValue={editing.notes ?? ""}
+                  className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+                />
+              </div>
+              {editError && (
+                <p role="alert" className="text-xs text-rose-400">
+                  {editError}
+                </p>
+              )}
+              <div className="flex justify-end gap-2 border-t border-[#1f212d] pt-4">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-slate-300 hover:bg-[#1f212d] hover:text-white"
+                  onClick={() => setEditing(null)}
+                  disabled={editSaving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editSaving}
+                  className="bg-blue-600 text-white hover:bg-blue-500"
+                >
+                  {editSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Save changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteBusy) setDeleting(null);
+        }}
+      >
+        <DialogContent className="border-[#1f212d] bg-[#0d0e14] text-slate-100 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              Delete application?
+            </DialogTitle>
+            <DialogDescription>
+              {deleting
+                ? `${deleting.position} at ${deleting.company} will be permanently removed.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError && (
+            <p role="alert" className="text-xs text-rose-400">
+              {deleteError}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 border-t border-[#1f212d] pt-4">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-slate-300 hover:bg-[#1f212d] hover:text-white"
+              onClick={() => setDeleting(null)}
+              disabled={deleteBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDeleteConfirm}
+              disabled={deleteBusy}
+              className="bg-rose-600 text-white hover:bg-rose-500"
+            >
+              {deleteBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

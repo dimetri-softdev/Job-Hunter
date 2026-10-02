@@ -67,6 +67,15 @@ class ApplicationCreate(BaseModel):
     jobDescription: Optional[str] = None
     jobSummary: Optional[str] = None
 
+APPLICATION_STATUSES = {"APPLIED", "INTERVIEWING", "OFFERED", "REJECTED"}
+
+class ApplicationUpdate(BaseModel):
+    company: str = Field(min_length=1, max_length=120)
+    position: str = Field(min_length=1, max_length=120)
+    status: str
+    notes: Optional[str] = Field(default=None, max_length=2000)
+    jobUrl: Optional[str] = Field(default=None, max_length=2000)
+
 class JobPostingAnalyzeRequest(BaseModel):
     description: str = Field(min_length=80, max_length=20000)
 
@@ -658,10 +667,56 @@ async def match_job_fit(
 async def get_applications(user_id: str = Depends(get_current_user)):
     """Fetch all job applications for the logged in user."""
     return await db.query_raw(
-        'SELECT "id", "company", "position", "status", "createdAt", "jobUrl", "jobSummary" '
+        'SELECT "id", "company", "position", "status", "notes", "createdAt", "jobUrl", "jobSummary" '
         'FROM "Application" WHERE "userId" = $1 ORDER BY "createdAt" DESC',
         user_id,
     )
+
+@app.put("/api/v1/applications/{application_id}")
+async def update_application(
+    application_id: str,
+    payload: ApplicationUpdate,
+    user_id: str = Depends(get_current_user),
+):
+    """Edit a job application owned by the logged in user."""
+    if payload.status not in APPLICATION_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid application status.")
+    job_url = payload.jobUrl.strip() if payload.jobUrl else None
+    if job_url:
+        parsed_url = urlparse(job_url)
+        if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+            raise HTTPException(status_code=400, detail="Job URL must be a valid HTTP or HTTPS link.")
+
+    updated = await db.query_raw(
+        'UPDATE "Application" SET "company" = $1, "position" = $2, "status" = $3, "notes" = $4, '
+        '"jobUrl" = $5, "updatedAt" = NOW() WHERE "id" = $6 AND "userId" = $7 '
+        'RETURNING "id", "company", "position", "status", "notes", "createdAt", "jobUrl", "jobSummary"',
+        payload.company.strip(),
+        payload.position.strip(),
+        payload.status,
+        payload.notes or None,
+        job_url,
+        application_id,
+        user_id,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    return updated[0]
+
+@app.delete("/api/v1/applications/{application_id}")
+async def delete_application(
+    application_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """Delete a job application owned by the logged in user."""
+    deleted = await db.query_raw(
+        'DELETE FROM "Application" WHERE "id" = $1 AND "userId" = $2 RETURNING "id"',
+        application_id,
+        user_id,
+    )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    return {"id": application_id, "deleted": True}
 
 @app.post("/api/v1/applications")
 async def create_application(
@@ -695,7 +750,7 @@ async def create_application(
             user_id,
         )
         applications = await transaction.query_raw(
-            'SELECT "id", "company", "position", "status", "createdAt", "jobUrl", "jobSummary" '
+            'SELECT "id", "company", "position", "status", "notes", "createdAt", "jobUrl", "jobSummary" '
             'FROM "Application" WHERE "id" = $1 AND "userId" = $2',
             new_app.id,
             user_id,
