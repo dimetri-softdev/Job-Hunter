@@ -12,6 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  MessageSquareText,
+  FileText,
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +22,8 @@ const navItems = [
   { name: "Roadmaps", href: "/roadmaps", icon: Compass },
   { name: "Applications", href: "/applications", icon: Briefcase },
   { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Resume update", href: "/resume-update", icon: FileText },
+  { name: "Share feedback", href: "/feedback", icon: MessageSquareText },
 ];
 
 export function Sidebar() {
