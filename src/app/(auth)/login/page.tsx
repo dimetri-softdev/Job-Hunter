@@ -1,17 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { use, useState } from "react";
 import Link from "next/link";
 import { SiGithub, SiGoogle } from "@icons-pack/react-simple-icons";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { AuthSidebar } from "@/components/auth/auth-sidebar";
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string | string[] }>;
+}) {
+  const { error } = use(searchParams);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(
+    error === "oauth_callback_failed"
+      ? "Sign-in could not be completed. Please try again."
+      : null,
+  );
   const [loading, setLoading] = useState(false);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
@@ -133,9 +142,9 @@ export default function LoginPage() {
                 <label className="block text-xs font-medium text-slate-400">
                   Password
                 </label>
-                <a href="#" className="text-xs text-blue-400 hover:underline">
+                <Link href="/forgot-password" className="text-xs text-blue-400 hover:underline">
                   Forgot password?
-                </a>
+                </Link>
               </div>
               <div className="relative">
                 <input

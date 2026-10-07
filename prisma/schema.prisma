@@ -30,8 +30,12 @@ model Roadmap {
   readinessScore Int
   userId         String
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId  String?
+  application    Application?   @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   projects       ProjectTrack[]
   createdAt      DateTime       @default(now())
+
+  @@index([applicationId])
 }
 
 model ProjectTrack {
@@ -61,6 +65,10 @@ model Application {
   jobUrl         String?
   jobDescription String?
   jobSummary     String?
+  fitAssessment  Json?
+  nextAction     String?
+  followUpAt     DateTime? @db.Date
+  roadmaps       Roadmap[]
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())

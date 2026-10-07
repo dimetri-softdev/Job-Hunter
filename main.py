@@ -2,8 +2,10 @@ import os
 import json
 import io
 import httpx
+import logging
 from contextlib import asynccontextmanager
-from typing import Optional, Dict, Any
+from datetime import date
+from typing import Optional, Dict, Any, Literal
 from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 from google import genai
@@ -20,6 +22,8 @@ from pydantic import BaseModel, Field
 from prisma import Prisma
 from groq import Groq
 from pypdf import PdfReader
+
+logger = logging.getLogger(__name__)
 
 # 1. Database & AI Client Initialization
 db = Prisma()
@@ -58,6 +62,20 @@ class GenerateRoadmapRequest(BaseModel):
 class TaskUpdate(BaseModel):
     completed: bool
 
+class SavedFitAssessment(BaseModel):
+    verdict: Literal[
+        "STRONG_MATCH",
+        "POSSIBLE_MATCH",
+        "STRETCH",
+        "LOW_MATCH",
+        "INSUFFICIENT_INFO",
+    ]
+    roleTitle: str = Field(min_length=1, max_length=160)
+    assessment: str = Field(max_length=800)
+    strengths: list[str] = Field(default_factory=list, max_length=5)
+    gaps: list[str] = Field(default_factory=list, max_length=5)
+    questionsToConfirm: list[str] = Field(default_factory=list, max_length=5)
+
 class ApplicationCreate(BaseModel):
     company: str
     position: str
@@ -66,8 +84,22 @@ class ApplicationCreate(BaseModel):
     jobUrl: Optional[str] = None
     jobDescription: Optional[str] = None
     jobSummary: Optional[str] = None
+    fitAssessment: Optional[SavedFitAssessment] = None
+    nextAction: Optional[str] = Field(default=None, max_length=280)
+    followUpAt: Optional[date] = None
 
-APPLICATION_STATUSES = {"APPLIED", "INTERVIEWING", "OFFERED", "REJECTED"}
+class ApplicationImportRequest(BaseModel):
+    applications: list[ApplicationCreate] = Field(min_length=1)
+
+APPLICATION_STATUSES = {
+    "SAVED",
+    "APPLIED",
+    "PHONE_SCREEN",
+    "INTERVIEWING",
+    "OFFERED",
+    "REJECTED",
+    "WITHDRAWN",
+}
 
 class ApplicationUpdate(BaseModel):
     company: str = Field(min_length=1, max_length=120)
@@ -75,6 +107,8 @@ class ApplicationUpdate(BaseModel):
     status: str
     notes: Optional[str] = Field(default=None, max_length=2000)
     jobUrl: Optional[str] = Field(default=None, max_length=2000)
+    nextAction: Optional[str] = Field(default=None, max_length=280)
+    followUpAt: Optional[date] = None
 
 class JobPostingAnalyzeRequest(BaseModel):
     description: str = Field(min_length=80, max_length=20000)
@@ -95,6 +129,10 @@ class CareerRecommendationsRequest(BaseModel):
 
 class ApplicationPackRequest(BaseModel):
     aiProcessingConsent: bool
+
+class FitGapRoadmapRequest(BaseModel):
+    aiProcessingConsent: bool
+    targetLevel: Literal["Junior", "Intermediate", "Senior"] = "Intermediate"
 
 def validate_image_upload(image_bytes: bytes) -> str:
     mime_types = {
@@ -337,6 +375,7 @@ async def recommend_job_roles(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("Groq request failed while generating career role recommendations")
         raise HTTPException(status_code=502, detail="Unable to generate job recommendations right now.") from exc
 
 @app.get("/api/v1/roadmaps")
@@ -413,8 +452,11 @@ async def generate_roadmap(
 
         return new_roadmap
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Roadmap generation failed")
+        raise HTTPException(status_code=502, detail="Unable to generate a roadmap right now.") from exc
 
 @app.post("/api/v1/roadmaps/generate-from-cv")
 async def generate_roadmap_from_cv(
@@ -470,8 +512,9 @@ async def generate_roadmap_from_cv(
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as exc:
+        logger.exception("Resume-based roadmap generation failed")
+        raise HTTPException(status_code=502, detail="Unable to generate a roadmap from this resume right now.") from exc
 
 # 7. Job Application Tracker Handlers
 @app.post("/api/v1/applications/analyze")
@@ -523,6 +566,7 @@ async def analyze_job_posting(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("Groq request failed while analyzing a job posting")
         raise HTTPException(status_code=502, detail="Unable to analyze this job posting right now.") from exc
 
 @app.post("/api/v1/applications/match")
@@ -661,14 +705,19 @@ async def match_job_fit(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("Gemini request failed while assessing job fit")
         raise HTTPException(status_code=502, detail="Unable to assess this job match right now.") from exc
 
 @app.get("/api/v1/applications")
 async def get_applications(user_id: str = Depends(get_current_user)):
     """Fetch all job applications for the logged in user."""
     return await db.query_raw(
-        'SELECT "id", "company", "position", "status", "notes", "createdAt", "jobUrl", "jobSummary" '
-        'FROM "Application" WHERE "userId" = $1 ORDER BY "createdAt" DESC',
+        'SELECT a."id", a."company", a."position", a."status", a."notes", a."createdAt", '
+        'a."jobUrl", a."jobSummary", a."fitAssessment", a."nextAction", a."followUpAt", '
+        '(SELECT COALESCE(json_agg(json_build_object(\'id\', r."id", \'title\', r."title") '
+        'ORDER BY r."createdAt" DESC), \'[]\'::json) FROM "Roadmap" r '
+        'WHERE r."applicationId" = a."id") AS "roadmaps" '
+        'FROM "Application" a WHERE a."userId" = $1 ORDER BY a."createdAt" DESC',
         user_id,
     )
 
@@ -689,13 +738,16 @@ async def update_application(
 
     updated = await db.query_raw(
         'UPDATE "Application" SET "company" = $1, "position" = $2, "status" = $3, "notes" = $4, '
-        '"jobUrl" = $5, "updatedAt" = NOW() WHERE "id" = $6 AND "userId" = $7 '
-        'RETURNING "id", "company", "position", "status", "notes", "createdAt", "jobUrl", "jobSummary"',
+        '"jobUrl" = $5, "nextAction" = $6, "followUpAt" = CAST($7 AS DATE), "updatedAt" = NOW() '
+        'WHERE "id" = $8 AND "userId" = $9 '
+        'RETURNING "id", "company", "position", "status", "notes", "createdAt", "jobUrl", "jobSummary", "fitAssessment", "nextAction", "followUpAt"',
         payload.company.strip(),
         payload.position.strip(),
         payload.status,
         payload.notes or None,
         job_url,
+        payload.nextAction.strip() if payload.nextAction else None,
+        payload.followUpAt.isoformat() if payload.followUpAt else None,
         application_id,
         user_id,
     )
@@ -724,6 +776,10 @@ async def create_application(
     user_id: str = Depends(get_current_user)
 ):
     """Log a new job application."""
+    status = payload.status or "APPLIED"
+    if status not in APPLICATION_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid application status.")
+
     job_url = payload.jobUrl.strip() if payload.jobUrl else None
     if job_url:
         parsed_url = urlparse(job_url)
@@ -735,27 +791,159 @@ async def create_application(
             data={
                 "company": payload.company,
                 "position": payload.position,
-                "status": payload.status or "APPLIED",
+                "status": status,
                 "notes": payload.notes,
                 "userId": user_id,
             }
         )
         await transaction.execute_raw(
-            'UPDATE "Application" SET "jobUrl" = $1, "jobDescription" = $2, "jobSummary" = $3 '
-            'WHERE "id" = $4 AND "userId" = $5',
+            'UPDATE "Application" SET "jobUrl" = $1, "jobDescription" = $2, "jobSummary" = $3, '
+            '"fitAssessment" = $4::jsonb, "nextAction" = $5, "followUpAt" = CAST($6 AS DATE) '
+            'WHERE "id" = $7 AND "userId" = $8',
             job_url,
             payload.jobDescription,
             payload.jobSummary,
+            json.dumps(payload.fitAssessment.dict()) if payload.fitAssessment else None,
+            payload.nextAction.strip() if payload.nextAction else None,
+            payload.followUpAt.isoformat() if payload.followUpAt else None,
             new_app.id,
             user_id,
         )
         applications = await transaction.query_raw(
-            'SELECT "id", "company", "position", "status", "notes", "createdAt", "jobUrl", "jobSummary" '
+            'SELECT "id", "company", "position", "status", "notes", "createdAt", "jobUrl", "jobSummary", "fitAssessment", "nextAction", "followUpAt" '
             'FROM "Application" WHERE "id" = $1 AND "userId" = $2',
             new_app.id,
             user_id,
         )
         return applications[0]
+
+@app.post("/api/v1/applications/import")
+async def import_applications(
+    payload: ApplicationImportRequest,
+    user_id: str = Depends(get_current_user),
+):
+    for application in payload.applications:
+        if not application.company.strip() or not application.position.strip():
+            raise HTTPException(status_code=400, detail="Company and position are required.")
+        status = application.status or "APPLIED"
+        if status not in APPLICATION_STATUSES:
+            raise HTTPException(status_code=400, detail="Invalid application status.")
+        job_url = application.jobUrl.strip() if application.jobUrl else None
+        if job_url:
+            parsed_url = urlparse(job_url)
+            if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+                raise HTTPException(status_code=400, detail="Job URL must be a valid HTTP or HTTPS link.")
+
+    async with db.tx() as transaction:
+        for application in payload.applications:
+            status = application.status or "APPLIED"
+            job_url = application.jobUrl.strip() if application.jobUrl else None
+            new_app = await transaction.application.create(
+                data={
+                    "company": application.company.strip(),
+                    "position": application.position.strip(),
+                    "status": status,
+                    "notes": application.notes,
+                    "userId": user_id,
+                }
+            )
+            await transaction.execute_raw(
+                'UPDATE "Application" SET "jobUrl" = $1, "jobDescription" = $2, "jobSummary" = $3, '
+                '"fitAssessment" = $4::jsonb, "nextAction" = $5, "followUpAt" = CAST($6 AS DATE) '
+                'WHERE "id" = $7 AND "userId" = $8',
+                job_url,
+                application.jobDescription,
+                application.jobSummary,
+                json.dumps(application.fitAssessment.dict())
+                if application.fitAssessment
+                else None,
+                application.nextAction.strip() if application.nextAction else None,
+                application.followUpAt.isoformat() if application.followUpAt else None,
+                new_app.id,
+                user_id,
+            )
+
+    return {"created": len(payload.applications)}
+
+@app.post("/api/v1/applications/{application_id}/roadmaps")
+async def generate_roadmap_from_fit_gaps(
+    application_id: str,
+    payload: FitGapRoadmapRequest,
+    user_id: str = Depends(get_current_user),
+):
+    if not payload.aiProcessingConsent:
+        raise HTTPException(status_code=400, detail="Consent is required to send fit gaps for roadmap generation.")
+
+    applications = await db.query_raw(
+        'SELECT "position", "fitAssessment" FROM "Application" '
+        'WHERE "id" = $1 AND "userId" = $2',
+        application_id,
+        user_id,
+    )
+    if not applications:
+        raise HTTPException(status_code=404, detail="Application not found.")
+
+    application = applications[0]
+    assessment = application.get("fitAssessment")
+    if not isinstance(assessment, dict):
+        raise HTTPException(status_code=400, detail="Run and save a job-fit assessment before generating a roadmap.")
+
+    gaps = assessment.get("gaps")
+    questions = assessment.get("questionsToConfirm")
+    gap_items = [item for item in gaps if isinstance(item, str) and item.strip()] if isinstance(gaps, list) else []
+    question_items = [item for item in questions if isinstance(item, str) and item.strip()] if isinstance(questions, list) else []
+    if not gap_items and not question_items:
+        raise HTTPException(status_code=400, detail="This fit assessment has no skill gaps or open questions to build a roadmap from.")
+
+    role = application["position"]
+    fit_context = {
+        "role": role,
+        "verdict": assessment.get("verdict"),
+        "gaps": gap_items[:5],
+        "questionsToConfirm": question_items[:5],
+    }
+    prompt = f"""
+    Create a practical learning roadmap for the {payload.targetLevel} {role} role,
+    using only the job-fit gaps and open questions below. Turn each relevant gap
+    into a project with concrete tasks. Do not invent candidate experience or
+    treat unknowns as proven deficiencies. Return one valid JSON object with a
+    title, readinessScore from 0 to 100, and a non-empty projects array. Each
+    project must include a title, description, level, and a tasks array.
+    Fit-assessment context:
+    {json.dumps(fit_context, ensure_ascii=False)}
+    """
+
+    try:
+        completion = groq_client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You create cautious, practical career learning roadmaps. Always return valid JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            model=GROQ_MODEL,
+            response_format={"type": "json_object"},
+        )
+        raw_content = completion.choices[0].message.content
+        if not raw_content:
+            raise HTTPException(status_code=502, detail="The AI returned an empty roadmap.")
+
+        roadmap_payload = build_roadmap_data(json.loads(raw_content), user_id)
+        async with db.tx() as transaction:
+            roadmap = await transaction.roadmap.create(
+                data=roadmap_payload,  # type: ignore
+                include={"projects": {"include": {"tasks": True}}},
+            )
+            await transaction.execute_raw(
+                'UPDATE "Roadmap" SET "applicationId" = $1 WHERE "id" = $2 AND "userId" = $3',
+                application_id,
+                roadmap.id,
+                user_id,
+            )
+        return roadmap
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Groq request failed while generating a roadmap from job-fit gaps")
+        raise HTTPException(status_code=502, detail="Unable to generate a roadmap from this fit assessment right now.") from exc
 
 @app.post("/api/v1/applications/{application_id}/pnet-pack")
 async def prepare_pnet_application_pack(
@@ -839,4 +1027,5 @@ async def prepare_pnet_application_pack(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("Groq request failed while preparing a PNet application pack")
         raise HTTPException(status_code=502, detail="Unable to prepare application drafts right now.") from exc

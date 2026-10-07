@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { fetcher } from "@/lib/api";
+import type { FitAssessment } from "@/lib/application-types";
 
 interface JobAnalysis {
   company: string;
@@ -33,6 +34,9 @@ export interface CreatedApplication {
   createdAt: string;
   jobUrl: string | null;
   jobSummary: string | null;
+  fitAssessment?: FitAssessment | null;
+  nextAction?: string | null;
+  followUpAt?: string | null;
 }
 
 export function JobPostingModal({
@@ -43,6 +47,8 @@ export function JobPostingModal({
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [jobUrl, setJobUrl] = useState("");
+  const [nextAction, setNextAction] = useState("");
+  const [followUpAt, setFollowUpAt] = useState("");
   const [analysis, setAnalysis] = useState<JobAnalysis | null>(null);
   const [company, setCompany] = useState("");
   const [position, setPosition] = useState("");
@@ -53,6 +59,8 @@ export function JobPostingModal({
   function resetForm() {
     setDescription("");
     setJobUrl("");
+    setNextAction("");
+    setFollowUpAt("");
     setAnalysis(null);
     setCompany("");
     setPosition("");
@@ -95,6 +103,8 @@ export function JobPostingModal({
           jobUrl: jobUrl.trim() || null,
           jobDescription: description,
           jobSummary: analysis.summary,
+          nextAction: nextAction.trim() || null,
+          followUpAt: followUpAt || null,
         }),
       });
       onApplicationCreated(application);
@@ -259,6 +269,33 @@ export function JobPostingModal({
                   </ul>
                 </div>
               )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor="job-next-action" className="text-xs text-slate-300">
+                    Next action <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <Input
+                    id="job-next-action"
+                    value={nextAction}
+                    onChange={(event) => setNextAction(event.target.value)}
+                    maxLength={280}
+                    placeholder="e.g. Tailor resume and apply"
+                    className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="job-follow-up" className="text-xs text-slate-300">
+                    Reminder date <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <Input
+                    id="job-follow-up"
+                    type="date"
+                    value={followUpAt}
+                    onChange={(event) => setFollowUpAt(event.target.value)}
+                    className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                  />
+                </div>
+              </div>
             </section>
           )}
 

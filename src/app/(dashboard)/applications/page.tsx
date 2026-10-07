@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Building2, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import {
+  Building2,
+  Download,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,11 +25,17 @@ import {
   JobPostingModal,
   type CreatedApplication,
 } from "@/components/dashboard/job-posting-modal";
+import { ApplicationCsvImport } from "@/components/dashboard/application-csv-import";
 import { JobFitModal } from "@/components/dashboard/job-fit-modal";
+import { JobGapRoadmap } from "@/components/dashboard/job-gap-roadmap";
 import { PNetApplicationPack } from "@/components/dashboard/pnet-application-pack";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { fetcher } from "@/lib/api";
 import { ExternalLink } from "lucide-react";
+import type {
+  ApplicationRoadmap,
+  FitAssessment,
+} from "@/lib/application-types";
 
 interface Application {
   id: string;
@@ -32,17 +46,49 @@ interface Application {
   notes?: string | null;
   jobUrl?: string | null;
   jobSummary?: string | null;
+  fitAssessment?: FitAssessment | null;
+  roadmaps?: ApplicationRoadmap[];
+  nextAction?: string | null;
+  followUpAt?: string | null;
 }
 
 const STATUSES = [
+  { value: "SAVED", label: "Saved" },
   { value: "APPLIED", label: "Applied" },
+  { value: "PHONE_SCREEN", label: "Phone screen" },
   { value: "INTERVIEWING", label: "Interviewing" },
   { value: "OFFERED", label: "Offered" },
   { value: "REJECTED", label: "Rejected" },
+  { value: "WITHDRAWN", label: "Withdrawn" },
 ];
 
 const fieldClass =
   "h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500";
+
+function csvCell(value: string | null | undefined) {
+  const text = value ?? "";
+  const safeText = /^[\u0000-\u0020]*[=+@-]/.test(text)
+    ? `'${text}`
+    : text;
+  return `"${safeText.replaceAll('"', '""')}"`;
+}
+
+function getReminderStatus(followUpAt?: string | null) {
+  if (!followUpAt) return null;
+  const date = new Date(`${followUpAt.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysUntil = Math.round((date.getTime() - today.getTime()) / 86_400_000);
+
+  if (daysUntil < 0) return { label: "Overdue", className: "text-rose-400" };
+  if (daysUntil === 0) return { label: "Due today", className: "text-amber-300" };
+  if (daysUntil <= 7) {
+    return { label: `Due in ${daysUntil} days`, className: "text-amber-300" };
+  }
+  return { label: "Upcoming", className: "text-slate-500" };
+}
 
 function isPNetListing(jobUrl?: string | null) {
   if (!jobUrl) return false;
@@ -56,6 +102,9 @@ function isPNetListing(jobUrl?: string | null) {
 
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [reminderFilter, setReminderFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -68,6 +117,27 @@ export default function ApplicationsPage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  const filteredApplications = applications.filter((application) => {
+    const matchesSearch =
+      !normalizedSearch ||
+      [application.company, application.position, application.nextAction]
+        .some((value) => value?.toLocaleLowerCase().includes(normalizedSearch));
+    const matchesStatus =
+      statusFilter === "ALL" || application.status === statusFilter;
+    const reminderStatus = getReminderStatus(application.followUpAt);
+    const matchesReminder =
+      reminderFilter === "ALL" ||
+      (reminderFilter === "SCHEDULED" &&
+        reminderStatus !== null &&
+        reminderStatus.label !== "Overdue") ||
+      (reminderFilter === "OVERDUE" &&
+        reminderStatus?.label === "Overdue") ||
+      (reminderFilter === "NONE" && reminderStatus === null);
+
+    return matchesSearch && matchesStatus && matchesReminder;
+  });
 
   function replaceApplication(updated: Application) {
     setApplications((current) =>
@@ -90,6 +160,8 @@ export default function ApplicationsPage() {
           status,
           notes: app.notes ?? null,
           jobUrl: app.jobUrl ?? null,
+          nextAction: app.nextAction ?? null,
+          followUpAt: app.followUpAt?.slice(0, 10) ?? null,
         }),
       });
       replaceApplication(updated);
@@ -118,6 +190,8 @@ export default function ApplicationsPage() {
             status: formData.get("status"),
             notes: formData.get("notes") || null,
             jobUrl: formData.get("jobUrl") || null,
+            nextAction: formData.get("nextAction") || null,
+            followUpAt: formData.get("followUpAt") || null,
           }),
         },
       );
@@ -155,6 +229,83 @@ export default function ApplicationsPage() {
     setApplications((current) => [application, ...current]);
   }
 
+  async function handleApplicationsImported() {
+    const refreshedApplications = await fetcher<Application[]>("/applications");
+    setApplications(refreshedApplications);
+  }
+
+  function handleExportCsv() {
+    const columns = [
+      "Company",
+      "Position",
+      "Status",
+      "Created At",
+      "Job URL",
+      "Job Summary",
+      "Fit Role Title",
+      "Fit Verdict",
+      "Fit Assessment",
+      "Strengths",
+      "Gaps",
+      "Questions to Confirm",
+      "Next Action",
+      "Follow-up Date",
+      "Notes",
+      "Linked Roadmaps",
+    ];
+    const rows = applications.map((application) => [
+      application.company,
+      application.position,
+      application.status,
+      application.createdAt,
+      application.jobUrl,
+      application.jobSummary,
+      application.fitAssessment?.roleTitle,
+      application.fitAssessment?.verdict,
+      application.fitAssessment?.assessment,
+      application.fitAssessment?.strengths.join("; "),
+      application.fitAssessment?.gaps.join("; "),
+      application.fitAssessment?.questionsToConfirm.join("; "),
+      application.nextAction,
+      application.followUpAt?.slice(0, 10),
+      application.notes,
+      application.roadmaps?.map((roadmap) => roadmap.title).join("; "),
+    ]);
+    const csv = [columns, ...rows]
+      .map((row) => row.map(csvCell).join(","))
+      .join("\r\n");
+    const blob = new Blob([`\uFEFF${csv}`], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `job-applications-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    try {
+      link.click();
+    } finally {
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  }
+
+  function handleRoadmapCreated(
+    applicationId: string,
+    roadmap: ApplicationRoadmap,
+  ) {
+    setApplications((current) =>
+      current.map((application) =>
+        application.id === applicationId
+          ? {
+              ...application,
+              roadmaps: [roadmap, ...(application.roadmaps ?? [])],
+            }
+          : application,
+      ),
+    );
+  }
+
   async function handleCreateApplication(
     event: React.FormEvent<HTMLFormElement>,
   ) {
@@ -172,6 +323,8 @@ export default function ApplicationsPage() {
           position: formData.get("position"),
           status: formData.get("status"),
           notes: formData.get("notes") || null,
+          nextAction: formData.get("nextAction") || null,
+          followUpAt: formData.get("followUpAt") || null,
         }),
       });
       setApplications((current) => [application, ...current]);
@@ -204,6 +357,15 @@ export default function ApplicationsPage() {
     loadApplications();
   }, []);
 
+  useEffect(() => {
+    if (loading || !window.location.hash) return;
+    const applicationId = decodeURIComponent(window.location.hash.slice(1));
+    document.getElementById(applicationId)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [loading]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 text-slate-400 gap-2">
@@ -227,7 +389,18 @@ export default function ApplicationsPage() {
         title="Job Applications"
         description="Keep track of the roles you have applied for and where they stand."
       >
-        <JobFitModal />
+        <Button
+          type="button"
+          variant="outline"
+          disabled={applications.length === 0}
+          onClick={handleExportCsv}
+          className="h-9 border-[#2b2e3b] text-xs text-slate-300 hover:bg-[#1f212d] hover:text-white"
+        >
+          <Download className="h-4 w-4" />
+          Export all CSV
+        </Button>
+        <ApplicationCsvImport onImported={handleApplicationsImported} />
+        <JobFitModal onApplicationSaved={handleApplicationCreated} />
         <JobPostingModal onApplicationCreated={handleApplicationCreated} />
         <Dialog
           open={dialogOpen}
@@ -284,10 +457,11 @@ export default function ApplicationsPage() {
                   defaultValue="APPLIED"
                   className="h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#090a0f] px-3 text-sm text-white outline-none focus-visible:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400/30"
                 >
-                  <option value="APPLIED">Applied</option>
-                  <option value="INTERVIEWING">Interviewing</option>
-                  <option value="OFFERED">Offered</option>
-                  <option value="REJECTED">Rejected</option>
+                  {STATUSES.map((status) => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-2">
@@ -302,6 +476,31 @@ export default function ApplicationsPage() {
                   placeholder="Add any details you want to remember"
                   className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
                 />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor="nextAction" className="text-xs text-slate-300">
+                    Next action <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <Input
+                    id="nextAction"
+                    name="nextAction"
+                    maxLength={280}
+                    placeholder="e.g. Follow up with recruiter"
+                    className={fieldClass}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="followUpAt" className="text-xs text-slate-300">
+                    Reminder date <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <Input
+                    id="followUpAt"
+                    name="followUpAt"
+                    type="date"
+                    className={fieldClass}
+                  />
+                </div>
               </div>
               {saveError && (
                 <p role="alert" className="text-xs text-rose-400">
@@ -342,6 +541,46 @@ export default function ApplicationsPage() {
         </p>
       )}
 
+      {applications.length > 0 && (
+        <section
+          aria-label="Filter applications"
+          className="grid gap-3 rounded-xl border border-[#1f212d] bg-[#12131a] p-4 sm:grid-cols-3"
+        >
+          <Input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search company, job title, or next action"
+            aria-label="Search applications"
+            className={fieldClass}
+          />
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            aria-label="Filter by application status"
+            className="h-10 rounded-lg border border-[#2b2e3b] bg-[#090a0f] px-3 text-sm text-white outline-none focus-visible:border-blue-400"
+          >
+            <option value="ALL">All statuses</option>
+            {STATUSES.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={reminderFilter}
+            onChange={(event) => setReminderFilter(event.target.value)}
+            aria-label="Filter by reminder"
+            className="h-10 rounded-lg border border-[#2b2e3b] bg-[#090a0f] px-3 text-sm text-white outline-none focus-visible:border-blue-400"
+          >
+            <option value="ALL">All reminders</option>
+            <option value="SCHEDULED">Scheduled</option>
+            <option value="OVERDUE">Overdue</option>
+            <option value="NONE">No reminder</option>
+          </select>
+        </section>
+      )}
+
       <div className="bg-[#12131a] border border-[#1f212d] rounded-2xl overflow-hidden">
         {applications.length === 0 ? (
           <div className="p-8 text-center text-slate-500 text-xs">
@@ -360,10 +599,28 @@ export default function ApplicationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1f212d] text-slate-300">
-                {applications.map((app) => (
+                {filteredApplications.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-slate-500">
+                      No applications match these filters.
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setStatusFilter("ALL");
+                          setReminderFilter("ALL");
+                        }}
+                        className="ml-2 text-blue-400 hover:text-blue-300"
+                      >
+                        Clear filters
+                      </button>
+                    </td>
+                  </tr>
+                ) : filteredApplications.map((app) => (
                   <tr
                     key={app.id}
-                    className="hover:bg-[#181a24] transition-colors"
+                    id={`application-${app.id}`}
+                    className="scroll-mt-6 hover:bg-[#181a24] transition-colors"
                   >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
@@ -381,6 +638,45 @@ export default function ApplicationsPage() {
                             <div className="mt-1 max-w-xl line-clamp-2 text-[11px] leading-4 text-slate-500">
                               {app.jobSummary}
                             </div>
+                          )}
+                          {app.fitAssessment && (
+                            <details className="mt-2 max-w-xl">
+                              <summary className="cursor-pointer text-[11px] font-medium text-emerald-300">
+                                Fit check · {app.fitAssessment.verdict.replaceAll("_", " ")}
+                              </summary>
+                              <p className="mt-2 text-[11px] leading-4 text-slate-400">
+                                {app.fitAssessment.assessment}
+                              </p>
+                              {app.fitAssessment.strengths.length > 0 && (
+                                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                                  Strengths: {app.fitAssessment.strengths.join(" · ")}
+                                </p>
+                              )}
+                              {app.fitAssessment.gaps.length > 0 && (
+                                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                                  Gaps: {app.fitAssessment.gaps.join(" · ")}
+                                </p>
+                              )}
+                              {app.roadmaps?.map((roadmap) => (
+                                <Link
+                                  key={roadmap.id}
+                                  href={`/roadmaps#roadmap-${roadmap.id}`}
+                                  className="mt-2 block text-[11px] text-blue-300 hover:text-blue-200"
+                                >
+                                  View roadmap · {roadmap.title}
+                                </Link>
+                              ))}
+                              {(app.fitAssessment.gaps.length > 0 ||
+                                app.fitAssessment.questionsToConfirm.length > 0) && (
+                                <JobGapRoadmap
+                                  applicationId={app.id}
+                                  position={app.position}
+                                  onRoadmapCreated={(roadmap) =>
+                                    handleRoadmapCreated(app.id, roadmap)
+                                  }
+                                />
+                              )}
+                            </details>
                           )}
                           {app.jobUrl && (
                             <a
@@ -420,6 +716,17 @@ export default function ApplicationsPage() {
                       </select>
                     </td>
                     <td className="p-4">
+                      {app.nextAction && (
+                        <p className="max-w-48 text-[11px] text-slate-200">
+                          {app.nextAction}
+                        </p>
+                      )}
+                      {app.followUpAt && (
+                        <p className={`mt-1 text-[10px] ${getReminderStatus(app.followUpAt)?.className ?? "text-slate-500"}`}>
+                          {new Date(`${app.followUpAt.slice(0, 10)}T00:00:00`).toLocaleDateString()} ·{" "}
+                          {getReminderStatus(app.followUpAt)?.label}
+                        </p>
+                      )}
                       {isPNetListing(app.jobUrl) && app.jobSummary && (
                         <PNetApplicationPack
                           applicationId={app.id}
@@ -561,6 +868,33 @@ export default function ApplicationsPage() {
                   defaultValue={editing.notes ?? ""}
                   className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
                 />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor="edit-nextAction" className="text-xs text-slate-300">
+                    Next action <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <Input
+                    id="edit-nextAction"
+                    name="nextAction"
+                    maxLength={280}
+                    defaultValue={editing.nextAction ?? ""}
+                    placeholder="e.g. Follow up with recruiter"
+                    className={fieldClass}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="edit-followUpAt" className="text-xs text-slate-300">
+                    Reminder date <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <Input
+                    id="edit-followUpAt"
+                    name="followUpAt"
+                    type="date"
+                    defaultValue={editing.followUpAt?.slice(0, 10) ?? ""}
+                    className={fieldClass}
+                  />
+                </div>
               </div>
               {editError && (
                 <p role="alert" className="text-xs text-rose-400">

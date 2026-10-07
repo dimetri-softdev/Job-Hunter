@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FileSearch, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -13,25 +14,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { fetcher } from "@/lib/api";
+import type { CreatedApplication } from "@/components/dashboard/job-posting-modal";
+import type { FitAssessment, FitVerdict } from "@/lib/application-types";
 
-interface FitAssessment {
-  verdict:
-    | "STRONG_MATCH"
-    | "POSSIBLE_MATCH"
-    | "STRETCH"
-    | "LOW_MATCH"
-    | "INSUFFICIENT_INFO";
-  roleTitle: string;
-  assessment: string;
-  strengths: string[];
-  gaps: string[];
-  questionsToConfirm: string[];
-}
-
-const verdictDetails: Record<
-  FitAssessment["verdict"],
-  { label: string; className: string }
-> = {
+const verdictDetails: Record<FitVerdict, { label: string; className: string }> = {
   STRONG_MATCH: {
     label: "Strong match",
     className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
@@ -54,24 +40,43 @@ const verdictDetails: Record<
   },
 };
 
-export function JobFitModal() {
+export function JobFitModal({
+  onApplicationSaved,
+}: {
+  onApplicationSaved: (application: CreatedApplication) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [resume, setResume] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState("");
   const [jobImage, setJobImage] = useState<File | null>(null);
+  const [company, setCompany] = useState("");
+  const [position, setPosition] = useState("");
+  const [jobUrl, setJobUrl] = useState("");
+  const [nextAction, setNextAction] = useState("");
+  const [followUpAt, setFollowUpAt] = useState("");
   const [consent, setConsent] = useState(false);
   const [assessment, setAssessment] = useState<FitAssessment | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
 
   function resetForm() {
     setResume(null);
     setJobDescription("");
     setJobImage(null);
+    setCompany("");
+    setPosition("");
+    setJobUrl("");
+    setNextAction("");
+    setFollowUpAt("");
     setConsent(false);
     setAssessment(null);
+    setSaved(false);
     setError(null);
+    setSaveError(null);
     setFileInputKey((key) => key + 1);
   }
 
@@ -82,6 +87,8 @@ export function JobFitModal() {
     setLoading(true);
     setError(null);
     setAssessment(null);
+    setSaved(false);
+    setSaveError(null);
 
     const body = new FormData();
     body.set("resume", resume);
@@ -95,6 +102,7 @@ export function JobFitModal() {
         body,
       });
       setAssessment(result);
+      setPosition(result.roleTitle);
     } catch (matchError: unknown) {
       setError(
         matchError instanceof Error
@@ -103,6 +111,37 @@ export function JobFitModal() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function saveApplication() {
+    if (!assessment) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const application = await fetcher<CreatedApplication>("/applications", {
+        method: "POST",
+        body: JSON.stringify({
+          company,
+          position,
+          status: "SAVED",
+          jobUrl: jobUrl.trim() || null,
+          jobDescription: jobDescription.trim() || null,
+          fitAssessment: assessment,
+          nextAction: nextAction.trim() || null,
+          followUpAt: followUpAt || null,
+        }),
+      });
+      onApplicationSaved(application);
+      setSaved(true);
+    } catch (saveError: unknown) {
+      setSaveError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to save this job and fit assessment.",
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -209,7 +248,8 @@ export function JobFitModal() {
             <span>
               I agree to send my resume and job-post content to Google Gemini
               for this analysis. JobHunter does not save the uploaded resume or
-              extracted resume text.
+              extracted resume text. After reviewing the result, you can
+              separately choose to save the fit assessment and job details.
             </span>
           </label>
 
@@ -252,6 +292,79 @@ export function JobFitModal() {
                 the posting yourself; missing resume details may not reflect
                 your full experience.
               </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  value={company}
+                  onChange={(event) => setCompany(event.target.value)}
+                  required
+                  maxLength={120}
+                  aria-label="Company"
+                  placeholder="Company"
+                  className="border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+                />
+                <Input
+                  value={position}
+                  onChange={(event) => setPosition(event.target.value)}
+                  required
+                  maxLength={120}
+                  aria-label="Job title"
+                  placeholder="Job title"
+                  className="border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+                />
+                <Input
+                  value={jobUrl}
+                  onChange={(event) => setJobUrl(event.target.value)}
+                  type="url"
+                  maxLength={2000}
+                  aria-label="Job posting link"
+                  placeholder="Job link (optional)"
+                  className="border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500 sm:col-span-2"
+                />
+                <Input
+                  value={nextAction}
+                  onChange={(event) => setNextAction(event.target.value)}
+                  maxLength={280}
+                  aria-label="Next action"
+                  placeholder="Next action (optional)"
+                  className="border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+                />
+                <Input
+                  value={followUpAt}
+                  onChange={(event) => setFollowUpAt(event.target.value)}
+                  type="date"
+                  aria-label="Reminder date"
+                  className="border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                />
+              </div>
+              <p className="text-[11px] leading-5 text-slate-500">
+                Saving stores this assessment and the pasted job text with the
+                application. Uploaded files and extracted resume text are not
+                stored.
+              </p>
+              {saveError && (
+                <p role="alert" className="text-xs text-rose-400">
+                  {saveError}
+                </p>
+              )}
+              {saved ? (
+                <p role="status" className="text-xs text-emerald-400">
+                  Saved to your applications as Saved.
+                </p>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => void saveApplication()}
+                  disabled={saving || !company.trim() || !position.trim()}
+                  className="bg-emerald-600 text-white hover:bg-emerald-500"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {saving ? "Saving application..." : "Save to applications"}
+                </Button>
+              )}
             </section>
           )}
 

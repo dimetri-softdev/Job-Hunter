@@ -42,6 +42,15 @@ export default function RoadmapsPage() {
     getRoadmaps();
   }, []);
 
+  useEffect(() => {
+    if (loading || !window.location.hash) return;
+    const roadmapId = decodeURIComponent(window.location.hash.slice(1));
+    document.getElementById(roadmapId)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [loading, roadmaps]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 text-slate-400 gap-2">
@@ -104,7 +113,8 @@ export default function RoadmapsPage() {
             return (
               <div
                 key={item.id}
-                className="bg-[#12131a] border border-[#1f212d] hover:border-slate-700 rounded-2xl p-5 space-y-4 flex flex-col justify-between transition-all group cursor-pointer"
+                id={`roadmap-${item.id}`}
+                className="scroll-mt-6 bg-[#12131a] border border-[#1f212d] hover:border-slate-700 rounded-2xl p-5 space-y-4 flex flex-col justify-between transition-all group cursor-pointer"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
