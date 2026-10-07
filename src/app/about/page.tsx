@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Compass, ShieldCheck, Target } from "lucide-react";
+import { PublicSiteFooter } from "@/components/public-site-footer";
 import { PublicSiteHeader } from "@/components/public-site-header";
 
 export const metadata = {
@@ -61,21 +62,36 @@ export default function AboutPage() {
             </p>
           </article>
         </div>
-        <div className="mt-14 border-t border-white/10 pt-8">
-          <p className="max-w-3xl text-sm leading-6 text-slate-400">
-            JobHunter is still growing. It can organize opportunities, analyze a
-            pasted or pictured posting, compare it with a resume, and suggest
-            roles from a saved career profile. It does not automatically fill
-            out or submit applications on external job sites.
+        <div className="mt-14 rounded-2xl border border-white/[0.08] bg-[#101119] p-6 sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">
+            A tool for your process, not a decision-maker
           </p>
-          <Link
-            href="/guide"
-            className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-blue-300 hover:text-blue-200"
-          >
-            See how it works <ArrowRight className="h-4 w-4" />
-          </Link>
+          <h2 className="mt-3 text-xl font-semibold text-white">
+            Keep the human judgment where it belongs—with you.
+          </h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
+            JobHunter can organize opportunities, review a pasted or pictured
+            posting against your resume, suggest roles from your saved profile,
+            and help you plan evidence-building projects. It does not fill out
+            or submit applications on external job sites.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/guide"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/15 px-4 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.05]"
+            >
+              See how it works <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/signup"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
+            >
+              Get started <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </section>
+      <PublicSiteFooter />
     </main>
   );
 }

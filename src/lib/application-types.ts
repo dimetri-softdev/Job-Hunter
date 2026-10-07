@@ -18,3 +18,20 @@ export interface ApplicationRoadmap {
   id: string;
   title: string;
 }
+
+export interface OfferDetails {
+  annualCompensation: number | null;
+  currency: string | null;
+  commuteMinutes: number | null;
+  learning: number | null;
+  stability: number | null;
+  workLife: number | null;
+}
+
+export interface OfferPriorities {
+  salary: number;
+  commute: number;
+  learning: number;
+  stability: number;
+  workLife: number;
+}

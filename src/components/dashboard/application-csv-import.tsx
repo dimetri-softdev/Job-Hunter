@@ -12,7 +12,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { fetcher } from "@/lib/api";
-import type { FitAssessment, FitVerdict } from "@/lib/application-types";
+import type {
+  FitAssessment,
+  FitVerdict,
+  OfferDetails,
+} from "@/lib/application-types";
 
 interface ImportedApplication {
   company: string;
@@ -22,6 +26,7 @@ interface ImportedApplication {
   jobUrl: string | null;
   jobSummary: string | null;
   fitAssessment: FitAssessment | null;
+  offerDetails: OfferDetails | null;
   nextAction: string | null;
   followUpAt: string | null;
 }
@@ -212,6 +217,74 @@ function parseApplicationsCsv(input: string): ImportedApplication[] {
       };
     }
 
+    const offerValues = {
+      annualCompensation: get("offer annual compensation").trim(),
+      currency: get("offer currency").trim(),
+      commuteMinutes: get("offer commute minutes").trim(),
+      learning: get("offer learning").trim(),
+      stability: get("offer stability").trim(),
+      workLife: get("offer work-life balance").trim(),
+    };
+    const hasOfferDetails = Object.values(offerValues).some(Boolean);
+    let offerDetails: OfferDetails | null = null;
+    if (hasOfferDetails) {
+      if (status !== "OFFERED") {
+        throw new Error(`CSV record ${recordIndex + 2} has offer details but is not marked Offered.`);
+      }
+      const parseNumber = (value: string, label: string) => {
+        if (!value) return null;
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) {
+          throw new Error(`CSV record ${recordIndex + 2} has an invalid ${label}.`);
+        }
+        return parsed;
+      };
+      const annualCompensation = parseNumber(
+        offerValues.annualCompensation,
+        "annual compensation",
+      );
+      const commuteMinutes = parseNumber(
+        offerValues.commuteMinutes,
+        "commute time",
+      );
+      const learning = parseNumber(offerValues.learning, "learning rating");
+      const stability = parseNumber(offerValues.stability, "stability rating");
+      const workLife = parseNumber(
+        offerValues.workLife,
+        "work-life rating",
+      );
+      const currency = offerValues.currency.toUpperCase() || null;
+      if (annualCompensation !== null && !currency) {
+        throw new Error(`CSV record ${recordIndex + 2} needs a currency for its annual compensation.`);
+      }
+      if (currency && !/^[A-Z]{3}$/.test(currency)) {
+        throw new Error(`CSV record ${recordIndex + 2} has an invalid three-letter currency code.`);
+      }
+      if (
+        (annualCompensation !== null &&
+          (annualCompensation < 0 || annualCompensation > 1_000_000_000)) ||
+        (commuteMinutes !== null &&
+          (!Number.isInteger(commuteMinutes) ||
+            commuteMinutes < 0 ||
+            commuteMinutes > 5000)) ||
+        [learning, stability, workLife].some(
+          (rating) =>
+            rating !== null &&
+            (!Number.isInteger(rating) || rating < 1 || rating > 5),
+        )
+      ) {
+        throw new Error(`CSV record ${recordIndex + 2} has offer values outside the supported ranges.`);
+      }
+      offerDetails = {
+        annualCompensation,
+        currency,
+        commuteMinutes,
+        learning,
+        stability,
+        workLife,
+      };
+    }
+
     return {
       company,
       position,
@@ -219,6 +292,7 @@ function parseApplicationsCsv(input: string): ImportedApplication[] {
       jobUrl: jobUrl || null,
       jobSummary: get("job summary").trim() ? get("job summary") : null,
       fitAssessment,
+      offerDetails,
       nextAction: get("next action").trim() ? get("next action") : null,
       followUpAt: followUpAt || null,
       notes: get("notes").trim() ? get("notes") : null,

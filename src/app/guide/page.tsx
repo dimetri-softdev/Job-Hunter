@@ -6,6 +6,7 @@ import {
   FileSearch,
   ListChecks,
 } from "lucide-react";
+import { PublicSiteFooter } from "@/components/public-site-footer";
 import { PublicSiteHeader } from "@/components/public-site-header";
 
 export const metadata = {
@@ -87,6 +88,48 @@ export default function GuidePage() {
         </ol>
       </section>
 
+      <section className="border-y border-white/[0.08] bg-[#101119]">
+        <div className="mx-auto max-w-7xl px-6 py-12 sm:px-10 lg:px-16">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">
+              Keep building momentum
+            </p>
+            <h2 className="mt-3 text-xl font-semibold text-white">
+              Tools for the parts of a search that come next.
+            </h2>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <article className="rounded-xl border border-white/[0.08] bg-[#0d0e14] p-5">
+              <h3 className="text-sm font-semibold text-white">
+                Make a skill gap actionable
+              </h3>
+              <p className="mt-2 text-xs leading-5 text-slate-400">
+                Create a focused Proof Sprint, work through project tasks, and
+                save a link or notes showing what you built.
+              </p>
+            </article>
+            <article className="rounded-xl border border-white/[0.08] bg-[#0d0e14] p-5">
+              <h3 className="text-sm font-semibold text-white">
+                Learn from your own search
+              </h3>
+              <p className="mt-2 text-xs leading-5 text-slate-400">
+                The Playbook summarizes how your saved fit assessments relate
+                to stages reached in your application tracker.
+              </p>
+            </article>
+            <article className="rounded-xl border border-white/[0.08] bg-[#0d0e14] p-5">
+              <h3 className="text-sm font-semibold text-white">
+                Compare offers on your terms
+              </h3>
+              <p className="mt-2 text-xs leading-5 text-slate-400">
+                Compare up to three offers using your own priorities. Scores
+                are relative, and salary is only compared within one currency.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section className="border-y border-white/10 bg-[#12131a]">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-8 sm:px-10 md:flex-row md:items-center md:justify-between lg:px-16">
           <div>
@@ -97,7 +140,10 @@ export default function GuidePage() {
               Fit checks send the selected resume and job content to Google
               Gemini only after consent. The uploaded resume and extracted text
               are not saved by JobHunter. Role suggestions send your saved
-              profile to Groq after consent.
+              profile to Groq after consent. Proof Sprint generation sends the
+              role and selected skill gap to Groq only after your consent.
+              Offer comparisons use the details and priorities you enter and
+              do not use AI.
             </p>
           </div>
           <Link
@@ -108,6 +154,7 @@ export default function GuidePage() {
           </Link>
         </div>
       </section>
+      <PublicSiteFooter />
     </main>
   );
 }

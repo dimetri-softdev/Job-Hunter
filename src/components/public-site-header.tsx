@@ -6,7 +6,7 @@ export function PublicSiteHeader() {
     <header className="border-b border-[#1f212d] bg-[#0d0e14]">
       <nav
         aria-label="Main navigation"
-        className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-3 sm:px-10 lg:px-16"
+          className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-10 lg:px-16"
       >
         <Link href="/" className="inline-flex items-center gap-2.5 text-white">
           <span className="flex size-8 items-center justify-center rounded-lg border border-blue-500/30 bg-blue-600/10 text-blue-300">
@@ -14,12 +14,12 @@ export function PublicSiteHeader() {
           </span>
           <span className="text-sm font-bold">JobHunter</span>
         </Link>
-        <div className="flex flex-wrap items-center gap-4 text-sm">
+        <div className="flex items-center gap-2 text-xs sm:gap-4 sm:text-sm">
           <Link
-            href="/about"
-            className="text-slate-300 transition-colors hover:text-blue-300"
+            href="/#features"
+            className="hidden text-slate-300 transition-colors hover:text-blue-300 md:inline"
           >
-            About
+            Features
           </Link>
           <Link
             href="/guide"
@@ -28,10 +28,22 @@ export function PublicSiteHeader() {
             Guide
           </Link>
           <Link
+            href="/about"
+            className="hidden text-slate-300 transition-colors hover:text-blue-300 md:inline"
+          >
+            About
+          </Link>
+          <Link
             href="/login"
-            className="rounded-lg border border-[#2b2e3b] px-3 py-2 font-medium text-white transition-colors hover:border-blue-500/40 hover:bg-blue-600/10"
+            className="rounded-lg border border-[#2b2e3b] px-2.5 py-2 font-medium text-white transition-colors hover:border-blue-500/40 hover:bg-blue-600/10 sm:px-3"
           >
             Sign in
+          </Link>
+          <Link
+            href="/signup"
+            className="rounded-lg bg-blue-600 px-2.5 py-2 font-semibold text-white transition-colors hover:bg-blue-500 sm:px-3"
+          >
+            Get started
           </Link>
         </div>
       </nav>

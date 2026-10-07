@@ -28,6 +28,7 @@ import {
 import { ApplicationCsvImport } from "@/components/dashboard/application-csv-import";
 import { JobFitModal } from "@/components/dashboard/job-fit-modal";
 import { JobGapRoadmap } from "@/components/dashboard/job-gap-roadmap";
+import { JobProofSprint } from "@/components/dashboard/job-proof-sprint";
 import { PNetApplicationPack } from "@/components/dashboard/pnet-application-pack";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { fetcher } from "@/lib/api";
@@ -35,6 +36,7 @@ import { ExternalLink } from "lucide-react";
 import type {
   ApplicationRoadmap,
   FitAssessment,
+  OfferDetails,
 } from "@/lib/application-types";
 
 interface Application {
@@ -47,6 +49,7 @@ interface Application {
   jobUrl?: string | null;
   jobSummary?: string | null;
   fitAssessment?: FitAssessment | null;
+  offerDetails?: OfferDetails | null;
   roadmaps?: ApplicationRoadmap[];
   nextAction?: string | null;
   followUpAt?: string | null;
@@ -65,8 +68,8 @@ const STATUSES = [
 const fieldClass =
   "h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500";
 
-function csvCell(value: string | null | undefined) {
-  const text = value ?? "";
+function csvCell(value: string | number | null | undefined) {
+  const text = value == null ? "" : String(value);
   const safeText = /^[\u0000-\u0020]*[=+@-]/.test(text)
     ? `'${text}`
     : text;
@@ -248,6 +251,12 @@ export default function ApplicationsPage() {
       "Strengths",
       "Gaps",
       "Questions to Confirm",
+      "Offer Annual Compensation",
+      "Offer Currency",
+      "Offer Commute Minutes",
+      "Offer Learning",
+      "Offer Stability",
+      "Offer Work-Life Balance",
       "Next Action",
       "Follow-up Date",
       "Notes",
@@ -266,6 +275,12 @@ export default function ApplicationsPage() {
       application.fitAssessment?.strengths.join("; "),
       application.fitAssessment?.gaps.join("; "),
       application.fitAssessment?.questionsToConfirm.join("; "),
+      application.offerDetails?.annualCompensation,
+      application.offerDetails?.currency,
+      application.offerDetails?.commuteMinutes,
+      application.offerDetails?.learning,
+      application.offerDetails?.stability,
+      application.offerDetails?.workLife,
       application.nextAction,
       application.followUpAt?.slice(0, 10),
       application.notes,
@@ -672,6 +687,16 @@ export default function ApplicationsPage() {
                                   applicationId={app.id}
                                   position={app.position}
                                   onRoadmapCreated={(roadmap) =>
+                                    handleRoadmapCreated(app.id, roadmap)
+                                  }
+                                />
+                              )}
+                              {app.fitAssessment.gaps.length > 0 && (
+                                <JobProofSprint
+                                  applicationId={app.id}
+                                  position={app.position}
+                                  gaps={app.fitAssessment.gaps}
+                                  onSprintCreated={(roadmap) =>
                                     handleRoadmapCreated(app.id, roadmap)
                                   }
                                 />

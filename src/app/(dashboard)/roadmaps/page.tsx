@@ -119,7 +119,9 @@ export default function RoadmapsPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#1f212d] text-slate-400">
-                      Score {item.readinessScore}
+                      {item.title.startsWith("Proof Sprint:")
+                        ? "Proof sprint · not scored"
+                        : `Score ${item.readinessScore}`}
                     </span>
                     <ArrowUpRight className="h-4 w-4 text-slate-500 group-hover:text-white transition-colors" />
                   </div>

@@ -19,6 +19,7 @@ model User {
   targetRoles       String?
   preferredLocation String?
   workArrangement   String?
+  offerPriorities   Json?
   roadmaps          Roadmap[]
   applications      Application[]
   createdAt         DateTime       @default(now())
@@ -43,6 +44,8 @@ model ProjectTrack {
   title       String
   description String
   level       String
+  proofUrl    String?
+  proofNotes  String?
   roadmapId   String
   roadmap     Roadmap  @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
   tasks       Task[]
@@ -66,6 +69,7 @@ model Application {
   jobDescription String?
   jobSummary     String?
   fitAssessment  Json?
+  offerDetails   Json?
   nextAction     String?
   followUpAt     DateTime? @db.Date
   roadmaps       Roadmap[]

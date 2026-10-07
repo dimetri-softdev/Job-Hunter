@@ -376,18 +376,28 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3 mt-2">
                 <span className="text-3xl font-bold text-amber-400">
                   {activeRoadmap ? (
-                    <>
-                      {activeRoadmap.readinessScore}
-                      <span className="text-sm text-slate-500 font-normal">
-                        /100
+                    activeRoadmap.title.startsWith("Proof Sprint:") ? (
+                      <span className="text-sm font-normal text-slate-400">
+                        Not scored
                       </span>
-                    </>
+                    ) : (
+                      <>
+                        {activeRoadmap.readinessScore}
+                        <span className="text-sm text-slate-500 font-normal">
+                          /100
+                        </span>
+                      </>
+                    )
                   ) : (
                     "--"
                   )}
                 </span>
                 <span className="text-[10px] text-slate-500">
-                  {activeRoadmap ? "Current roadmap" : "No roadmap selected"}
+                  {activeRoadmap
+                    ? activeRoadmap.title.startsWith("Proof Sprint:")
+                      ? "Proof sprint"
+                      : "Current roadmap"
+                    : "No roadmap selected"}
                 </span>
               </div>
             </div>

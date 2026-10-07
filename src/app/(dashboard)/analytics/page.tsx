@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   CheckCircle2,
   ClipboardList,
@@ -10,6 +11,12 @@ import {
 } from "lucide-react";
 import { fetcher } from "@/lib/api";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
+import { OfferTradeoffSimulator } from "@/components/dashboard/offer-tradeoff-simulator";
+import type {
+  FitAssessment,
+  FitVerdict,
+  OfferDetails,
+} from "@/lib/application-types";
 
 interface Roadmap {
   id: string;
@@ -22,10 +29,46 @@ interface Roadmap {
   }[];
 }
 
+interface ApplicationOutcome {
+  id: string;
+  company: string;
+  position: string;
+  status: string;
+  fitAssessment?: FitAssessment | null;
+  offerDetails?: OfferDetails | null;
+}
+
+const SUBMITTED_STATUSES = new Set([
+  "APPLIED",
+  "PHONE_SCREEN",
+  "INTERVIEWING",
+  "OFFERED",
+  "REJECTED",
+]);
+
+const PROGRESSED_STATUSES = new Set([
+  "PHONE_SCREEN",
+  "INTERVIEWING",
+  "OFFERED",
+]);
+
+const FIT_VERDICTS: { value: FitVerdict; label: string }[] = [
+  { value: "STRONG_MATCH", label: "Strong match" },
+  { value: "POSSIBLE_MATCH", label: "Possible match" },
+  { value: "STRETCH", label: "Stretch" },
+  { value: "LOW_MATCH", label: "Low match" },
+  { value: "INSUFFICIENT_INFO", label: "Insufficient info" },
+];
+
 export default function AnalyticsPage() {
   const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [applications, setApplications] = useState<ApplicationOutcome[]>([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
+  const [applicationsError, setApplicationsError] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     async function loadRoadmaps() {
@@ -46,6 +89,55 @@ export default function AnalyticsPage() {
     loadRoadmaps();
   }, []);
 
+  useEffect(() => {
+    async function loadApplications() {
+      try {
+        const data = await fetcher<ApplicationOutcome[]>("/applications");
+        if (!Array.isArray(data)) {
+          throw new Error("Unexpected applications response.");
+        }
+        setApplications(data);
+      } catch (loadError) {
+        setApplicationsError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Unable to load your application outcomes.",
+        );
+      } finally {
+        setApplicationsLoading(false);
+      }
+    }
+
+    loadApplications();
+  }, []);
+
+  const submittedAssessments = applications.filter(
+    (application) =>
+      application.fitAssessment &&
+      SUBMITTED_STATUSES.has(application.status),
+  );
+  const fitOutcomeRows = FIT_VERDICTS.map((verdict) => {
+    const matchingApplications = submittedAssessments.filter(
+      (application) => application.fitAssessment?.verdict === verdict.value,
+    );
+    const progressed = matchingApplications.filter((application) =>
+      PROGRESSED_STATUSES.has(application.status),
+    ).length;
+    return {
+      ...verdict,
+      submitted: matchingApplications.length,
+      progressed,
+      rate: matchingApplications.length
+        ? Math.round((progressed / matchingApplications.length) * 100)
+        : 0,
+    };
+  })
+    .filter((row) => row.submitted > 0)
+    .sort((left, right) => right.rate - left.rate);
+  const establishedFitPatterns = fitOutcomeRows.filter(
+    (row) => row.submitted >= 3,
+  );
+
   const projects = roadmaps.flatMap((roadmap) =>
     roadmap.projects.map((project) => ({
       ...project,
@@ -60,10 +152,15 @@ export default function AnalyticsPage() {
       roadmapTasks.length > 0 && roadmapTasks.every((task) => task.completed)
     );
   }).length;
-  const averageReadiness = roadmaps.length
+  const readinessRoadmaps = roadmaps.filter(
+    (roadmap) => !roadmap.title.startsWith("Proof Sprint:"),
+  );
+  const averageReadiness = readinessRoadmaps.length
     ? Math.round(
-        roadmaps.reduce((total, roadmap) => total + roadmap.readinessScore, 0) /
-          roadmaps.length,
+        readinessRoadmaps.reduce(
+          (total, roadmap) => total + roadmap.readinessScore,
+          0,
+        ) / readinessRoadmaps.length,
       )
     : null;
 
@@ -98,7 +195,7 @@ export default function AnalyticsPage() {
     <div className="w-full space-y-6">
       <DashboardPageHeader
         title="Analytics & Insights"
-        description="Progress calculated from your roadmaps and completed tasks."
+        description="See your roadmap progress and learn from your own application outcomes."
       />
 
       {loading ? (
@@ -133,6 +230,102 @@ export default function AnalyticsPage() {
               );
             })}
           </div>
+
+          <section className="space-y-5 rounded-xl border border-[#1f212d] bg-[#12131a] p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#1f212d] pb-3">
+              <div>
+                <h2 className="text-sm font-semibold text-white">
+                  Your job-search playbook
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  How your saved fit assessments relate to your application
+                  progress.
+                </p>
+              </div>
+              <Link
+                href="/applications"
+                className="text-xs font-medium text-blue-300 hover:text-blue-200"
+              >
+                View applications
+              </Link>
+            </div>
+
+            {applicationsLoading ? (
+              <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading your application history...
+              </div>
+            ) : applicationsError ? (
+              <p role="alert" className="text-xs text-rose-400">
+                {applicationsError}
+              </p>
+            ) : fitOutcomeRows.length === 0 ? (
+              <p className="py-3 text-xs leading-5 text-slate-400">
+                As you save fit assessments and move applications beyond Saved,
+                this will show which fit categories have reached a phone screen,
+                interview, or offer in your own history.
+              </p>
+            ) : (
+              <>
+                <p className="text-[11px] leading-5 text-slate-500">
+                  Progress means reaching phone screen, interviewing, or offered.
+                  Saved and withdrawn roles are excluded. These are patterns in
+                  your tracker, not proof that a fit score caused an outcome.
+                </p>
+                {establishedFitPatterns.length > 0 && (
+                  <p className="rounded-lg border border-blue-500/20 bg-blue-500/[0.04] px-3 py-2 text-xs leading-5 text-blue-100">
+                    So far, your highest observed progression is for{" "}
+                    <strong>{establishedFitPatterns[0].label}</strong> roles:{" "}
+                    {establishedFitPatterns[0].progressed}/
+                    {establishedFitPatterns[0].submitted} reached a phone
+                    screen, interview, or offer. This is a personal pattern,
+                    not a guarantee.
+                  </p>
+                )}
+                <div className="space-y-4">
+                  {fitOutcomeRows.map((row) => (
+                    <div key={row.value} className="space-y-2">
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="font-medium text-slate-200">
+                          {row.label}
+                        </span>
+                        <span className="shrink-0 font-mono text-slate-400">
+                          {row.progressed}/{row.submitted} progressed ·{" "}
+                          {row.rate}%
+                          {row.submitted < 3 && " · early signal"}
+                        </span>
+                      </div>
+                      <div
+                        className="h-2 overflow-hidden rounded-full bg-[#1f212d]"
+                        role="img"
+                        aria-label={`${row.label}: ${row.progressed} of ${row.submitted} progressed`}
+                      >
+                        <div
+                          className="h-full rounded-full bg-blue-500 transition-all"
+                          style={{ width: `${row.rate}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+
+          <OfferTradeoffSimulator
+            applications={applications}
+            loading={applicationsLoading}
+            error={applicationsError}
+            onOfferDetailsSaved={(applicationId, offerDetails) => {
+              setApplications((current) =>
+                current.map((application) =>
+                  application.id === applicationId
+                    ? { ...application, offerDetails }
+                    : application,
+                ),
+              );
+            }}
+          />
 
           <section className="rounded-xl border border-[#1f212d] bg-[#12131a] p-6">
             <div className="mb-5 border-b border-[#1f212d] pb-3">
