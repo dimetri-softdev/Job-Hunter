@@ -1,6 +1,10 @@
 import { supabase } from "@/lib/supabase";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://jobhunter-api-6c47.onrender.com/api/v1"
+    : "http://127.0.0.1:8000/api/v1");
 
 export async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;

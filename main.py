@@ -4,6 +4,7 @@ import io
 import httpx
 import logging
 import uuid
+import time
 from contextlib import asynccontextmanager
 from datetime import date
 from typing import Optional, Dict, Any, Literal
@@ -52,9 +53,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # 3. Middleware Configuration
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://job-hunter-nmln.onrender.com",
+]
+frontend_origin = os.getenv("FRONTEND_ORIGIN")
+if frontend_origin:
+    allowed_origins.append(frontend_origin.rstrip("/"))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -139,6 +149,21 @@ APPLICATION_STATUSES = {
     "REJECTED",
     "WITHDRAWN",
 }
+
+def gemini_generate_with_retry(**kwargs: Any):
+    models = [GEMINI_MODEL, "gemini-2.5-flash-lite"]
+    last_error: Optional[Exception] = None
+    for attempt in range(3):
+        model = models[0] if attempt < 2 else models[-1]
+        try:
+            return gemini_client.models.generate_content(model=model, **kwargs)
+        except Exception as exc:
+            if getattr(exc, "code", None) not in (429, 500, 503, 504):
+                raise
+            last_error = exc
+            time.sleep(2 * (attempt + 1))
+    raise last_error  # type: ignore[misc]
+
 
 def serialize_offer_details(details: Optional[OfferDetailsRequest]) -> Optional[str]:
     if not details:
@@ -784,8 +809,7 @@ async def match_job_fit(
                 genai_types.Part.from_bytes(data=job_image_bytes, mime_type=job_image_mime),
             ])
 
-        completion = gemini_client.models.generate_content(
-            model=GEMINI_MODEL,
+        completion = gemini_generate_with_retry(
             contents=content,
             config=genai_types.GenerateContentConfig(
                 system_instruction="You are a cautious career-fit analyst. Compare only job-related evidence and always return valid JSON.",
@@ -907,6 +931,14 @@ async def generate_resume_roadmap_update(
         for roadmap in roadmaps
         for project in roadmap.projects
     }
+    proof_rows = await db.query_raw(
+        'SELECT p."id", p."proofNotes" FROM "ProjectTrack" p '
+        'JOIN "Roadmap" r ON r."id" = p."roadmapId" '
+        'WHERE r."userId" = $1 AND p."id" = ANY($2::text[])',
+        user_id,
+        selected_project_ids,
+    )
+    proof_notes_by_id = {row["id"]: row["proofNotes"] or "" for row in proof_rows}
     selected_projects = []
     for project_id in selected_project_ids:
         project = project_by_id.get(project_id)
@@ -923,7 +955,7 @@ async def generate_resume_roadmap_update(
             "title": project.title[:160],
             "description": project.description[:800],
             "completedTasks": [label[:240] for label in completed_tasks[:20]],
-            "proofNotes": (project.proofNotes or "")[:1500],
+            "proofNotes": proof_notes_by_id.get(project.id, "")[:1500],
         })
 
     prompt = f"""
@@ -961,8 +993,7 @@ async def generate_resume_roadmap_update(
     """
 
     try:
-        completion = gemini_client.models.generate_content(
-            model=GEMINI_MODEL,
+        completion = gemini_generate_with_retry(
             contents=[prompt],
             config=genai_types.GenerateContentConfig(
                 system_instruction=(
