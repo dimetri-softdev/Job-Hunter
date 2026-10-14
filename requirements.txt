@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+httpx
+Pillow
+google-genai
+python-dotenv
+prisma
+groq
+pypdf
+python-multipart
