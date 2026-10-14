@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   BriefcaseBusiness,
   FileSearch,
   Sparkles,
@@ -23,13 +25,26 @@ export function AuthSidebar({ mode }: AuthSidebarProps) {
         className="absolute inset-y-0 right-0 hidden w-px bg-blue-500/30 md:block"
       />
       <div className="relative">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-300">
-            <Sparkles className="size-5" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight text-white">
-            JobHunter<span className="text-blue-400">.ai</span>
-          </span>
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href="/"
+            aria-label="JobHunter home"
+            className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            <div className="flex size-9 items-center justify-center rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-300">
+              <Sparkles className="size-5" />
+            </div>
+            <span className="text-lg font-semibold tracking-tight text-white">
+              JobHunter<span className="text-blue-400">.ai</span>
+            </span>
+          </Link>
+          <Link
+            href="/"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md text-xs font-medium text-slate-300 transition-colors hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            <ArrowLeft aria-hidden="true" className="size-3.5" />
+            Back to home
+          </Link>
         </div>
 
         <p className="mt-2 text-xs text-slate-400 md:hidden">
