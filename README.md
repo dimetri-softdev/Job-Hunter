@@ -101,6 +101,10 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
+### Admin feedback
+
+Feedback responses are anonymous and can be reviewed at `/admin` by an authenticated account whose email is listed in the server-only `ADMIN_EMAILS` environment variable. Set it to one or more comma-separated email addresses on the Node service (or in `.env.local` for local development), then sign in with that account. Do not expose this variable with a `NEXT_PUBLIC_` prefix. The feedback API verifies the Supabase user and checks the allowlist before returning paginated results.
+
 ### Building for Production
 
 ```bash
