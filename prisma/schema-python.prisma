@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String        @id
+  email             String        @unique
+  name              String?
+  careerSummary     String?
+  skills            String?
+  workHistory       String?
+  education         String?
+  accomplishments   String?
+  experienceLevel   String?
+  targetRoles       String?
+  preferredLocation String?
+  workArrangement   String?
+  offerPriorities   Json?
+  roadmaps          Roadmap[]
+  applications      Application[]
+  createdAt         DateTime       @default(now())
+}
+
+model Roadmap {
+  id             String         @id @default(uuid())
+  title          String
+  readinessScore Int
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId  String?
+  application    Application?   @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  projects       ProjectTrack[]
+  createdAt      DateTime       @default(now())
+
+  @@index([applicationId])
+}
+
+model ProjectTrack {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  level       String
+  proofUrl    String?
+  proofNotes  String?
+  roadmapId   String
+  roadmap     Roadmap  @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+}
+
+model Task {
+  id             String       @id @default(uuid())
+  label          String
+  completed      Boolean      @default(false)
+  projectTrackId String
+  projectTrack   ProjectTrack @relation(fields: [projectTrackId], references: [id], onDelete: Cascade)
+}
+
+model Application {
+  id             String   @id @default(cuid())
+  company        String
+  position       String
+  status         String   @default("APPLIED")
+  notes          String?
+  jobUrl         String?
+  jobDescription String?
+  jobSummary     String?
+  fitAssessment  Json?
+  offerDetails   Json?
+  nextAction     String?
+  followUpAt     DateTime? @db.Date
+  roadmaps       Roadmap[]
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model FeedbackResponse {
+  id        String   @id @default(uuid())
+  answers   Json
+  createdAt DateTime @default(now())
+}
