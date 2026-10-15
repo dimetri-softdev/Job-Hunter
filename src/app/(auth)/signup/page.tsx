@@ -45,18 +45,6 @@ export default function SignupPage() {
     }
   };
 
-  const handleOAuthSignIn = async (provider: "github" | "google") => {
-    setErrorMsg(null);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) setErrorMsg(error.message);
-  };
-
   return (
     <div className="flex min-h-dvh flex-col bg-[#090a0f] text-slate-200 md:flex-row">
       <AuthSidebar mode="signup" />
@@ -84,21 +72,29 @@ export default function SignupPage() {
             </div>
           )}
 
-          {/* Social OAuth Buttons */}
+          <p role="status" className="text-center text-xs text-slate-500">
+            GitHub and Google sign-up are under construction and unavailable
+            for now. Please register with email and password.
+          </p>
+
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => handleOAuthSignIn("github")}
-              className="flex h-11 items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-200 transition-colors hover:border-blue-500/40 hover:bg-blue-600/10"
+              disabled
+              aria-label="GitHub sign-up coming soon"
+              className="flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-500 opacity-70"
             >
-              <SiGithub className="size-4" /> GitHub
+              <SiGithub className="size-4" aria-hidden="true" />
+              GitHub
             </button>
             <button
               type="button"
-              onClick={() => handleOAuthSignIn("google")}
-              className="flex h-11 items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-200 transition-colors hover:border-blue-500/40 hover:bg-blue-600/10"
+              disabled
+              aria-label="Google sign-up coming soon"
+              className="flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-500 opacity-70"
             >
-              <SiGoogle className="size-4" /> Google
+              <SiGoogle className="size-4" aria-hidden="true" />
+              Google
             </button>
           </div>
 
