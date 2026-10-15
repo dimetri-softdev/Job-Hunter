@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 
 export function PublicSiteHeader() {
   return (
@@ -9,9 +9,7 @@ export function PublicSiteHeader() {
           className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-10 lg:px-16"
       >
         <Link href="/" className="inline-flex items-center gap-2.5 text-white">
-          <span className="flex size-8 items-center justify-center rounded-lg border border-blue-500/30 bg-blue-600/10 text-blue-300">
-            <Sparkles className="size-4" />
-          </span>
+          <BrandLogo compact className="size-8" alt="" />
           <span className="text-sm font-bold">JobHunter</span>
         </Link>
         <div className="flex items-center gap-2 text-xs sm:gap-4 sm:text-sm">

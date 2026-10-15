@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 
 export function PublicSiteFooter() {
   return (
@@ -8,12 +8,10 @@ export function PublicSiteFooter() {
         <div>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-white"
+            aria-label="JobHunter home"
+            className="inline-flex items-center"
           >
-            <span className="flex size-7 items-center justify-center rounded-lg border border-blue-500/30 bg-blue-600/10 text-blue-300">
-              <Sparkles className="size-3.5" aria-hidden="true" />
-            </span>
-            JobHunter
+            <BrandLogo className="h-10 w-[180px]" alt="" />
           </Link>
           <p className="mt-2 max-w-sm text-xs leading-5 text-slate-500">
             A focused workspace for making your next career move with more

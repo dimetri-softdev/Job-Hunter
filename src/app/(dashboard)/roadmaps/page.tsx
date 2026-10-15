@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ArrowUpRight, Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { fetcher } from "@/lib/api";
 import { GeneratorModal } from "@/components/dashboard/generator-modal";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
@@ -103,7 +103,7 @@ export default function RoadmapsPage() {
         description="Manage your tailored AI pathways, track role readiness, and delete generated plans you no longer need."
       >
         <GeneratorModal
-          buttonLabel="New Roadmap"
+          buttonLabel="Create learning roadmap"
           onRoadmapGenerated={handleRoadmapGenerated}
         />
       </DashboardPageHeader>
@@ -146,7 +146,7 @@ export default function RoadmapsPage() {
               <div
                 key={item.id}
                 id={`roadmap-${item.id}`}
-                className="scroll-mt-6 bg-[#12131a] border border-[#1f212d] hover:border-slate-700 rounded-2xl p-5 space-y-4 flex flex-col justify-between transition-all group cursor-pointer"
+                className="scroll-mt-6 bg-[#12131a] border border-[#1f212d] rounded-2xl p-5 space-y-4 flex flex-col justify-between"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -155,11 +155,10 @@ export default function RoadmapsPage() {
                         ? "Proof sprint · not scored"
                         : `Score ${item.readinessScore}`}
                     </span>
-                    <ArrowUpRight className="h-4 w-4 text-slate-500 group-hover:text-white transition-colors" />
                   </div>
 
                   <div>
-                    <h3 className="font-semibold text-white text-sm group-hover:text-blue-400 transition-colors">
+                    <h3 className="font-semibold text-white text-sm">
                       {item.title}
                     </h3>
                     <p className="text-[11px] text-slate-500 font-mono mt-1">

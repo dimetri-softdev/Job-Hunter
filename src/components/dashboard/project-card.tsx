@@ -212,6 +212,11 @@ export function ProjectCard({
       </div>
 
       <div className="space-y-2 pt-2">
+        {tasks.length > 0 && (
+          <p className="text-[11px] text-slate-500">
+            Select a task to mark it complete and update your progress.
+          </p>
+        )}
         {tasks.map((task) => (
           <div
             key={task.id}

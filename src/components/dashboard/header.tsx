@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { BrandLogo } from "@/components/brand-logo";
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
@@ -11,13 +13,17 @@ export function Header() {
     <header className="h-16 shrink-0 border-b border-[#1f212d] bg-[#0d0e14] px-4 sm:px-6 lg:px-8">
       <div className="mx-auto flex h-full w-full max-w-[1600px] items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-white">Career Co-Pilot</span>
+          <BrandLogo compact className="size-8" />
+          <span className="font-semibold text-white">JobHunter</span>
         </div>
 
         <div className="flex min-w-0 items-center gap-3 text-xs text-slate-400 sm:gap-4">
-          <button className="hidden transition-colors hover:text-white sm:inline-flex">
-            Feedback
-          </button>
+          <Link
+            href="/feedback"
+            className="hidden transition-colors hover:text-white sm:inline-flex"
+          >
+            Share feedback
+          </Link>
 
           {loading ? (
             <div className="h-8 w-28 animate-pulse rounded-full border border-[#1f212d] bg-[#141620]" />

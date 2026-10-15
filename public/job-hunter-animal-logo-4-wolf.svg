@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" role="img" aria-labelledby="title desc">
+  <title id="title">JobHunter wolf logo</title>
+  <desc id="desc">A focused geometric wolf profile with a subtle rising trail.</desc>
+  <defs>
+    <linearGradient id="wolf" x1="12" y1="12" x2="67" y2="68" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#CBD5E1"/>
+      <stop offset="1" stop-color="#64748B"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="72" height="72" rx="22" fill="#111827"/>
+  <path d="m18 20 17 9 12-4 12-8-2 18 9 11-17 3-9 15-10-12-16-3 9-12-5-17Z" fill="url(#wolf)"/>
+  <path d="m18 20 17 13-10 13-12 1 9-12-4-15Zm41-3-12 11 1 12 9-5 2-18Z" fill="#93C5FD"/>
+  <path d="M30 47c7-4 14-4 22-1" fill="none" stroke="#1E293B" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="42" cy="39" r="2.2" fill="#0F172A"/>
+  <path d="m30 57 9 7 8-8" fill="none" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="94" y="47" fill="#F8FAFC" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="27" font-weight="700" letter-spacing="-1.1">JobHunter</text>
+  <text x="96" y="64" fill="#94A3B8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="600" letter-spacing="2.1">STAY ON YOUR PATH</text>
+</svg>

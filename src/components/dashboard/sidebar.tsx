@@ -11,19 +11,54 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   MessageSquareText,
   FileText,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 
 const navItems = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "Roadmaps", href: "/roadmaps", icon: Compass },
-  { name: "Applications", href: "/applications", icon: Briefcase },
-  { name: "Settings", href: "/settings", icon: Settings },
-  { name: "Resume update", href: "/resume-update", icon: FileText },
-  { name: "Share feedback", href: "/feedback", icon: MessageSquareText },
+  {
+    name: "Career dashboard",
+    description: "Your next steps and current progress",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    name: "Search insights",
+    description: "Patterns in your job search",
+    href: "/analytics",
+    icon: BarChart3,
+  },
+  {
+    name: "Learning plans",
+    description: "Learning plans and project tasks",
+    href: "/roadmaps",
+    icon: Compass,
+  },
+  {
+    name: "Job applications",
+    description: "Saved jobs, status, and follow-ups",
+    href: "/applications",
+    icon: Briefcase,
+  },
+  {
+    name: "Account settings",
+    description: "Your profile and account preferences",
+    href: "/settings",
+    icon: Settings,
+  },
+  {
+    name: "Resume update",
+    description: "Create a role-specific resume draft",
+    href: "/resume-update",
+    icon: FileText,
+  },
+  {
+    name: "Send feedback",
+    description: "Send an idea or report an issue",
+    href: "/feedback",
+    icon: MessageSquareText,
+  },
 ];
 
 export function Sidebar() {
@@ -32,27 +67,25 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`relative z-30 flex shrink-0 flex-col border-r border-[#1f212d] bg-[#0d0e14] transition-[width] duration-300 ease-in-out ${
-        collapsed ? "w-16 md:w-20" : "w-16 md:w-64"
+      className={`relative z-30 flex w-[4.75rem] shrink-0 flex-col border-r border-[#1f212d] bg-[#0d0e14] transition-[width] duration-300 ease-in-out md:w-64 ${
+        collapsed ? "md:w-20" : "md:w-64"
       }`}
     >
-      {/* Brand Header */}
       <div className="flex h-16 items-center justify-center border-b border-[#1f212d] px-2 md:justify-between md:px-4">
-        <div className="flex min-w-0 items-center gap-3 overflow-hidden">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-500/30 bg-blue-600/20 text-blue-400">
-            <Sparkles className="h-5 w-5 text-blue-400" />
-          </div>
-          {!collapsed && (
-            <span className="hidden truncate text-lg font-bold tracking-wide text-white md:inline">
-              JobHunter<span className="text-blue-500">.ai</span>
-            </span>
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+          <BrandLogo compact className="size-9 md:hidden" />
+          {collapsed ? (
+            <BrandLogo compact className="hidden size-9 md:block" />
+          ) : (
+            <BrandLogo className="hidden h-10 w-[180px] md:block" />
           )}
         </div>
 
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="hidden rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-[#1f212d] hover:text-white md:inline-flex"
-          aria-label="Toggle Sidebar"
+          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+          title={collapsed ? "Expand navigation" : "Collapse navigation"}
         >
           {collapsed ? (
             <ChevronRight className="h-4 w-4" />
@@ -64,7 +97,7 @@ export function Sidebar() {
 
       {/* Navigation Items */}
       <nav
-        className="flex-1 space-y-1.5 p-2 md:p-3"
+        className="flex-1 space-y-1 overflow-y-auto p-1.5 md:space-y-1.5 md:p-3"
         aria-label="Dashboard navigation"
       >
         {navItems.map((item) => {
@@ -76,9 +109,9 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              aria-label={item.name}
+              title={`${item.name}: ${item.description}`}
               aria-current={isActive ? "page" : undefined}
-              className={`flex items-center justify-center gap-3 rounded-xl border px-2 py-2.5 text-sm font-medium transition-[color,background-color,border-color] duration-200 md:justify-start md:px-3 ${
+              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center text-[9px] font-medium leading-tight transition-[color,background-color,border-color] duration-200 md:min-h-0 md:flex-row md:gap-3 md:px-3 md:py-2.5 md:text-left md:text-sm ${
                 isActive
                   ? "border-blue-500/20 bg-blue-600/10 text-blue-400"
                   : "border-transparent text-slate-400 hover:bg-[#141620] hover:text-slate-200"
@@ -86,7 +119,12 @@ export function Sidebar() {
             >
               <Icon className="h-5 w-5 shrink-0" />
               {!collapsed && (
-                <span className="hidden truncate md:inline">{item.name}</span>
+                <span className="min-w-0 md:block">
+                  <span className="block truncate">{item.name}</span>
+                  <span className="hidden truncate text-[10px] font-normal text-slate-500 md:block">
+                    {item.description}
+                  </span>
+                </span>
               )}
             </Link>
           );

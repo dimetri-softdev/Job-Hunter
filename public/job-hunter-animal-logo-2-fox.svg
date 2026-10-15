@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" role="img" aria-labelledby="title desc">
+  <title id="title">JobHunter fox logo</title>
+  <desc id="desc">A clever fox face with a briefcase-shaped lower silhouette.</desc>
+  <defs>
+    <linearGradient id="fox" x1="14" y1="12" x2="65" y2="66" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDBA74"/>
+      <stop offset="1" stop-color="#EA580C"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="72" height="72" rx="22" fill="#111827"/>
+  <path d="m18 20 17 8h10l17-8-4 27c-2 12-10 19-18 23-8-4-16-11-18-23l-4-27Z" fill="url(#fox)"/>
+  <path d="m18 20 15 24-10 4-5-28Zm44 0L47 44l10 4 5-28Z" fill="#F8FAFC" opacity=".92"/>
+  <path d="m35 43 5 4 5-4-5 11-5-11Z" fill="#1E293B"/>
+  <path d="M26 55c5 3 10 4 14 4s9-1 14-4" fill="none" stroke="#7C2D12" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="32" cy="40" r="2" fill="#1E293B"/>
+  <circle cx="48" cy="40" r="2" fill="#1E293B"/>
+  <text x="94" y="47" fill="#F8FAFC" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="27" font-weight="700" letter-spacing="-1.1">JobHunter</text>
+  <text x="96" y="64" fill="#94A3B8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="600" letter-spacing="2.1">SEARCH SMARTER</text>
+</svg>

@@ -803,7 +803,7 @@ export default function ApplicationsPage() {
                         <Button
                           type="button"
                           variant="ghost"
-                          size="icon"
+                          size="sm"
                           aria-label={`Edit ${app.position} at ${app.company}`}
                           className="text-slate-400 hover:bg-[#1f212d] hover:text-white"
                           onClick={() => {
@@ -811,12 +811,13 @@ export default function ApplicationsPage() {
                             setEditing(app);
                           }}
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
                         </Button>
                         <Button
                           type="button"
                           variant="ghost"
-                          size="icon"
+                          size="sm"
                           aria-label={`Delete ${app.position} at ${app.company}`}
                           className="text-slate-400 hover:bg-rose-500/10 hover:text-rose-400"
                           onClick={() => {
@@ -824,7 +825,8 @@ export default function ApplicationsPage() {
                             setDeleting(app);
                           }}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
                         </Button>
                       </div>
                     </td>

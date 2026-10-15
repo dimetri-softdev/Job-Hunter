@@ -4,9 +4,9 @@ import {
   ArrowLeft,
   BriefcaseBusiness,
   FileSearch,
-  Sparkles,
   UserRound,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 
 interface AuthSidebarProps {
   mode: "login" | "signup";
@@ -31,12 +31,7 @@ export function AuthSidebar({ mode }: AuthSidebarProps) {
             aria-label="JobHunter home"
             className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
-            <div className="flex size-9 items-center justify-center rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-300">
-              <Sparkles className="size-5" />
-            </div>
-            <span className="text-lg font-semibold tracking-tight text-white">
-              JobHunter<span className="text-blue-400">.ai</span>
-            </span>
+            <BrandLogo className="h-10 w-[180px]" alt="" />
           </Link>
           <Link
             href="/"

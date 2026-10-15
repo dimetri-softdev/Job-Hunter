@@ -22,7 +22,7 @@ interface GeneratorModalProps {
 
 export function GeneratorModal({
   onRoadmapGenerated,
-  buttonLabel = "Generate Roadmap",
+  buttonLabel = "Create learning roadmap",
 }: GeneratorModalProps) {
   const [open, setOpen] = useState(false);
 

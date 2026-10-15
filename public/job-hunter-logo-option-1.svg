@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" role="img" aria-labelledby="title desc">
+  <title id="title">JobHunter logo option 1</title>
+  <desc id="desc">A compass and rising path mark beside the JobHunter wordmark.</desc>
+  <defs>
+    <linearGradient id="compass" x1="12" y1="8" x2="68" y2="68" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="route" x1="25" y1="54" x2="54" y2="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A5F3FC"/>
+      <stop offset="1" stop-color="#DBEAFE"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="72" height="72" rx="22" fill="#111827"/>
+  <circle cx="40" cy="40" r="23" stroke="url(#compass)" stroke-width="2.5"/>
+  <path d="M40 17v5m0 36v5M17 40h5m36 0h5" stroke="#64748B" stroke-width="2" stroke-linecap="round"/>
+  <path d="m27 52 10-11 8 3 11-16" fill="none" stroke="url(#route)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m48 28 8-1-1 8" fill="none" stroke="#DBEAFE" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="27" cy="52" r="3.5" fill="#60A5FA"/>
+  <text x="94" y="47" fill="#F8FAFC" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="27" font-weight="700" letter-spacing="-1.1">JobHunter</text>
+  <text x="96" y="64" fill="#94A3B8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="600" letter-spacing="2.1">FIND YOUR NEXT DIRECTION</text>
+</svg>

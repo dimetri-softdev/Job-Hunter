@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" role="img" aria-labelledby="title desc">
+  <title id="title">JobHunter logo option 5</title>
+  <desc id="desc">A target with an arrow reaching its center, representing focused career goals.</desc>
+  <defs>
+    <linearGradient id="target" x1="14" y1="15" x2="66" y2="66" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#3B82F6"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="72" height="72" rx="22" fill="#111827"/>
+  <circle cx="39" cy="41" r="23" fill="none" stroke="#334155" stroke-width="2"/>
+  <circle cx="39" cy="41" r="16" fill="none" stroke="url(#target)" stroke-width="3"/>
+  <circle cx="39" cy="41" r="7" fill="#1D4ED8" stroke="#BAE6FD" stroke-width="2.5"/>
+  <path d="m25 55 22-22m0 0-1 8m1-8-8 1" fill="none" stroke="#F8FAFC" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m25 55-5 2 2-5" fill="none" stroke="#67E8F9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="94" y="47" fill="#F8FAFC" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="27" font-weight="700" letter-spacing="-1.1">JobHunter</text>
+  <text x="96" y="64" fill="#94A3B8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="600" letter-spacing="2.1">FOCUS ON WHAT’S NEXT</text>
+</svg>

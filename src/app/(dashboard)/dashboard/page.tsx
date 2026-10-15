@@ -193,7 +193,7 @@ export default function DashboardPage() {
         description="Track your active skills roadmap, learning tracks, and project tasks."
       >
         <GeneratorModal
-          buttonLabel="Generate New Roadmap"
+          buttonLabel="Create learning roadmap"
           onRoadmapGenerated={handleRoadmapGenerated}
         />
       </DashboardPageHeader>

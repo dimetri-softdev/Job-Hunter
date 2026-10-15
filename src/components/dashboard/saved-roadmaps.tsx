@@ -19,7 +19,12 @@ export function SavedRoadmaps({
   return (
     <div className="bg-[#12131a] border border-[#1f212d] rounded-2xl p-5 space-y-4">
       <div className="flex justify-between items-center pb-2 border-b border-[#1f212d]">
-        <h3 className="font-semibold text-white text-sm">Saved Roadmaps</h3>
+        <div>
+          <h3 className="font-semibold text-white text-sm">Saved roadmaps</h3>
+          <p className="mt-1 text-[11px] leading-4 text-slate-500">
+            Select one to view its projects and tasks on your dashboard.
+          </p>
+        </div>
         <span className="text-xs bg-[#1f212d] text-slate-400 px-2 py-0.5 rounded-full font-mono">
           {roadmaps.length}
         </span>
