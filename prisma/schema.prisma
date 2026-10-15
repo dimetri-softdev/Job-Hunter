@@ -80,7 +80,16 @@ model Application {
 }
 
 model FeedbackResponse {
-  id        String   @id @default(uuid())
-  answers   Json
+  id         String   @id @default(uuid())
+  answers    Json
+  reviewed   Boolean  @default(false)
+  adminNotes String?
+  createdAt  DateTime @default(now())
+}
+
+model AdminAccess {
+  userId    String   @id
+  email     String   @unique
+  addedBy   String
   createdAt DateTime @default(now())
 }

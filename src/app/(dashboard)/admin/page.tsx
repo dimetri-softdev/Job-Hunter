@@ -1,14 +1,14 @@
-import { AdminFeedbackPanel } from "@/components/dashboard/admin-feedback-panel";
+import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 
 export default function AdminPage() {
   return (
     <div className="w-full space-y-6">
       <DashboardPageHeader
-        title="Admin feedback"
-        description="Review anonymous feedback submissions. Access is restricted to the administrator email configured on the server."
+        title="Admin dashboard"
+        description="Review user feedback and manage account access. Administrative actions are protected by server-side authorization."
       />
-      <AdminFeedbackPanel />
+      <AdminDashboard />
     </div>
   );
 }

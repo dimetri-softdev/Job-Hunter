@@ -103,7 +103,20 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to see the a
 
 ### Admin feedback
 
-Feedback responses are anonymous and can be reviewed at `/admin` by an authenticated account whose email is listed in the server-only `ADMIN_EMAILS` environment variable. Set it to one or more comma-separated email addresses on the Node service (or in `.env.local` for local development), then sign in with that account. Do not expose this variable with a `NEXT_PUBLIC_` prefix. The feedback API verifies the Supabase user and checks the allowlist before returning paginated results.
+Feedback responses are anonymous and can be reviewed at `/admin` by an authenticated Supabase account whose email is listed in the server-only `ADMIN_EMAILS` environment variable. Set it to one or more comma-separated email addresses on the Node service (or in `.env.local` for local development), then sign in with that account. Do not expose this variable with a `NEXT_PUBLIC_` prefix.
+
+The dashboard includes feedback analytics and filtering, CSV export, feedback review notes, and account controls for suspending accounts, deleting accounts, and granting or removing administrator access. Only accounts in `ADMIN_EMAILS` or in the database-managed admin list can use these controls. Bootstrap admins from `ADMIN_EMAILS` cannot be removed or deleted in the dashboard; change that environment variable deliberately to change bootstrap access.
+
+Set `SUPABASE_SERVICE_ROLE_KEY` on the Node service to enable user and administrator management. This is a server-only secret: never add a `NEXT_PUBLIC_` prefix or commit the key. Without it, feedback review still works, but the Users & admins section cannot manage accounts.
+
+Apply the schema migration before deploying the updated admin APIs:
+
+```bash
+npx prisma migrate deploy
+npx prisma generate
+```
+
+The migration adds review metadata to feedback and the database-managed administrator table. Ensure the Node service uses the same PostgreSQL `DATABASE_URL` as the Prisma migration setup. Deleting an account permanently removes its Supabase identity and associated application data; the dashboard requires typing the account email to confirm.
 
 ### Building for Production
 
