@@ -553,6 +553,20 @@ async def get_roadmaps(user_id: str = Depends(get_current_user)):
         }
     )
 
+@app.delete("/api/v1/roadmaps/{roadmap_id}")
+async def delete_roadmap(
+    roadmap_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    deleted = await db.query_raw(
+        'DELETE FROM "Roadmap" WHERE "id" = $1 AND "userId" = $2 RETURNING "id"',
+        roadmap_id,
+        user_id,
+    )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Roadmap not found.")
+    return {"id": roadmap_id, "deleted": True}
+
 @app.patch("/api/v1/tasks/{task_id}")
 async def update_task_status(
     task_id: str,
@@ -1234,6 +1248,21 @@ async def delete_application(
     if not deleted:
         raise HTTPException(status_code=404, detail="Application not found.")
     return {"id": application_id, "deleted": True}
+
+@app.delete("/api/v1/applications/{application_id}/generated-content")
+async def delete_application_generated_content(
+    application_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    updated = await db.query_raw(
+        'UPDATE "Application" SET "jobSummary" = NULL, "fitAssessment" = NULL, '
+        '"updatedAt" = NOW() WHERE "id" = $1 AND "userId" = $2 RETURNING "id"',
+        application_id,
+        user_id,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    return {"id": application_id, "generatedContentDeleted": True}
 
 @app.post("/api/v1/applications")
 async def create_application(

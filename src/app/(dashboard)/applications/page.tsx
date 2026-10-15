@@ -228,6 +228,32 @@ export default function ApplicationsPage() {
     }
   }
 
+  async function handleDeleteGeneratedContent(app: Application) {
+    const confirmed = window.confirm(
+      `Delete the AI-generated summary and fit assessment for "${app.position}" at ${app.company}? The application and its roadmaps will remain.`,
+    );
+    if (!confirmed) return;
+
+    setActionError(null);
+    try {
+      await fetcher<{ id: string; generatedContentDeleted: boolean }>(
+        `/applications/${encodeURIComponent(app.id)}/generated-content`,
+        { method: "DELETE" },
+      );
+      replaceApplication({
+        ...app,
+        jobSummary: null,
+        fitAssessment: null,
+      });
+    } catch (deleteError: unknown) {
+      setActionError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Unable to delete generated content.",
+      );
+    }
+  }
+
   function handleApplicationCreated(application: CreatedApplication) {
     setApplications((current) => [application, ...current]);
   }
@@ -713,6 +739,18 @@ export default function ApplicationsPage() {
                               View posting
                               <ExternalLink className="h-3 w-3" />
                             </a>
+                          )}
+                          {(app.jobSummary || app.fitAssessment) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleDeleteGeneratedContent(app)
+                              }
+                              className="mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-md border border-rose-500/20 px-2 text-[10px] font-medium text-rose-300 transition hover:bg-rose-500/10"
+                            >
+                              <Trash2 className="size-3" aria-hidden="true" />
+                              Delete AI-generated summary and fit check
+                            </button>
                           )}
                         </div>
                       </div>
