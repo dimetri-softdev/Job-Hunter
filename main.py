@@ -303,15 +303,74 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
     if not isinstance(name, str):
         name = None
 
-    user = await db.user.find_unique(where={"id": user_id})
-    if not user:
-        await db.user.create(
-            data={
-                "id": user_id,
-                "email": email,
-                "name": name,
-            }
+    email_confirmed = bool(
+        auth_user.get("email_confirmed_at") or auth_user.get("confirmed_at")
+    )
+    async with db.tx() as transaction:
+        current_user = await transaction.query_raw(
+            'SELECT "id" FROM "User" WHERE "id" = $1',
+            user_id,
         )
+        if current_user:
+            return user_id
+
+        previous_users = await transaction.query_raw(
+            'SELECT "id" FROM "User" '
+            'WHERE lower("email") = lower($1) AND "id" <> $2 '
+            'LIMIT 1 FOR UPDATE',
+            email,
+            user_id,
+        )
+        if previous_users:
+            if not email_confirmed:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Confirm this email address before reconnecting its saved data.",
+                )
+
+            previous_user_id = previous_users[0]["id"]
+            archived_email = f"account-transfer-{previous_user_id}@invalid.local"
+            await transaction.execute_raw(
+                'UPDATE "User" SET "email" = $1 WHERE "id" = $2',
+                archived_email,
+                previous_user_id,
+            )
+            await transaction.execute_raw(
+                'INSERT INTO "User" ('
+                '"id", "email", "name", "careerSummary", "skills", "workHistory", '
+                '"education", "accomplishments", "experienceLevel", "targetRoles", '
+                '"preferredLocation", "workArrangement", "offerPriorities", "createdAt"'
+                ') SELECT '
+                '$1, $2, "name", "careerSummary", "skills", "workHistory", '
+                '"education", "accomplishments", "experienceLevel", "targetRoles", '
+                '"preferredLocation", "workArrangement", "offerPriorities", "createdAt" '
+                'FROM "User" WHERE "id" = $3',
+                user_id,
+                email,
+                previous_user_id,
+            )
+            await transaction.execute_raw(
+                'UPDATE "Application" SET "userId" = $1 WHERE "userId" = $2',
+                user_id,
+                previous_user_id,
+            )
+            await transaction.execute_raw(
+                'UPDATE "Roadmap" SET "userId" = $1 WHERE "userId" = $2',
+                user_id,
+                previous_user_id,
+            )
+            await transaction.execute_raw(
+                'DELETE FROM "User" WHERE "id" = $1',
+                previous_user_id,
+            )
+        else:
+            await transaction.execute_raw(
+                'INSERT INTO "User" ("id", "email", "name") '
+                'VALUES ($1, $2, $3) ON CONFLICT ("id") DO NOTHING',
+                user_id,
+                email,
+                name,
+            )
 
     return user_id
 
