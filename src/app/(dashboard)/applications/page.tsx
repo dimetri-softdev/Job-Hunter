@@ -33,6 +33,7 @@ import { PNetApplicationPack } from "@/components/dashboard/pnet-application-pac
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { fetcher } from "@/lib/api";
 import { ExternalLink } from "lucide-react";
+import { ActionHint } from "@/components/action-hint";
 import type {
   ApplicationRoadmap,
   FitAssessment,
@@ -430,16 +431,18 @@ export default function ApplicationsPage() {
         title="Job Applications"
         description="Keep track of the roles you have applied for and where they stand."
       >
-        <Button
-          type="button"
-          variant="outline"
-          disabled={applications.length === 0}
-          onClick={handleExportCsv}
-          className="h-9 border-[#2b2e3b] text-xs text-slate-300 hover:bg-[#1f212d] hover:text-white"
-        >
-          <Download className="h-4 w-4" />
-          Export all CSV
-        </Button>
+        <ActionHint label="Download all saved applications and details as a CSV file.">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={applications.length === 0}
+            onClick={handleExportCsv}
+            className="h-9 border-[#2b2e3b] text-xs text-slate-300 hover:bg-[#1f212d] hover:text-white"
+          >
+            <Download className="h-4 w-4" />
+            Export all CSV
+          </Button>
+        </ActionHint>
         <ApplicationCsvImport onImported={handleApplicationsImported} />
         <JobFitModal onApplicationSaved={handleApplicationCreated} />
         <JobPostingModal onApplicationCreated={handleApplicationCreated} />
@@ -450,10 +453,12 @@ export default function ApplicationsPage() {
             if (open) setSaveError(null);
           }}
         >
-          <DialogTrigger className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-            <Plus className="h-4 w-4" />
-            Add application
-          </DialogTrigger>
+          <ActionHint label="Manually save a job and enter its company, role, status, and notes.">
+            <DialogTrigger className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+              <Plus className="h-4 w-4" />
+              Add application
+            </DialogTrigger>
+          </ActionHint>
           <DialogContent className="border-[#1f212d] bg-[#0d0e14] text-slate-100 sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="text-white">Add application</DialogTitle>

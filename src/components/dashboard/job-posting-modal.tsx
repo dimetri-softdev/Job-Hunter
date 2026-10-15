@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
+import { ActionHint } from "@/components/action-hint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -138,10 +139,12 @@ export function JobPostingModal({
         if (nextOpen) resetForm();
       }}
     >
-      <DialogTrigger className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-600/10 px-4 text-xs font-semibold text-blue-300 transition-colors hover:bg-blue-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-        <Sparkles className="h-4 w-4" />
-        Analyze job post
-      </DialogTrigger>
+      <ActionHint label="Paste a job post to draft the company, role, and summary for you to review.">
+        <DialogTrigger className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-600/10 px-4 text-xs font-semibold text-blue-300 transition-colors hover:bg-blue-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+          <Sparkles className="h-4 w-4" />
+          Analyze job post
+        </DialogTrigger>
+      </ActionHint>
       <DialogContent className="max-h-[90vh] overflow-y-auto border-[#1f212d] bg-[#0d0e14] text-slate-100 sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="text-white">

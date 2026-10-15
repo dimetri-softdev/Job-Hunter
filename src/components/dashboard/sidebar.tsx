@@ -15,6 +15,7 @@ import {
   FileText,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { ActionHint } from "@/components/action-hint";
 
 const navItems = [
   {
@@ -81,18 +82,27 @@ export function Sidebar() {
           )}
         </div>
 
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="hidden rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-[#1f212d] hover:text-white md:inline-flex"
-          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
-          title={collapsed ? "Expand navigation" : "Collapse navigation"}
+        <ActionHint
+          placement="right"
+          label={
+            collapsed
+              ? "Expand the dashboard navigation"
+              : "Collapse the dashboard navigation"
+          }
+          className="hidden md:inline-flex"
         >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </button>
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-[#1f212d] hover:text-white"
+            aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </button>
+        </ActionHint>
       </div>
 
       {/* Navigation Items */}
@@ -106,8 +116,13 @@ export function Sidebar() {
           const Icon = item.icon;
 
           return (
-            <Link
+            <ActionHint
               key={item.name}
+              label={item.description}
+              placement="right"
+              className="block w-full"
+            >
+            <Link
               href={item.href}
               title={`${item.name}: ${item.description}`}
               aria-current={isActive ? "page" : undefined}
@@ -127,6 +142,7 @@ export function Sidebar() {
                 </span>
               )}
             </Link>
+            </ActionHint>
           );
         })}
       </nav>

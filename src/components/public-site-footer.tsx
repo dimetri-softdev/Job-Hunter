@@ -11,7 +11,7 @@ export function PublicSiteFooter() {
             aria-label="JobHunter home"
             className="inline-flex items-center"
           >
-            <BrandLogo className="h-12 w-[216px]" alt="" />
+            <BrandLogo className="h-14 w-[252px]" alt="" />
           </Link>
           <p className="mt-2 max-w-sm text-xs leading-5 text-slate-500">
             A focused workspace for making your next career move with more

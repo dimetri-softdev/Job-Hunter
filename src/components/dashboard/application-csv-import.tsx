@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { Loader2, Upload } from "lucide-react";
+import { ActionHint } from "@/components/action-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -374,15 +375,17 @@ export function ApplicationCsvImport({
         aria-label="Choose applications CSV file"
         onChange={(event) => void handleFileChange(event)}
       />
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => fileInput.current?.click()}
-        className="h-9 border-[#2b2e3b] text-xs text-slate-300 hover:bg-[#1f212d] hover:text-white"
-      >
-        <Upload className="h-4 w-4" />
-        Import CSV
-      </Button>
+      <ActionHint label="Add multiple saved applications at once from a CSV file.">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => fileInput.current?.click()}
+          className="h-9 border-[#2b2e3b] text-xs text-slate-300 hover:bg-[#1f212d] hover:text-white"
+        >
+          <Upload className="h-4 w-4" />
+          Import CSV
+        </Button>
+      </ActionHint>
       {error && (
         <p role="alert" className="basis-full text-xs text-rose-400">
           {error}
