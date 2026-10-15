@@ -13,7 +13,7 @@ export function Header() {
     <header className="h-16 shrink-0 border-b border-[#1f212d] bg-[#0d0e14] px-4 sm:px-6 lg:px-8">
       <div className="mx-auto flex h-full w-full max-w-[1600px] items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <BrandLogo compact className="size-8" />
+          <BrandLogo compact className="size-11" />
           <span className="font-semibold text-white">JobHunter</span>
         </div>
 

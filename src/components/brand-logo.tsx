@@ -18,8 +18,8 @@ export function BrandLogo({
       className={
         className ??
         (compact
-          ? "h-9 w-9 shrink-0 object-cover object-left"
-          : "h-10 w-[180px] max-w-full object-contain object-left")
+          ? "size-11 shrink-0 object-cover object-left"
+          : "h-12 w-[216px] max-w-full object-contain object-left")
       }
     />
   );

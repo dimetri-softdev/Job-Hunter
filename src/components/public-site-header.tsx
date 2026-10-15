@@ -9,7 +9,7 @@ export function PublicSiteHeader() {
           className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-10 lg:px-16"
       >
         <Link href="/" className="inline-flex items-center gap-2.5 text-white">
-          <BrandLogo compact className="size-8" alt="" />
+          <BrandLogo compact className="size-11" alt="" />
           <span className="text-sm font-bold">JobHunter</span>
         </Link>
         <div className="flex items-center gap-2 text-xs sm:gap-4 sm:text-sm">

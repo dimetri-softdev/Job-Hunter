@@ -73,11 +73,11 @@ export function Sidebar() {
     >
       <div className="flex h-16 items-center justify-center border-b border-[#1f212d] px-2 md:justify-between md:px-4">
         <div className="flex min-w-0 items-center gap-2 overflow-hidden">
-          <BrandLogo compact className="size-9 md:hidden" />
+          <BrandLogo compact className="size-11 md:hidden" />
           {collapsed ? (
-            <BrandLogo compact className="hidden size-9 md:block" />
+            <BrandLogo compact className="hidden size-11 md:block" />
           ) : (
-            <BrandLogo className="hidden h-10 w-[180px] md:block" />
+            <BrandLogo className="hidden h-11 w-[198px] md:block" />
           )}
         </div>
 
