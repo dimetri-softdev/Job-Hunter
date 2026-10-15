@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AuthSidebar } from "@/components/auth/auth-sidebar";
+import { validatePassword } from "@/lib/password-validation";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -17,6 +18,11 @@ export default function ResetPasswordPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
     if (password !== confirmPassword) {
       setError("The passwords do not match.");
       return;
@@ -47,7 +53,8 @@ export default function ResetPasswordPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white">Choose a new password</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Use at least 8 characters for your new password.
+              Use 7–128 characters, including at least one number and one
+              symbol.
             </p>
           </div>
           {updated ? (
@@ -64,12 +71,17 @@ export default function ResetPasswordPage() {
                   id="new-password"
                   type="password"
                   autoComplete="new-password"
-                  minLength={8}
+                  minLength={7}
+                  maxLength={128}
+                  aria-describedby="new-password-requirements"
                   required
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   className="w-full rounded-xl border border-[#1f212d] bg-[#12131a] px-4 py-2.5 text-sm text-white transition focus:border-blue-500 focus:outline-none"
                 />
+                <p id="new-password-requirements" className="mt-1.5 text-[11px] leading-5 text-slate-500">
+                  Include at least one number and a symbol, such as ! or #.
+                </p>
               </div>
               <div>
                 <label htmlFor="confirm-password" className="mb-1.5 block text-xs font-medium text-slate-400">
@@ -79,7 +91,8 @@ export default function ResetPasswordPage() {
                   id="confirm-password"
                   type="password"
                   autoComplete="new-password"
-                  minLength={8}
+                  minLength={7}
+                  maxLength={128}
                   required
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}

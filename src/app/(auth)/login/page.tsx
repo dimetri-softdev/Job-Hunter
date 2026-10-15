@@ -114,12 +114,15 @@ export default function LoginPage({
           {/* Form */}
           <form onSubmit={handleEmailSignIn} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
+              <label htmlFor="login-email" className="block text-xs font-medium text-slate-400 mb-1.5">
                 Email address
               </label>
               <input
+                id="login-email"
                 type="email"
                 required
+                maxLength={254}
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
@@ -129,7 +132,7 @@ export default function LoginPage({
 
             <div>
               <div className="flex justify-between items-center mb-1.5">
-                <label className="block text-xs font-medium text-slate-400">
+                <label htmlFor="login-password" className="block text-xs font-medium text-slate-400">
                   Password
                 </label>
                 <Link href="/forgot-password" className="text-xs text-blue-400 hover:underline">
@@ -138,8 +141,10 @@ export default function LoginPage({
               </div>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? "text" : "password"}
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"

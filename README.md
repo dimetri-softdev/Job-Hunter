@@ -118,6 +118,10 @@ npx prisma generate
 
 The migration adds review metadata to feedback and the database-managed administrator table. Ensure the Node service uses the same PostgreSQL `DATABASE_URL` as the Prisma migration setup. Deleting an account permanently removes its Supabase identity and associated application data; the dashboard requires typing the account email to confirm.
 
+### Password requirements
+
+Sign-up and password reset require a password of 7–128 characters with at least one number and one symbol. The form checks these rules before submitting. For enforcement by Supabase Auth (including requests that bypass the web form), configure the project's Email password requirements in the Supabase Auth settings to require a minimum length of 7 and the required number and symbol characters. Supabase's predefined strongest option may additionally require lowercase and uppercase letters. Existing accounts with passwords that do not meet newly configured Supabase requirements may need to reset their passwords before signing in.
+
 ### Building for Production
 
 ```bash

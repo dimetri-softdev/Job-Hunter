@@ -7,6 +7,7 @@ import { SiGithub, SiGoogle } from "@icons-pack/react-simple-icons";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { AuthSidebar } from "@/components/auth/auth-sidebar";
+import { validatePassword } from "@/lib/password-validation";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -22,26 +23,51 @@ export default function SignupPage() {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    const normalizedName = fullName.trim();
+    const normalizedEmail = email.trim();
+    if (!normalizedName) {
+      setErrorMsg("Enter your name.");
+      return;
+    }
+    if (normalizedName.length > 100) {
+      setErrorMsg("Your name must be 100 characters or fewer.");
+      return;
+    }
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setErrorMsg(passwordError);
+      return;
+    }
+
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: {
+          data: {
+            full_name: normalizedName,
+          },
         },
-      },
-    });
+      });
 
-    setLoading(false);
-
-    if (error) {
-      setErrorMsg(error.message);
-    } else if (data.session) {
-      router.push("/dashboard");
-    } else {
-      setSuccessMsg("Account created! Check your email for confirmation.");
+      if (error) {
+        setErrorMsg(error.message);
+      } else if (data.session) {
+        router.push("/dashboard");
+      } else {
+        setSuccessMsg("Account created! Check your email for confirmation.");
+      }
+    } catch (signUpError: unknown) {
+      setErrorMsg(
+        signUpError instanceof Error
+          ? signUpError.message
+          : "Unable to create your account. Please try again.",
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -108,12 +134,15 @@ export default function SignupPage() {
           {/* Form */}
           <form onSubmit={handleSignUp} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
+              <label htmlFor="signup-name" className="block text-xs font-medium text-slate-400 mb-1.5">
                 Full name
               </label>
               <input
+                id="signup-name"
                 type="text"
                 required
+                maxLength={100}
+                autoComplete="name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Your name"
@@ -122,12 +151,15 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
+              <label htmlFor="signup-email" className="block text-xs font-medium text-slate-400 mb-1.5">
                 Email address
               </label>
               <input
+                id="signup-email"
                 type="email"
                 required
+                maxLength={254}
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
@@ -136,16 +168,21 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
+              <label htmlFor="signup-password" className="block text-xs font-medium text-slate-400 mb-1.5">
                 Password
               </label>
               <div className="relative">
                 <input
+                  id="signup-password"
                   type={showPassword ? "text" : "password"}
                   required
+                  minLength={7}
+                  maxLength={128}
+                  autoComplete="new-password"
+                  aria-describedby="signup-password-requirements"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 8 characters"
+                  placeholder="At least 7 characters"
                   className="w-full bg-[#12131a] border border-[#1f212d] focus:border-blue-500 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition pr-10"
                 />
                 <button
@@ -160,6 +197,10 @@ export default function SignupPage() {
                   )}
                 </button>
               </div>
+              <p id="signup-password-requirements" className="mt-1.5 text-[11px] leading-5 text-slate-500">
+                Use 7–128 characters, including at least one number and one
+                symbol (for example, ! or #).
+              </p>
             </div>
 
             <button
