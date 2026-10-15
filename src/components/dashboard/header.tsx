@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { BrandLogo } from "@/components/brand-logo";
+import { ActionHint } from "@/components/action-hint";
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
@@ -13,17 +14,14 @@ export function Header() {
     <header className="h-16 shrink-0 border-b border-[#1f212d] bg-[#0d0e14] px-4 sm:px-6 lg:px-8">
       <div className="mx-auto flex h-full w-full max-w-[1600px] items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <BrandLogo compact className="size-11" />
-          <span className="font-semibold text-white">JobHunter</span>
+          {/* slightly larger wordmark for better visibility in header */}
+          <BrandLogo className="h-16 w-[300px]" />
         </div>
 
         <div className="flex min-w-0 items-center gap-3 text-xs text-slate-400 sm:gap-4">
-          <Link
-            href="/feedback"
-            className="hidden transition-colors hover:text-white sm:inline-flex"
-          >
-            Share feedback
-          </Link>
+          <ActionHint label="Share product feedback" className="hidden sm:inline-flex">
+            <Link href="/feedback" className="transition-colors hover:text-white">Share feedback</Link>
+          </ActionHint>
 
           {loading ? (
             <div className="h-8 w-28 animate-pulse rounded-full border border-[#1f212d] bg-[#141620]" />
@@ -38,12 +36,15 @@ export function Header() {
                 </span>
               </div>
 
-              <button
-                onClick={signOut}
-                className="rounded-lg border border-[#1f212d] bg-[#141620] px-2.5 py-1.5 text-[11px] text-slate-400 transition-colors hover:border-slate-700 hover:text-white"
-              >
-                Sign Out
-              </button>
+              <ActionHint label="Sign out of your account" className="inline-flex">
+                <button
+                  onClick={signOut}
+                  title="Sign out"
+                  className="rounded-lg border border-[#1f212d] bg-[#141620] px-2.5 py-1.5 text-[11px] text-slate-400 transition-colors hover:border-slate-700 hover:text-white"
+                >
+                  Sign Out
+                </button>
+              </ActionHint>
             </div>
           ) : null}
         </div>
