@@ -114,6 +114,10 @@ export default function ApplicationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [createFieldErrors, setCreateFieldErrors] = useState<{
+    company?: string;
+    position?: string;
+  }>({});
   const [editing, setEditing] = useState<Application | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -353,16 +357,30 @@ export default function ApplicationsPage() {
   ) {
     event.preventDefault();
     const form = event.currentTarget;
+    const formData = new FormData(form);
+    const company = String(formData.get("company") ?? "").trim();
+    const position = String(formData.get("position") ?? "").trim();
+    const fieldErrors = {
+      ...(company ? {} : { company: "Enter a company name." }),
+      ...(position ? {} : { position: "Enter a job title." }),
+    };
+    setCreateFieldErrors(fieldErrors);
+    if (Object.keys(fieldErrors).length > 0) {
+      form
+        .querySelector<HTMLInputElement>(company ? "#position" : "#company")
+        ?.focus();
+      return;
+    }
+
     setSaving(true);
     setSaveError(null);
 
-    const formData = new FormData(form);
     try {
       const application = await fetcher<Application>("/applications", {
         method: "POST",
         body: JSON.stringify({
-          company: formData.get("company"),
-          position: formData.get("position"),
+          company,
+          position,
           status: formData.get("status"),
           notes: formData.get("notes") || null,
           nextAction: formData.get("nextAction") || null,
@@ -450,7 +468,10 @@ export default function ApplicationsPage() {
           open={dialogOpen}
           onOpenChange={(open) => {
             setDialogOpen(open);
-            if (open) setSaveError(null);
+            if (open) {
+              setSaveError(null);
+              setCreateFieldErrors({});
+            }
           }}
         >
           <ActionHint label="Manually save a job and enter its company, role, status, and notes.">
@@ -459,42 +480,106 @@ export default function ApplicationsPage() {
               Add application
             </DialogTrigger>
           </ActionHint>
-          <DialogContent className="border-[#1f212d] bg-[#0d0e14] text-slate-100 sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="text-white">Add application</DialogTitle>
-              <DialogDescription>
-                Record a role you are pursuing.
-              </DialogDescription>
+          <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden rounded-2xl border-[#242736] bg-[#0d0e14] p-0 text-slate-100 shadow-2xl sm:max-w-lg">
+            <DialogHeader className="shrink-0 border-b border-[#1f212d] px-6 py-5 pr-12">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-300">
+                  <Building2 className="size-5" />
+                </span>
+                <div className="space-y-1.5">
+                  <DialogTitle className="text-base font-semibold text-white">
+                    Add application
+                  </DialogTitle>
+                  <DialogDescription className="text-xs leading-5 text-slate-400">
+                    Keep the role and your next step in one place.
+                  </DialogDescription>
+                </div>
+              </div>
             </DialogHeader>
-            <form className="space-y-4" onSubmit={handleCreateApplication}>
+            <form
+              className="flex min-h-0 flex-1 flex-col"
+              noValidate
+              onSubmit={handleCreateApplication}
+            >
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-6 py-5">
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-blue-500/10 text-[11px] font-semibold text-blue-300">
+                    1
+                  </span>
+                  <h3 className="text-sm font-semibold text-slate-100">
+                    Role details
+                  </h3>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="company" className="text-xs font-medium text-slate-300">
+                      Company <span className="text-rose-300">*</span>
+                    </label>
+                    <Input
+                      id="company"
+                      name="company"
+                      maxLength={120}
+                      placeholder="e.g. Acme"
+                      aria-invalid={Boolean(createFieldErrors.company)}
+                      aria-describedby={
+                        createFieldErrors.company ? "company-error" : undefined
+                      }
+                      onChange={() =>
+                        setCreateFieldErrors((current) => ({
+                          ...current,
+                          company: undefined,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+                    />
+                    {createFieldErrors.company && (
+                      <p id="company-error" className="text-xs text-rose-300">
+                        {createFieldErrors.company}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="position" className="text-xs font-medium text-slate-300">
+                      Job title <span className="text-rose-300">*</span>
+                    </label>
+                    <Input
+                      id="position"
+                      name="position"
+                      maxLength={120}
+                      placeholder="e.g. Frontend Engineer"
+                      aria-invalid={Boolean(createFieldErrors.position)}
+                      aria-describedby={
+                        createFieldErrors.position ? "position-error" : undefined
+                      }
+                      onChange={() =>
+                        setCreateFieldErrors((current) => ({
+                          ...current,
+                          position: undefined,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+                    />
+                    {createFieldErrors.position && (
+                      <p id="position-error" className="text-xs text-rose-300">
+                        {createFieldErrors.position}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-violet-500/10 text-[11px] font-semibold text-violet-300">
+                    2
+                  </span>
+                  <h3 className="text-sm font-semibold text-slate-100">
+                    Keep your search organized
+                  </h3>
+                </div>
               <div className="space-y-2">
-                <label htmlFor="company" className="text-xs text-slate-300">
-                  Company
-                </label>
-                <Input
-                  id="company"
-                  name="company"
-                  required
-                  maxLength={120}
-                  placeholder="e.g. Acme"
-                  className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="position" className="text-xs text-slate-300">
-                  Job title
-                </label>
-                <Input
-                  id="position"
-                  name="position"
-                  required
-                  maxLength={120}
-                  placeholder="e.g. Frontend Engineer"
-                  className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="status" className="text-xs text-slate-300">
+                <label htmlFor="status" className="text-xs font-medium text-slate-300">
                   Status
                 </label>
                 <select
@@ -511,7 +596,7 @@ export default function ApplicationsPage() {
                 </select>
               </div>
               <div className="space-y-2">
-                <label htmlFor="notes" className="text-xs text-slate-300">
+                <label htmlFor="notes" className="text-xs font-medium text-slate-300">
                   Notes <span className="text-slate-500">(optional)</span>
                 </label>
                 <Textarea
@@ -523,7 +608,7 @@ export default function ApplicationsPage() {
                   className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
                 />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <label htmlFor="nextAction" className="text-xs text-slate-300">
                     Next action <span className="text-slate-500">(optional)</span>
@@ -548,12 +633,14 @@ export default function ApplicationsPage() {
                   />
                 </div>
               </div>
+              </section>
               {saveError && (
                 <p role="alert" className="text-xs text-rose-400">
                   {saveError}
                 </p>
               )}
-              <div className="flex justify-end gap-2 border-t border-[#1f212d] pt-4">
+              </div>
+              <div className="flex shrink-0 justify-end gap-2 border-t border-[#1f212d] bg-[#0d0e14] px-6 py-4">
                 <Button
                   type="button"
                   variant="ghost"

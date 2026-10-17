@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { CareerMomentum } from "@/components/dashboard/career-momentum";
 import { ProjectCard } from "@/components/dashboard/project-card";
 import { SavedRoadmaps } from "@/components/dashboard/saved-roadmaps";
 import { GeneratorModal } from "@/components/dashboard/generator-modal";
@@ -107,35 +108,6 @@ export default function DashboardPage() {
   const upcomingFollowUps = dueFollowUps.filter(
     (application) => application.daysUntil >= 0,
   ).length;
-  const gettingStartedSteps = [
-    {
-      title: "Save a job application",
-      description: "Keep the role, company, and next step together.",
-      href: "/applications",
-      completed: followUpApplications.length > 0,
-    },
-    {
-      title: "Check your job fit",
-      description: "Review strengths, gaps, and questions for a role.",
-      href: "/applications",
-      completed: followUpApplications.some(
-        (application) => Boolean(application.fitAssessment),
-      ),
-    },
-    {
-      title: "Build a learning roadmap",
-      description: "Turn your career goals or fit gaps into a plan.",
-      href: "/roadmaps",
-      completed: roadmaps.length > 0,
-    },
-  ];
-  const showGettingStarted =
-    !roadmapsLoading &&
-    !followUpsLoading &&
-    !roadmapsError &&
-    !followUpsError &&
-    gettingStartedSteps.some((step) => !step.completed);
-
   const handleRoadmapGenerated = (newRoadmap: GeneratedRoadmap) => {
     setRoadmaps((currentRoadmaps) => [
       newRoadmap,
@@ -204,58 +176,14 @@ export default function DashboardPage() {
         </p>
       )}
 
-      {showGettingStarted && (
-        <section
-          aria-labelledby="getting-started-heading"
-          className="space-y-4 rounded-2xl border border-blue-500/20 bg-blue-500/[0.04] p-5"
-        >
-          <div>
-            <h2
-              id="getting-started-heading"
-              className="text-sm font-semibold text-white"
-            >
-              Getting started
-            </h2>
-            <p className="mt-1 text-xs text-slate-400">
-              Complete these steps to get more from JobHunter.
-            </p>
-          </div>
-          <ol className="grid gap-3 md:grid-cols-3">
-            {gettingStartedSteps.map((step, index) => (
-              <li
-                key={step.title}
-                className="rounded-xl border border-[#252836] bg-[#101119] p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] text-slate-500">
-                    STEP {index + 1}
-                  </span>
-                  {step.completed && (
-                    <CheckCircle2
-                      aria-label="Completed"
-                      className="h-4 w-4 text-emerald-400"
-                    />
-                  )}
-                </div>
-                <h3 className="mt-3 text-xs font-semibold text-slate-200">
-                  {step.title}
-                </h3>
-                <p className="mt-1 min-h-8 text-[11px] leading-4 text-slate-500">
-                  {step.description}
-                </p>
-                {!step.completed && (
-                  <Link
-                    href={step.href}
-                    className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-blue-300 hover:text-blue-200"
-                  >
-                    Get started
-                    <ArrowUpRight className="h-3 w-3" />
-                  </Link>
-                )}
-              </li>
-            ))}
-          </ol>
-        </section>
+      {!roadmapsLoading &&
+        !followUpsLoading &&
+        !roadmapsError &&
+        !followUpsError && (
+          <CareerMomentum
+            applications={followUpApplications}
+            roadmaps={roadmaps}
+          />
       )}
 
       <section

@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  CheckCircle2,
+  ClipboardList,
+  Loader2,
+  MapPin,
+  Sparkles,
+} from "lucide-react";
 import { ActionHint } from "@/components/action-hint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,18 +152,35 @@ export function JobPostingModal({
           Analyze job post
         </DialogTrigger>
       </ActionHint>
-      <DialogContent className="max-h-[90vh] overflow-y-auto border-[#1f212d] bg-[#0d0e14] text-slate-100 sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="text-white">
-            Analyze a job posting
-          </DialogTitle>
-          <DialogDescription>
-            Paste the posting text. AI will prepare a draft for you to review;
-            it will not submit an application.
-          </DialogDescription>
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden rounded-2xl border-[#242736] bg-[#0d0e14] p-0 text-slate-100 shadow-2xl sm:max-w-xl">
+        <DialogHeader className="shrink-0 border-b border-[#1f212d] px-6 py-5 pr-12">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-300">
+              <Sparkles className="size-5" />
+            </span>
+            <div className="space-y-1.5">
+              <DialogTitle className="text-base font-semibold text-white">
+                Analyze a job posting
+              </DialogTitle>
+              <DialogDescription className="text-xs leading-5 text-slate-400">
+                Create a draft to review and edit. Nothing is submitted on your
+                behalf.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="space-y-2">
+        <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit}>
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-6 py-5">
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="flex size-6 items-center justify-center rounded-full bg-blue-500/10 text-[11px] font-semibold text-blue-300">
+                1
+              </span>
+              <h3 className="text-sm font-semibold text-slate-100">
+                Job details
+              </h3>
+            </div>
+            <div className="space-y-2">
             <label htmlFor="job-url" className="text-xs text-slate-300">
               Job link <span className="text-slate-500">(optional)</span>
             </label>
@@ -191,20 +215,31 @@ export function JobPostingModal({
               placeholder="Paste the job description and requirements here..."
               className="min-h-36 resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
             />
-            <p className="text-right text-[11px] text-slate-500">
-              {description.length.toLocaleString()} / 20,000
+            <p className="flex justify-between text-[11px] text-slate-500">
+              <span>
+                {description.length < 80
+                  ? `${80 - description.length} more characters needed to analyze`
+                  : "Ready to analyze"}
+              </span>
+              <span>{description.length.toLocaleString()} / 20,000</span>
             </p>
           </div>
+          </section>
 
           {analysis && (
-            <section className="space-y-4 border-t border-[#1f212d] pt-4">
-              <div>
-                <h3 className="text-xs font-semibold uppercase text-slate-400">
-                  Review extracted details
-                </h3>
-                <p className="mt-1 text-xs text-slate-500">
+            <section className="space-y-4 rounded-xl border border-[#252836] bg-[#101119] p-4">
+              <div className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-300">
+                  <ClipboardList className="size-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-100">
+                    Review extracted details
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
                   Confirm the AI draft before saving it to your tracker.
-                </p>
+                  </p>
+                </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -240,14 +275,19 @@ export function JobPostingModal({
                   />
                 </div>
               </div>
-              <div className="rounded-lg border border-[#252836] bg-[#101119] p-3">
+              <div className="space-y-2 rounded-lg border border-[#252836] bg-[#0b0c12] p-3">
+                <h4 className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+                  <BriefcaseBusiness className="size-4 text-blue-300" />
+                  Role overview
+                </h4>
                 <p className="text-xs leading-5 text-slate-300">
                   {analysis.summary || "No summary was extracted."}
                 </p>
                 {(analysis.location ||
                   analysis.workArrangement ||
                   analysis.employmentType) && (
-                  <p className="mt-2 text-[11px] text-slate-500">
+                  <p className="flex items-center gap-1.5 border-t border-[#252836] pt-2 text-[11px] text-slate-500">
+                    {analysis.location && <MapPin className="size-3.5 shrink-0" />}
                     {[
                       analysis.location,
                       analysis.workArrangement,
@@ -259,19 +299,27 @@ export function JobPostingModal({
                 )}
               </div>
               {analysis.keyRequirements.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-xs font-medium text-slate-300">
+                <div className="space-y-2 rounded-lg border border-[#252836] bg-[#0b0c12] p-3">
+                  <h4 className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+                    <CheckCircle2 className="size-4 text-emerald-300" />
                     Key requirements
                   </h4>
-                  <ul className="list-disc space-y-1 pl-5 text-xs text-slate-400">
+                  <ul className="space-y-2 text-xs leading-5 text-slate-400">
                     {analysis.keyRequirements
                       .slice(0, 8)
                       .map((requirement, index) => (
-                        <li key={`${index}-${requirement}`}>{requirement}</li>
+                        <li key={`${index}-${requirement}`} className="flex gap-2">
+                          <span className="mt-2 size-1 shrink-0 rounded-full bg-slate-600" />
+                          <span>{requirement}</span>
+                        </li>
                       ))}
                   </ul>
                 </div>
               )}
+              <div className="border-t border-[#252836] pt-4">
+                <h4 className="mb-3 text-sm font-semibold text-slate-100">
+                  Plan a next step
+                </h4>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <label htmlFor="job-next-action" className="text-xs text-slate-300">
@@ -299,6 +347,7 @@ export function JobPostingModal({
                   />
                 </div>
               </div>
+              </div>
             </section>
           )}
 
@@ -307,7 +356,8 @@ export function JobPostingModal({
               {error}
             </p>
           )}
-          <div className="flex flex-wrap justify-end gap-2 border-t border-[#1f212d] pt-4">
+          </div>
+          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-[#1f212d] bg-[#0d0e14] px-6 py-4">
             <Button
               type="button"
               variant="ghost"
