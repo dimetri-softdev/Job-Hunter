@@ -231,16 +231,6 @@ export default function DashboardPage() {
         </p>
       )}
 
-      {!roadmapsLoading &&
-        !followUpsLoading &&
-        !roadmapsError &&
-        !followUpsError && (
-          <CareerMomentum
-            applications={followUpApplications}
-            roadmaps={roadmaps}
-          />
-      )}
-
       {careerProfileError && (
         <p role="alert" className="text-xs text-rose-400">
           Unable to load your first-step checklist: {careerProfileError}
@@ -260,6 +250,16 @@ export default function DashboardPage() {
               roadmaps.length > 0,
               hasCompletedTask,
             ]}
+          />
+        )}
+
+      {!roadmapsLoading &&
+        !followUpsLoading &&
+        !roadmapsError &&
+        !followUpsError && (
+          <CareerMomentum
+            applications={followUpApplications}
+            roadmaps={roadmaps}
           />
         )}
 
