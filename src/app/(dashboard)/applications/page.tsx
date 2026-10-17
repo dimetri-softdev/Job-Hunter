@@ -29,7 +29,7 @@ import { ApplicationCsvImport } from "@/components/dashboard/application-csv-imp
 import { JobFitModal } from "@/components/dashboard/job-fit-modal";
 import { JobGapRoadmap } from "@/components/dashboard/job-gap-roadmap";
 import { JobProofSprint } from "@/components/dashboard/job-proof-sprint";
-import { PNetApplicationPack } from "@/components/dashboard/pnet-application-pack";
+import { ApplicationAssistant } from "@/components/dashboard/application-assistant";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { fetcher } from "@/lib/api";
 import { ExternalLink } from "lucide-react";
@@ -48,6 +48,7 @@ interface Application {
   createdAt: string;
   notes?: string | null;
   jobUrl?: string | null;
+  hasJobDescription?: boolean;
   jobSummary?: string | null;
   fitAssessment?: FitAssessment | null;
   offerDetails?: OfferDetails | null;
@@ -92,16 +93,6 @@ function getReminderStatus(followUpAt?: string | null) {
     return { label: `Due in ${daysUntil} days`, className: "text-amber-300" };
   }
   return { label: "Upcoming", className: "text-slate-500" };
-}
-
-function isPNetListing(jobUrl?: string | null) {
-  if (!jobUrl) return false;
-  try {
-    const hostname = new URL(jobUrl).hostname;
-    return hostname === "pnet.co.za" || hostname.endsWith(".pnet.co.za");
-  } catch {
-    return false;
-  }
 }
 
 export default function ApplicationsPage() {
@@ -882,11 +873,14 @@ export default function ApplicationsPage() {
                           {getReminderStatus(app.followUpAt)?.label}
                         </p>
                       )}
-                      {isPNetListing(app.jobUrl) && app.jobSummary && (
-                        <PNetApplicationPack
+                      {app.jobUrl && (
+                        <ApplicationAssistant
                           applicationId={app.id}
                           company={app.company}
                           position={app.position}
+                          hasJobDetails={Boolean(
+                            app.hasJobDescription || app.jobSummary,
+                          )}
                         />
                       )}
                     </td>

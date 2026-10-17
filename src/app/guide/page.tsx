@@ -48,7 +48,7 @@ const guides = [
       "Enter the company and job title. Add a link or a reminder if you have one.",
       "Update the status as you move through the process. Use Import CSV or Export CSV to move a list in or out.",
       "You can delete an AI-generated job summary and fit check while keeping the application, or delete the whole application when you no longer need it.",
-      "For PNet jobs, choose Prepare for PNet to create a cover-letter draft and role summary to review and copy. You submit the application yourself.",
+      "For saved jobs with posting details, choose Prepare application to create a cover-letter draft and role summary to review and copy. JobHunter does not fill or submit third-party application forms; open the listing to apply yourself.",
     ],
     href: "/login",
     linkLabel: "Sign in to track applications",

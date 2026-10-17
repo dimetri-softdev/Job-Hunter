@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { User, Loader2 } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  Check,
+  CircleUserRound,
+  Compass,
+  GraduationCap,
+  Loader2,
+  MapPin,
+  Sparkles,
+  Target,
+  User,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -166,11 +177,32 @@ export default function SettingsPage() {
     }
   }
 
+  const profileFields = [
+    careerProfile.careerSummary,
+    careerProfile.skills,
+    careerProfile.workHistory,
+    careerProfile.education,
+    careerProfile.accomplishments,
+    careerProfile.experienceLevel,
+    careerProfile.targetRoles,
+    careerProfile.preferredLocation,
+  ];
+  const completedProfileFields = profileFields.filter((value) =>
+    value.trim(),
+  ).length;
+  const profileCompletion = Math.round(
+    (completedProfileFields / profileFields.length) * 100,
+  );
+  const profileInitial = (profile.name || profile.email || "U")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+
   return (
-    <div className="w-full space-y-6 max-w-4xl">
+    <div className="w-full max-w-5xl space-y-6">
       <DashboardPageHeader
-        title="Account Settings"
-        description="Review your account and manage the profile used for job suggestions."
+        title="Settings"
+        description="Manage your account details and shape the career guidance JobHunter gives you."
       />
 
       {loading ? (
@@ -179,47 +211,118 @@ export default function SettingsPage() {
           <span className="text-xs">Loading account details...</span>
         </div>
       ) : error ? (
-        <p role="alert" className="text-sm text-rose-400">
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-500/20 bg-rose-500/[0.06] p-4 text-sm text-rose-300"
+        >
           {error}
-        </p>
+        </div>
       ) : profile ? (
-        <div className="max-w-4xl space-y-6">
-          <section className="rounded-xl border border-[#1f212d] bg-[#12131a] p-6">
-            <div className="mb-5 flex items-center gap-2 border-b border-[#1f212d] pb-4 text-sm font-semibold text-white">
-              <User className="h-4 w-4 text-blue-400" />
-              Account Profile
-            </div>
-            <dl className="grid gap-5 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-xs text-slate-400">Name</dt>
-                <dd className="mt-1 text-slate-100">
-                  {profile.name || "Not set"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-400">Email</dt>
-                <dd className="mt-1 break-all text-slate-100">
+        <div className="space-y-6">
+          <section className="overflow-hidden rounded-2xl border border-[#252836] bg-[#12131a]">
+            <div className="flex flex-wrap items-center gap-4 bg-gradient-to-r from-blue-500/[0.09] via-transparent to-violet-500/[0.06] p-5 sm:p-6">
+              <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10 text-xl font-semibold text-blue-200">
+                {profileInitial}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-semibold text-white">
+                    {profile.name || "Your account"}
+                  </h2>
+                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                    Account active
+                  </span>
+                </div>
+                <p className="mt-1 break-all text-sm text-slate-400">
                   {profile.email}
-                </dd>
+                </p>
               </div>
-            </dl>
+              <div className="rounded-lg border border-[#303342] bg-[#0d0e14]/70 px-3 py-2 text-[11px] text-slate-400">
+                Managed by your sign-in provider
+              </div>
+            </div>
+            <div className="grid gap-0 border-t border-[#1f212d] sm:grid-cols-2 sm:divide-x sm:divide-[#1f212d]">
+              <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
+                <User className="size-4 text-slate-500" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                    Account name
+                  </p>
+                  <p className="mt-1 truncate text-sm text-slate-200">
+                    {profile.name || "Not set"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 border-t border-[#1f212d] px-5 py-4 sm:border-t-0 sm:px-6">
+                <CircleUserRound className="size-4 text-slate-500" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                    Sign-in email
+                  </p>
+                  <p className="mt-1 truncate text-sm text-slate-200">
+                    {profile.email}
+                  </p>
+                </div>
+              </div>
+            </div>
           </section>
 
-          <section className="rounded-xl border border-[#1f212d] bg-[#12131a] p-6">
-            <div className="mb-5 border-b border-[#1f212d] pb-4">
-              <h2 className="text-sm font-semibold text-white">
-                Career profile
-              </h2>
-              <p className="mt-1 text-xs text-slate-400">
-                Add the experience and preferences you want role suggestions to
-                use.
-              </p>
+          <section className="overflow-hidden rounded-2xl border border-[#252836] bg-[#12131a]">
+            <div className="border-b border-[#1f212d] px-5 py-5 sm:px-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-violet-500/20 bg-violet-500/10 text-violet-300">
+                    <BriefcaseBusiness className="size-4" />
+                  </span>
+                  <div>
+                    <h2 className="text-sm font-semibold text-white">
+                      Career profile
+                    </h2>
+                    <p className="mt-1 max-w-xl text-xs leading-5 text-slate-400">
+                      Add the experience and preferences you want career
+                      suggestions to use. More detail helps make them more
+                      relevant.
+                    </p>
+                  </div>
+                </div>
+                <div className="min-w-44 rounded-xl border border-[#2b2e3b] bg-[#0d0e14] px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                      Profile detail
+                    </span>
+                    <span className="text-xs font-semibold text-slate-200">
+                      {completedProfileFields}/{profileFields.length}
+                    </span>
+                  </div>
+                  <div
+                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#252836]"
+                    role="progressbar"
+                    aria-label="Career profile detail"
+                    aria-valuemin={0}
+                    aria-valuemax={profileFields.length}
+                    aria-valuenow={completedProfileFields}
+                  >
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-400 transition-all"
+                      style={{ width: `${profileCompletion}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            <form className="space-y-5" onSubmit={handleSaveCareerProfile}>
-              <div className="space-y-2">
+            <form onSubmit={handleSaveCareerProfile}>
+              <div className="space-y-6 px-5 py-5 sm:px-6 sm:py-6">
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 border-b border-[#1f212d] pb-3">
+                  <Target className="size-4 text-blue-300" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Professional snapshot
+                  </h3>
+                </div>
+                <div className="space-y-2">
                 <label
                   htmlFor="career-summary"
-                  className="text-xs text-slate-300"
+                  className="text-xs font-medium text-slate-300"
                 >
                   Experience summary
                 </label>
@@ -234,11 +337,14 @@ export default function SettingsPage() {
                   placeholder="Describe your work, projects, education, or career change in a few sentences."
                   className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
                 />
+                <p className="text-right text-[11px] text-slate-500">
+                  {careerProfile.careerSummary.length.toLocaleString()} / 2,500
+                </p>
               </div>
               <div className="space-y-2">
                 <label
                   htmlFor="career-skills"
-                  className="text-xs text-slate-300"
+                  className="text-xs font-medium text-slate-300"
                 >
                   Skills
                 </label>
@@ -253,11 +359,23 @@ export default function SettingsPage() {
                   placeholder="Python, SQL, customer support, project coordination..."
                   className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
                 />
+                <p className="text-right text-[11px] text-slate-500">
+                  {careerProfile.skills.length.toLocaleString()} / 2,500
+                </p>
               </div>
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 border-b border-[#1f212d] pb-3">
+                  <GraduationCap className="size-4 text-emerald-300" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Experience and evidence
+                  </h3>
+                </div>
               <div className="space-y-2">
                 <label
                   htmlFor="career-work-history"
-                  className="text-xs text-slate-300"
+                  className="text-xs font-medium text-slate-300"
                 >
                   Work history{" "}
                   <span className="text-slate-500">(optional)</span>
@@ -273,11 +391,14 @@ export default function SettingsPage() {
                   placeholder="Role, employer, dates, responsibilities, and relevant tools or methods. One position per paragraph."
                   className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
                 />
+                <p className="text-right text-[11px] text-slate-500">
+                  {careerProfile.workHistory.length.toLocaleString()} / 6,000
+                </p>
               </div>
               <div className="space-y-2">
                 <label
                   htmlFor="career-education"
-                  className="text-xs text-slate-300"
+                  className="text-xs font-medium text-slate-300"
                 >
                   Education <span className="text-slate-500">(optional)</span>
                 </label>
@@ -292,11 +413,14 @@ export default function SettingsPage() {
                   placeholder="Qualification, institution, field of study, and completion year."
                   className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
                 />
+                <p className="text-right text-[11px] text-slate-500">
+                  {careerProfile.education.length.toLocaleString()} / 3,500
+                </p>
               </div>
               <div className="space-y-2">
                 <label
                   htmlFor="career-accomplishments"
-                  className="text-xs text-slate-300"
+                  className="text-xs font-medium text-slate-300"
                 >
                   Accomplishments{" "}
                   <span className="text-slate-500">(optional)</span>
@@ -312,12 +436,24 @@ export default function SettingsPage() {
                   placeholder="Projects delivered, measurable outcomes, awards, certifications, or portfolio work."
                   className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
                 />
+                <p className="text-right text-[11px] text-slate-500">
+                  {careerProfile.accomplishments.length.toLocaleString()} / 3,500
+                </p>
               </div>
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 border-b border-[#1f212d] pb-3">
+                  <Compass className="size-4 text-amber-300" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    What you&apos;re looking for
+                  </h3>
+                </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <label
                     htmlFor="experience-level"
-                    className="text-xs text-slate-300"
+                    className="text-xs font-medium text-slate-300"
                   >
                     Experience level
                   </label>
@@ -341,7 +477,7 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <label
                     htmlFor="preferred-location"
-                    className="text-xs text-slate-300"
+                    className="text-xs font-medium text-slate-300"
                   >
                     Preferred location
                   </label>
@@ -364,7 +500,7 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <label
                     htmlFor="target-roles"
-                    className="text-xs text-slate-300"
+                    className="text-xs font-medium text-slate-300"
                   >
                     Roles of interest{" "}
                     <span className="text-slate-500">(optional)</span>
@@ -383,7 +519,7 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <label
                     htmlFor="work-arrangement"
-                    className="text-xs text-slate-300"
+                    className="text-xs font-medium text-slate-300"
                   >
                     Work arrangement
                   </label>
@@ -402,87 +538,129 @@ export default function SettingsPage() {
                   </select>
                 </div>
               </div>
+              </section>
               {saveError && (
-                <p role="alert" className="text-xs text-rose-400">
+                <div
+                  role="alert"
+                  className="rounded-lg border border-rose-500/20 bg-rose-500/[0.06] px-3 py-2.5 text-xs text-rose-300"
+                >
                   {saveError}
-                </p>
+                </div>
               )}
-              <div className="flex justify-end border-t border-[#1f212d] pt-4">
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#1f212d] bg-[#0d0e14]/60 px-5 py-4 sm:px-6">
+                <p className="text-[11px] text-slate-500">
+                  {profileSaved
+                    ? "Your career profile is up to date."
+                    : "Remember to save your changes before requesting suggestions."}
+                </p>
                 <Button
                   type="submit"
                   disabled={saving}
                   className="bg-blue-600 text-white hover:bg-blue-500"
                 >
-                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {saving ? "Saving profile..." : "Save career profile"}
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : profileSaved ? (
+                    <Check className="h-4 w-4" />
+                  ) : null}
+                  {saving
+                    ? "Saving profile..."
+                    : profileSaved
+                      ? "Profile saved"
+                      : "Save career profile"}
                 </Button>
               </div>
             </form>
           </section>
 
-          <section className="rounded-xl border border-[#1f212d] bg-[#12131a] p-6">
-            <div className="mb-4">
-              <h2 className="text-sm font-semibold text-white">
-                Suggested roles
-              </h2>
-              <p className="mt-1 text-xs text-slate-400">
-                Suggestions use your saved profile and are not a guarantee of
-                job fit.
-              </p>
+          <section className="overflow-hidden rounded-2xl border border-[#252836] bg-[#12131a]">
+            <div className="border-b border-[#1f212d] px-5 py-5 sm:px-6">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-300">
+                  <Sparkles className="size-4" />
+                </span>
+                <div>
+                  <h2 className="text-sm font-semibold text-white">
+                    Suggested roles
+                  </h2>
+                  <p className="mt-1 max-w-xl text-xs leading-5 text-slate-400">
+                    Explore roles based on your saved experience and
+                    preferences. Suggestions are starting points, not a
+                    guarantee of job fit.
+                  </p>
+                </div>
+              </div>
             </div>
-            <label className="mb-4 flex items-start gap-2.5 text-xs leading-5 text-slate-400">
-              <input
-                type="checkbox"
-                checked={recommendationConsent}
-                onChange={(event) =>
-                  setRecommendationConsent(event.target.checked)
-                }
-                className="mt-1 size-4 shrink-0 accent-blue-500"
-              />
-              <span>
-                Send my saved career profile to Groq to generate role
-                suggestions.
-              </span>
-            </label>
-            <Button
-              type="button"
-              onClick={handleRecommendRoles}
-              disabled={
-                !profileSaved || !recommendationConsent || recommendationLoading
-              }
-              className="bg-emerald-600 text-white hover:bg-emerald-500"
-            >
-              {recommendationLoading && (
-                <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="space-y-4 p-5 sm:p-6">
+              <label className="flex items-start gap-3 rounded-xl border border-[#2b2e3b] bg-[#0d0e14] p-4 text-xs leading-5 text-slate-400">
+                <input
+                  type="checkbox"
+                  checked={recommendationConsent}
+                  onChange={(event) =>
+                    setRecommendationConsent(event.target.checked)
+                  }
+                  className="mt-0.5 size-4 shrink-0 accent-emerald-500"
+                />
+                <span>
+                  Send my saved career profile to Groq to generate role
+                  suggestions. Your profile is only sent when you request
+                  suggestions.
+                </span>
+              </label>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  onClick={handleRecommendRoles}
+                  disabled={
+                    !profileSaved ||
+                    !recommendationConsent ||
+                    recommendationLoading
+                  }
+                  className="bg-emerald-600 text-white hover:bg-emerald-500"
+                >
+                  {recommendationLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-4" />
+                  )}
+                  {recommendationLoading
+                    ? "Finding suitable roles..."
+                    : recommendations.length > 0
+                      ? "Refresh suggestions"
+                      : "Suggest job roles"}
+                </Button>
+                {!profileSaved && (
+                  <p className="text-xs text-amber-300">
+                    Save your profile changes first.
+                  </p>
+                )}
+              </div>
+              {recommendationError && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-rose-500/20 bg-rose-500/[0.06] px-3 py-2.5 text-xs text-rose-300"
+                >
+                  {recommendationError}
+                </div>
               )}
-              {recommendationLoading
-                ? "Finding suitable roles..."
-                : "Suggest job roles"}
-            </Button>
-            {!profileSaved && (
-              <p className="mt-2 text-xs text-amber-300">
-                Save profile changes before requesting suggestions.
-              </p>
-            )}
-            {recommendationError && (
-              <p role="alert" className="mt-3 text-xs text-rose-400">
-                {recommendationError}
-              </p>
-            )}
-            {recommendations.length > 0 && (
-              <div className="mt-5 divide-y divide-[#1f212d] border-t border-[#1f212d]">
+              {recommendations.length > 0 && (
+                <div className="grid gap-3 border-t border-[#1f212d] pt-4 md:grid-cols-2">
                 {recommendations.map((recommendation) => (
-                  <article key={recommendation.roleTitle} className="py-4">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <article
+                    key={recommendation.roleTitle}
+                    className="rounded-xl border border-[#252836] bg-[#0d0e14] p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
                       <h3 className="text-sm font-semibold text-white">
                         {recommendation.roleTitle}
                       </h3>
-                      <span className="text-[10px] font-mono uppercase text-emerald-300">
-                        {recommendation.matchType.replaceAll("_", " ")}
+                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-emerald-300">
+                        {recommendation.matchType.replaceAll("_", " ").toLowerCase()}
                       </span>
                     </div>
                     {recommendation.seniority && (
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1.5 text-[11px] text-slate-500">
                         {recommendation.seniority}
                       </p>
                     )}
@@ -490,19 +668,31 @@ export default function SettingsPage() {
                       {recommendation.reason}
                     </p>
                     {recommendation.evidence.length > 0 && (
-                      <p className="mt-2 text-xs text-slate-400">
-                        Profile evidence: {recommendation.evidence.join(" · ")}
-                      </p>
+                      <div className="mt-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                          Profile evidence
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">
+                          {recommendation.evidence.join(" · ")}
+                        </p>
+                      </div>
                     )}
                     {recommendation.skillsToBuild.length > 0 && (
-                      <p className="mt-1 text-xs text-amber-300">
-                        Build next: {recommendation.skillsToBuild.join(" · ")}
-                      </p>
+                      <div className="mt-3 border-t border-[#1f212d] pt-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-300/80">
+                          Skills to build
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-amber-200/80">
+                          {recommendation.skillsToBuild.join(" · ")}
+                        </p>
+                      </div>
                     )}
                   </article>
                 ))}
+                </div>
               </div>
-            )}
+              )}
+            </div>
           </section>
         </div>
       ) : null}
