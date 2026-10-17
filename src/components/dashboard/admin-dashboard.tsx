@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { AdminFeedbackPanel } from "@/components/dashboard/admin-feedback-panel";
+import { AdminBillingPanel } from "@/components/dashboard/admin-billing-panel";
 import { AdminUsersPanel } from "@/components/dashboard/admin-users-panel";
 
-type AdminSection = "feedback" | "users";
+type AdminSection = "feedback" | "users" | "billing";
 
 export function AdminDashboard() {
   const [section, setSection] = useState<AdminSection>("feedback");
@@ -20,6 +21,7 @@ export function AdminDashboard() {
           [
             ["feedback", "Feedback"],
             ["users", "Users & admins"],
+            ["billing", "Billing"],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -36,11 +38,15 @@ export function AdminDashboard() {
                 event.key === "ArrowRight"
                   ? value === "feedback"
                     ? "users"
-                    : "feedback"
+                    : value === "users"
+                      ? "billing"
+                      : "feedback"
                   : event.key === "ArrowLeft"
                     ? value === "users"
                       ? "feedback"
-                      : "users"
+                      : value === "billing"
+                        ? "users"
+                        : "billing"
                     : null;
               if (next) {
                 event.preventDefault();
@@ -64,7 +70,13 @@ export function AdminDashboard() {
         aria-labelledby={`admin-tab-${section}`}
         tabIndex={0}
       >
-        {section === "feedback" ? <AdminFeedbackPanel /> : <AdminUsersPanel />}
+        {section === "feedback" ? (
+          <AdminFeedbackPanel />
+        ) : section === "users" ? (
+          <AdminUsersPanel />
+        ) : (
+          <AdminBillingPanel />
+        )}
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ import logging
 import uuid
 import time
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional, Dict, Any, Literal
 from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
@@ -18,8 +18,9 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, Depends, Header, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from prisma import Prisma
 from groq import Groq
@@ -262,7 +263,14 @@ def validate_image_upload(image_bytes: bytes) -> str:
         raise HTTPException(status_code=400, detail="Upload a JPEG, PNG, or WebP image.")
     return mime_types[image_format]
 
-async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
+async def get_current_user(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+) -> str:
+    cached_user_id = getattr(request.state, "billing_user_id", None)
+    if isinstance(cached_user_id, str):
+        return cached_user_id
+
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
         raise HTTPException(status_code=503, detail="Authentication is not configured.")
 
@@ -316,6 +324,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
             user_id,
         )
         if current_user:
+            request.state.billing_user_id = user_id
             return user_id
 
         previous_users = await transaction.query_raw(
@@ -364,6 +373,16 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
                 previous_user_id,
             )
             await transaction.execute_raw(
+                'UPDATE "UserSubscription" SET "userId" = $1 WHERE "userId" = $2',
+                user_id,
+                previous_user_id,
+            )
+            await transaction.execute_raw(
+                'UPDATE "BillingUsageEvent" SET "userId" = $1 WHERE "userId" = $2',
+                user_id,
+                previous_user_id,
+            )
+            await transaction.execute_raw(
                 'DELETE FROM "User" WHERE "id" = $1',
                 previous_user_id,
             )
@@ -376,7 +395,260 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
                 name,
             )
 
+    request.state.billing_user_id = user_id
     return user_id
+
+
+BILLING_PLANS = {
+    "basic": {
+        "job_fit": 5,
+        "roadmap_generation": 2,
+        "application_drafts": 5,
+        "resume_updates": 2,
+        "role_suggestions": 5,
+    },
+    "standard": {
+        "job_fit": 15,
+        "roadmap_generation": 5,
+        "application_drafts": 15,
+        "resume_updates": 5,
+        "role_suggestions": 15,
+    },
+    "premium": {
+        "job_fit": 40,
+        "roadmap_generation": 15,
+        "application_drafts": 40,
+        "resume_updates": 15,
+        "role_suggestions": 40,
+    },
+}
+
+FEATURE_MINIMUM_PLANS = {
+    "job_fit": "basic",
+    "roadmap_generation": "basic",
+    "role_suggestions": "standard",
+    "application_drafts": "standard",
+    "resume_updates": "premium",
+}
+
+FEATURE_LABELS = {
+    "job_fit": "job-fit checks",
+    "roadmap_generation": "roadmap generations",
+    "role_suggestions": "role suggestions",
+    "application_drafts": "application drafts",
+    "resume_updates": "resume updates",
+}
+
+
+async def billing_is_enabled() -> bool:
+    rows = await db.query_raw(
+        'SELECT "enabled" FROM "BillingConfiguration" WHERE "id" = $1',
+        "global",
+    )
+    return bool(rows and rows[0]["enabled"])
+
+
+def _utc_datetime(value: Any) -> Optional[datetime]:
+    if not isinstance(value, datetime):
+        return None
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+
+
+def _subscription_is_entitled(subscription: Optional[dict], now: datetime) -> bool:
+    if not subscription:
+        return False
+
+    status = subscription.get("status")
+    trial_end = _utc_datetime(subscription.get("trialEndsAt"))
+    period_end = _utc_datetime(subscription.get("currentPeriodEnd"))
+    payment_failed_at = _utc_datetime(subscription.get("paymentFailedAt"))
+
+    if status == "TRIALING":
+        return trial_end is not None and trial_end > now
+    if status == "ACTIVE":
+        return period_end is not None and period_end > now
+    if status == "CANCELED":
+        return period_end is not None and period_end > now
+    if status == "PAST_DUE":
+        return payment_failed_at is not None and now < payment_failed_at + timedelta(days=7)
+    return False
+
+
+async def require_billing_account_access(user_id: str) -> Optional[dict]:
+    if not await billing_is_enabled():
+        return None
+
+    rows = await db.query_raw(
+        'SELECT "plan", "status", "trialEndsAt", "currentPeriodEnd", "paymentFailedAt" '
+        'FROM "UserSubscription" WHERE "userId" = $1',
+        user_id,
+    )
+    subscription = rows[0] if rows else None
+    now = datetime.now(timezone.utc)
+    if not _subscription_is_entitled(subscription, now):
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                "Paid access is not active for this account. Your saved profile, "
+                "applications, and learning plans remain available to view and export."
+            ),
+        )
+    return subscription
+
+
+def _month_start_utc(now: datetime) -> datetime:
+    return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+def _feature_available(plan: str, feature: str) -> bool:
+    plan_order = {"basic": 0, "standard": 1, "premium": 2}
+    return (
+        plan in plan_order
+        and feature in FEATURE_MINIMUM_PLANS
+        and plan_order[plan] >= plan_order[FEATURE_MINIMUM_PLANS[feature]]
+    )
+
+
+async def reserve_billing_usage(user_id: str, feature: str) -> Optional[dict]:
+    if not await billing_is_enabled():
+        return None
+
+    now = datetime.now(timezone.utc)
+    month_start = _month_start_utc(now)
+    async with db.tx() as transaction:
+        await transaction.query_raw(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+            f"{user_id}:{feature}:{month_start.strftime('%Y-%m')}",
+        )
+        subscriptions = await transaction.query_raw(
+            'SELECT "plan", "status", "trialEndsAt", "currentPeriodEnd", "paymentFailedAt" '
+            'FROM "UserSubscription" WHERE "userId" = $1',
+            user_id,
+        )
+        subscription = subscriptions[0] if subscriptions else None
+        if not _subscription_is_entitled(subscription, now):
+            raise HTTPException(
+                status_code=402,
+                detail="Paid access is not active for this account.",
+            )
+
+        plan = str(subscription["plan"]).lower()
+        if not _feature_available(plan, feature):
+            required_plan = FEATURE_MINIMUM_PLANS[feature].title()
+            raise HTTPException(
+                status_code=403,
+                detail=f"{required_plan} is required to use {FEATURE_LABELS[feature]}.",
+            )
+
+        limit = BILLING_PLANS[plan][feature]
+        counts = await transaction.query_raw(
+            'SELECT COUNT(*)::int AS "used" FROM "BillingUsageEvent" '
+            'WHERE "userId" = $1 AND "feature" = $2 AND "createdAt" >= $3',
+            user_id,
+            feature,
+            month_start,
+        )
+        used = int(counts[0]["used"]) if counts else 0
+        if used >= limit:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    f"You have used this month's {FEATURE_LABELS[feature]} allowance. "
+                    "Your allowance resets at the start of next month."
+                ),
+            )
+
+        await transaction.execute_raw(
+            'INSERT INTO "BillingUsageEvent" ("id", "userId", "feature") VALUES ($1, $2, $3)',
+            str(uuid.uuid4()),
+            user_id,
+            feature,
+        )
+    return {"plan": plan, "used": used + 1, "limit": limit}
+
+
+@app.middleware("http")
+async def enforce_billing_for_writes(request: Request, call_next):
+    path = request.url.path
+    if (
+        not path.startswith("/api/v1/")
+        or request.method not in {"POST", "PUT", "PATCH", "DELETE"}
+        or path == "/api/v1/feedback"
+        or path.startswith("/api/v1/billing/")
+        or not await billing_is_enabled()
+    ):
+        return await call_next(request)
+
+    try:
+        user_id = await get_current_user(request, request.headers.get("authorization"))
+        await require_billing_account_access(user_id)
+    except HTTPException as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    return await call_next(request)
+
+
+@app.get("/api/v1/billing/status")
+async def get_billing_status(user_id: str = Depends(get_current_user)):
+    enabled = await billing_is_enabled()
+    subscriptions = await db.query_raw(
+        'SELECT "plan", "status", "trialEndsAt", "currentPeriodStart", "currentPeriodEnd", '
+        '"paymentFailedAt", "canceledAt" FROM "UserSubscription" WHERE "userId" = $1',
+        user_id,
+    )
+    subscription = subscriptions[0] if subscriptions else None
+    now = datetime.now(timezone.utc)
+    month_start = _month_start_utc(now)
+    counts = await db.query_raw(
+        'SELECT "feature", COUNT(*)::int AS "used" FROM "BillingUsageEvent" '
+        'WHERE "userId" = $1 AND "createdAt" >= $2 GROUP BY "feature"',
+        user_id,
+        month_start,
+    )
+    usage = {row["feature"]: int(row["used"]) for row in counts}
+    plan = str(subscription["plan"]).lower() if subscription else None
+    effective_status = subscription.get("status") if subscription else "NONE"
+    if subscription and not _subscription_is_entitled(subscription, now):
+        effective_status = "EXPIRED"
+
+    features = {}
+    for feature, minimum_plan in FEATURE_MINIMUM_PLANS.items():
+        limit = BILLING_PLANS.get(plan, {}).get(feature) if plan else None
+        used = usage.get(feature, 0)
+        features[feature] = {
+            "label": FEATURE_LABELS[feature],
+            "limit": limit,
+            "used": used,
+            "remaining": max(limit - used, 0) if limit is not None else None,
+            "available": bool(
+                enabled
+                and subscription
+                and _subscription_is_entitled(subscription, now)
+                and _feature_available(plan or "", feature)
+            ),
+            "includedFrom": minimum_plan,
+        }
+
+    def serialize_date(value: Any) -> Optional[str]:
+        parsed = _utc_datetime(value)
+        return parsed.isoformat() if parsed else None
+
+    return {
+        "billingEnabled": enabled,
+        "checkoutEnabled": False,
+        "currency": None,
+        "annualDiscountPercent": 20,
+        "plan": plan,
+        "status": effective_status,
+        "trialEndsAt": serialize_date(subscription.get("trialEndsAt")) if subscription else None,
+        "currentPeriodStart": serialize_date(subscription.get("currentPeriodStart")) if subscription else None,
+        "currentPeriodEnd": serialize_date(subscription.get("currentPeriodEnd")) if subscription else None,
+        "paymentFailedAt": serialize_date(subscription.get("paymentFailedAt")) if subscription else None,
+        "canceledAt": serialize_date(subscription.get("canceledAt")) if subscription else None,
+        "usagePeriodStartsAt": month_start.isoformat(),
+        "features": features,
+        "plans": BILLING_PLANS,
+    }
+
 
 # 5. Helper Function for Prisma Nested Writes
 def build_roadmap_data(data: Dict[str, Any], user_id: str) -> Dict[str, Any]:
@@ -483,6 +755,7 @@ async def recommend_job_roles(
     profile = profiles[0]
     if not any(profile.get(field) for field in ("careerSummary", "skills", "workHistory", "education", "accomplishments")):
         raise HTTPException(status_code=400, detail="Add experience, education, skills, or accomplishments before requesting role suggestions.")
+    await reserve_billing_usage(user_id, "role_suggestions")
 
     prompt = f"""
     Suggest up to five realistic job titles based only on the candidate profile below.
@@ -645,6 +918,7 @@ async def generate_roadmap(
     payload: GenerateRoadmapRequest,
     user_id: str = Depends(get_current_user)
 ):
+    await reserve_billing_usage(user_id, "roadmap_generation")
     prompt = f"""
     Create a detailed learning roadmap for a {payload.targetLevel} {payload.role}.
     Return one valid JSON object with a title, a readinessScore from 0 to 100
@@ -700,6 +974,7 @@ async def generate_roadmap_from_cv(
         if not cv_text.strip():
             raise HTTPException(status_code=400, detail="Could not extract text from the provided PDF file.")
 
+        await reserve_billing_usage(user_id, "roadmap_generation")
         prompt = f"""
         Analyze the following resume text and create a targeted learning roadmap to bridge skill gaps and level up the candidate.
         Resume Context:
@@ -750,6 +1025,7 @@ async def analyze_job_posting(
     description = payload.description.strip()
     if len(description) < 80:
         raise HTTPException(status_code=400, detail="Paste more of the job posting to analyze it.")
+    await reserve_billing_usage(user_id, "job_fit")
 
     prompt = f"""
     Extract factual details from this job posting and return one JSON object with:
@@ -847,6 +1123,7 @@ async def match_job_fit(
             raise HTTPException(status_code=413, detail="Job-post images must be 5 MB or smaller.")
         job_image_mime = validate_image_upload(job_image_bytes)
 
+    await reserve_billing_usage(user_id, "job_fit")
     prompt = f"""
     Compare the resume evidence with the job posting and any attached images.
     Return one JSON object with:
@@ -1035,6 +1312,7 @@ async def generate_resume_roadmap_update(
             "proofNotes": proof_notes_by_id.get(project.id, "")[:1500],
         })
 
+    await reserve_billing_usage(user_id, "resume_updates")
     prompt = f"""
     Prepare truthful, editable resume update suggestions for the target role:
     {target_role.strip()}
@@ -1410,6 +1688,7 @@ async def generate_roadmap_from_fit_gaps(
         "gaps": gap_items[:5],
         "questionsToConfirm": question_items[:5],
     }
+    await reserve_billing_usage(user_id, "roadmap_generation")
     prompt = f"""
     Create a practical learning roadmap for the {payload.targetLevel} {role} role,
     using only the job-fit gaps and open questions below. Turn each relevant gap
@@ -1485,6 +1764,7 @@ async def generate_proof_sprint(
     if selected_gap not in saved_gaps:
         raise HTTPException(status_code=400, detail="Choose a skill gap from this saved fit assessment.")
 
+    await reserve_billing_usage(user_id, "job_fit")
     role = application["position"]
     prompt = f"""
     Create one focused portfolio proof sprint for a candidate targeting the role
@@ -1619,6 +1899,7 @@ async def prepare_application_pack(
     ):
         raise HTTPException(status_code=400, detail="Add experience, education, skills, or accomplishments to your career profile first.")
 
+    await reserve_billing_usage(user_id, "application_drafts")
     prompt = f"""
     Prepare a review-only application pack for this job. Return JSON with
     coverLetter, roleSummary, and evidenceToEmphasize (an array of up to four

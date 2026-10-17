@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       .map((email) => email.trim().toLowerCase())
       .filter(Boolean),
   ]);
-  const users = data.users
+  const pageUsers = data.users
     .filter((user) => {
       if (!search) return true;
       return (
@@ -67,6 +67,38 @@ export async function GET(request: Request) {
         adminIds.has(user.id) || isBootstrapAdmin(user.email),
       isBootstrapAdmin: isBootstrapAdmin(user.email),
     }));
+  const subscriptions = pageUsers.length
+    ? await db.userSubscription.findMany({
+        where: { userId: { in: pageUsers.map((user) => user.id) } },
+        select: {
+          userId: true,
+          plan: true,
+          status: true,
+          trialEndsAt: true,
+          currentPeriodEnd: true,
+        },
+      })
+    : [];
+  const now = Date.now();
+  const subscriptionByUserId = new Map(
+    subscriptions.map((subscription) => {
+      const trialExpired =
+        subscription.status === "TRIALING" &&
+        subscription.trialEndsAt !== null &&
+        subscription.trialEndsAt.getTime() <= now;
+      return [
+        subscription.userId,
+        {
+          ...subscription,
+          status: trialExpired ? "EXPIRED" : subscription.status,
+        },
+      ];
+    }),
+  );
+  const users = pageUsers.map((user) => ({
+    ...user,
+    subscription: subscriptionByUserId.get(user.id) ?? null,
+  }));
 
   return adminJson({
     users,

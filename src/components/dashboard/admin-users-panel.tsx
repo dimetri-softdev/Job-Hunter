@@ -22,6 +22,12 @@ interface AdminUser {
   isSuspended: boolean;
   isAdmin: boolean;
   isBootstrapAdmin: boolean;
+  subscription: {
+    plan: string;
+    status: string;
+    trialEndsAt: string | null;
+    currentPeriodEnd: string | null;
+  } | null;
 }
 
 interface UserPage {
@@ -176,6 +182,55 @@ export function AdminUsersPanel() {
         actionError instanceof Error
           ? actionError.message
           : "Unable to update this account.",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function grantTrial(id: string) {
+    setBusyId(id);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/billing/trials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: id }),
+      });
+      const payload = await readJson(response);
+      if (!response.ok) throw new Error(getErrorMessage(payload, response.status));
+      refresh();
+    } catch (grantError: unknown) {
+      setError(
+        grantError instanceof Error
+          ? grantError.message
+          : "Unable to grant this trial.",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function revokeTrial(id: string) {
+    if (!window.confirm("End this user's Standard trial now? Their saved data will remain available to view and export.")) {
+      return;
+    }
+    setBusyId(id);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/billing/trials", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: id }),
+      });
+      const payload = await readJson(response);
+      if (!response.ok) throw new Error(getErrorMessage(payload, response.status));
+      refresh();
+    } catch (revokeError: unknown) {
+      setError(
+        revokeError instanceof Error
+          ? revokeError.message
+          : "Unable to revoke this trial.",
       );
     } finally {
       setBusyId(null);
@@ -378,8 +433,43 @@ export function AdminUsersPanel() {
                         {user.lastSignInAt &&
                           ` · Last active ${new Date(user.lastSignInAt).toLocaleDateString()}`}
                       </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {user.subscription
+                          ? `${user.subscription.plan} · ${user.subscription.status.toLowerCase().replaceAll("_", " ")}${
+                              user.subscription.trialEndsAt
+                                ? ` · trial ends ${new Date(user.subscription.trialEndsAt).toLocaleDateString()}`
+                                : ""
+                            }`
+                          : "No trial or subscription assigned"}
+                      </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      {!user.subscription && !user.isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => void grantTrial(user.id)}
+                          disabled={busyId === user.id || suspended}
+                          className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-violet-400/30 px-3 text-xs text-violet-200 hover:bg-violet-400/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {busyId === user.id ? (
+                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                          ) : null}
+                          Grant 14-day Standard trial
+                        </button>
+                      )}
+                      {user.subscription?.status === "TRIALING" && (
+                        <button
+                          type="button"
+                          onClick={() => void revokeTrial(user.id)}
+                          disabled={busyId === user.id}
+                          className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-rose-400/20 px-3 text-xs text-rose-200 hover:bg-rose-400/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {busyId === user.id ? (
+                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                          ) : null}
+                          Revoke trial
+                        </button>
+                      )}
                       {user.isAdmin ? (
                         !user.isBootstrapAdmin && (
                           <button

@@ -23,6 +23,8 @@ model User {
   offerPriorities   Json?
   roadmaps          Roadmap[]
   applications      Application[]
+  subscription      UserSubscription?
+  billingUsage      BillingUsageEvent[]
   createdAt         DateTime       @default(now())
 }
 
@@ -84,4 +86,51 @@ model FeedbackResponse {
   id        String   @id @default(uuid())
   answers   Json
   createdAt DateTime @default(now())
+}
+
+model BillingConfiguration {
+  id        String   @id
+  enabled   Boolean  @default(false)
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+model UserSubscription {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                   String
+  status                 String
+  trialEndsAt            DateTime?
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  paymentFailedAt        DateTime?
+  canceledAt             DateTime?
+  provider               String?
+  providerCustomerId     String?
+  providerSubscriptionId String?  @unique
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model BillingUsageEvent {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature   String
+  createdAt DateTime @default(now())
+
+  @@index([userId, feature, createdAt])
+}
+
+model BillingAuditLog {
+  id             String   @id @default(uuid())
+  actorId        String
+  actorEmail     String
+  subjectUserId  String?
+  action         String
+  details        Json
+  createdAt      DateTime @default(now())
+
+  @@index([subjectUserId, createdAt])
 }

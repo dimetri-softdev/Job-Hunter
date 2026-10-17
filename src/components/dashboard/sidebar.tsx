@@ -13,6 +13,7 @@ import {
   ChevronRight,
   MessageSquareText,
   FileText,
+  CreditCard,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { ActionHint } from "@/components/action-hint";
@@ -53,6 +54,12 @@ const navItems = [
     description: "Create a role-specific resume draft",
     href: "/resume-update",
     icon: FileText,
+  },
+  {
+    name: "Plans & usage",
+    description: "Your access, plan limits, and billing status",
+    href: "/billing",
+    icon: CreditCard,
   },
   {
     name: "Send feedback",
