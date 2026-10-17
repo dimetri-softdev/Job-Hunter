@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { CareerMomentum } from "@/components/dashboard/career-momentum";
+import { FirstSteps } from "@/components/dashboard/first-steps";
 import { ProjectCard } from "@/components/dashboard/project-card";
 import { SavedRoadmaps } from "@/components/dashboard/saved-roadmaps";
 import { GeneratorModal } from "@/components/dashboard/generator-modal";
@@ -18,6 +19,17 @@ interface ApplicationFollowUp {
   nextAction?: string | null;
   followUpAt?: string | null;
   fitAssessment?: object | null;
+}
+
+interface CareerProfile {
+  careerSummary?: string | null;
+  skills?: string | null;
+  workHistory?: string | null;
+  education?: string | null;
+  accomplishments?: string | null;
+  experienceLevel?: string | null;
+  targetRoles?: string | null;
+  preferredLocation?: string | null;
 }
 
 function getDaysUntilFollowUp(followUpAt?: string | null) {
@@ -47,6 +59,11 @@ export default function DashboardPage() {
   >([]);
   const [followUpsLoading, setFollowUpsLoading] = useState(true);
   const [followUpsError, setFollowUpsError] = useState<string | null>(null);
+  const [careerProfileStarted, setCareerProfileStarted] = useState(false);
+  const [careerProfileLoading, setCareerProfileLoading] = useState(true);
+  const [careerProfileError, setCareerProfileError] = useState<string | null>(
+    null,
+  );
   const activeRoadmap =
     roadmaps.find((roadmap) => roadmap.id === activeRoadmapId) ?? null;
 
@@ -70,6 +87,39 @@ export default function DashboardPage() {
     }
 
     loadRoadmaps();
+  }, []);
+
+  useEffect(() => {
+    async function loadCareerProfile() {
+      try {
+        const data = await fetcher<CareerProfile>("/career-profile");
+        if (!data || typeof data !== "object") {
+          throw new Error("Unexpected career profile response.");
+        }
+        setCareerProfileStarted(
+          [
+            data.careerSummary,
+            data.skills,
+            data.workHistory,
+            data.education,
+            data.accomplishments,
+            data.experienceLevel,
+            data.targetRoles,
+            data.preferredLocation,
+          ].some((value) => Boolean(value?.trim())),
+        );
+      } catch (loadError) {
+        setCareerProfileError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Unable to load career profile.",
+        );
+      } finally {
+        setCareerProfileLoading(false);
+      }
+    }
+
+    loadCareerProfile();
   }, []);
 
   useEffect(() => {
@@ -153,6 +203,11 @@ export default function DashboardPage() {
   const allTasks = activeRoadmap?.projects?.flatMap((p) => p.tasks) || [];
   const completedTasksCount = allTasks.filter((t) => t.completed).length;
   const totalTasksCount = allTasks.length;
+  const hasCompletedTask = roadmaps.some((roadmap) =>
+    roadmap.projects.some((project) =>
+      project.tasks.some((task) => task.completed),
+    ),
+  );
   const progressPercentage =
     totalTasksCount > 0
       ? Math.round((completedTasksCount / totalTasksCount) * 100)
@@ -185,6 +240,28 @@ export default function DashboardPage() {
             roadmaps={roadmaps}
           />
       )}
+
+      {careerProfileError && (
+        <p role="alert" className="text-xs text-rose-400">
+          Unable to load your first-step checklist: {careerProfileError}
+        </p>
+      )}
+
+      {!roadmapsLoading &&
+        !followUpsLoading &&
+        !careerProfileLoading &&
+        !roadmapsError &&
+        !followUpsError &&
+        !careerProfileError && (
+          <FirstSteps
+            completed={[
+              careerProfileStarted,
+              followUpApplications.length > 0,
+              roadmaps.length > 0,
+              hasCompletedTask,
+            ]}
+          />
+        )}
 
       <section
         aria-labelledby="follow-ups-heading"
@@ -272,7 +349,10 @@ export default function DashboardPage() {
       {/* Main Grid */}
       <div className="grid grid-cols-12 gap-6 items-start">
         {/* Left / Active Roadmap Column */}
-        <div className="col-span-12 xl:col-span-8 space-y-6">
+        <div
+          id="active-roadmap"
+          className="col-span-12 space-y-6 xl:col-span-8"
+        >
           {/* Top Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-[#12131a] border border-[#1f212d] rounded-2xl p-5">
