@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { CareerMomentum } from "@/components/dashboard/career-momentum";
+import { DashboardSectionToggle } from "@/components/dashboard/dashboard-section-toggle";
 import { FirstSteps } from "@/components/dashboard/first-steps";
 import { ProjectCard } from "@/components/dashboard/project-card";
 import { SavedRoadmaps } from "@/components/dashboard/saved-roadmaps";
@@ -30,6 +31,44 @@ interface CareerProfile {
   experienceLevel?: string | null;
   targetRoles?: string | null;
   preferredLocation?: string | null;
+}
+
+const DASHBOARD_VISIBILITY_KEY = "jobhunter:dashboard-visibility:v1";
+
+const DASHBOARD_SECTIONS = [
+  "firstSteps",
+  "careerMomentum",
+  "followUps",
+  "learningWorkspace",
+] as const;
+
+type DashboardSection = (typeof DASHBOARD_SECTIONS)[number];
+type DashboardVisibility = Record<DashboardSection, boolean>;
+
+const DEFAULT_DASHBOARD_VISIBILITY: DashboardVisibility = {
+  firstSteps: true,
+  careerMomentum: true,
+  followUps: true,
+  learningWorkspace: true,
+};
+
+function parseDashboardVisibility(value: unknown): DashboardVisibility {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Saved dashboard visibility is not a valid object.");
+  }
+
+  const saved = value as Record<string, unknown>;
+  return DASHBOARD_SECTIONS.reduce(
+    (visibility, section) => {
+      const savedValue = saved[section];
+      visibility[section] =
+        typeof savedValue === "boolean"
+          ? savedValue
+          : DEFAULT_DASHBOARD_VISIBILITY[section];
+      return visibility;
+    },
+    { ...DEFAULT_DASHBOARD_VISIBILITY },
+  );
 }
 
 function getDaysUntilFollowUp(followUpAt?: string | null) {
@@ -64,8 +103,73 @@ export default function DashboardPage() {
   const [careerProfileError, setCareerProfileError] = useState<string | null>(
     null,
   );
+  const [dashboardVisibility, setDashboardVisibility] =
+    useState<DashboardVisibility>(DEFAULT_DASHBOARD_VISIBILITY);
+  const [visibilityLoaded, setVisibilityLoaded] = useState(false);
+  const [visibilityError, setVisibilityError] = useState<string | null>(null);
   const activeRoadmap =
     roadmaps.find((roadmap) => roadmap.id === activeRoadmapId) ?? null;
+
+  useEffect(() => {
+    window.queueMicrotask(() => {
+      try {
+        const savedPreferences = window.localStorage.getItem(
+          DASHBOARD_VISIBILITY_KEY,
+        );
+        if (savedPreferences) {
+          setDashboardVisibility(
+            parseDashboardVisibility(JSON.parse(savedPreferences)),
+          );
+        }
+      } catch (loadError: unknown) {
+        console.error(
+          "Failed to load dashboard visibility preferences:",
+          loadError,
+        );
+        setVisibilityError(
+          "Saved section visibility could not be loaded. All sections are shown.",
+        );
+      } finally {
+        setVisibilityLoaded(true);
+      }
+    });
+  }, []);
+
+  function saveDashboardVisibility(nextVisibility: DashboardVisibility) {
+    try {
+      window.localStorage.setItem(
+        DASHBOARD_VISIBILITY_KEY,
+        JSON.stringify(nextVisibility),
+      );
+      setVisibilityError(null);
+    } catch (saveError: unknown) {
+      console.error("Failed to save dashboard visibility preferences:", saveError);
+      setVisibilityError(
+        "Your visibility change is active for now but could not be saved.",
+      );
+    }
+  }
+
+  function toggleDashboardSection(section: DashboardSection) {
+    const nextVisibility = {
+      ...dashboardVisibility,
+      [section]: !dashboardVisibility[section],
+    };
+    setDashboardVisibility(nextVisibility);
+    saveDashboardVisibility(nextVisibility);
+  }
+
+  function setAllDashboardSections(visible: boolean) {
+    const nextVisibility = DASHBOARD_SECTIONS.reduce(
+      (next, section) => {
+        next[section] = visible;
+        return next;
+      },
+      { ...DEFAULT_DASHBOARD_VISIBILITY },
+    );
+    setDashboardVisibility(nextVisibility);
+    saveDashboardVisibility(nextVisibility);
+  }
 
   useEffect(() => {
     async function loadRoadmaps() {
@@ -225,6 +329,56 @@ export default function DashboardPage() {
         />
       </DashboardPageHeader>
 
+      <section
+        aria-label="Dashboard visibility controls"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#1f212d] bg-[#12131a] px-4 py-3"
+      >
+        <div>
+          <h2 className="text-xs font-semibold text-slate-200">
+            Dashboard sections
+          </h2>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Show or hide sections. Your choices are saved on this device.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setAllDashboardSections(true)}
+            disabled={
+              !visibilityLoaded ||
+              DASHBOARD_SECTIONS.every(
+                (section) => dashboardVisibility[section],
+              )
+            }
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#303342] px-3 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Eye className="size-3.5" aria-hidden="true" />
+            Show all
+          </button>
+          <button
+            type="button"
+            onClick={() => setAllDashboardSections(false)}
+            disabled={
+              !visibilityLoaded ||
+              DASHBOARD_SECTIONS.every(
+                (section) => !dashboardVisibility[section],
+              )
+            }
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#303342] px-3 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <EyeOff className="size-3.5" aria-hidden="true" />
+            Hide all
+          </button>
+        </div>
+      </section>
+
+      {visibilityError && (
+        <p role="status" className="text-xs text-amber-300">
+          {visibilityError}
+        </p>
+      )}
+
       {roadmapsError && (
         <p role="alert" className="text-xs text-rose-400">
           {roadmapsError}
@@ -250,6 +404,9 @@ export default function DashboardPage() {
               roadmaps.length > 0,
               hasCompletedTask,
             ]}
+            collapsed={!dashboardVisibility.firstSteps}
+            onToggle={() => toggleDashboardSection("firstSteps")}
+            disabled={!visibilityLoaded}
           />
         )}
 
@@ -260,12 +417,15 @@ export default function DashboardPage() {
           <CareerMomentum
             applications={followUpApplications}
             roadmaps={roadmaps}
+            collapsed={!dashboardVisibility.careerMomentum}
+            onToggle={() => toggleDashboardSection("careerMomentum")}
+            disabled={!visibilityLoaded}
           />
         )}
 
       <section
         aria-labelledby="follow-ups-heading"
-        className="space-y-4 rounded-2xl border border-[#1f212d] bg-[#12131a] p-5"
+        className="rounded-2xl border border-[#1f212d] bg-[#12131a] p-5"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -279,172 +439,208 @@ export default function DashboardPage() {
               Overdue and due within the next 7 days
             </p>
           </div>
-          <Link
-            href="/applications"
-            className="text-xs font-medium text-blue-300 hover:text-blue-200"
-          >
-            Manage applications
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/applications"
+              className="text-xs font-medium text-blue-300 hover:text-blue-200"
+            >
+              Manage applications
+            </Link>
+            <DashboardSectionToggle
+              collapsed={!dashboardVisibility.followUps}
+              onToggle={() => toggleDashboardSection("followUps")}
+              sectionLabel="application follow-ups"
+              disabled={!visibilityLoaded}
+            />
+          </div>
         </div>
 
-        {followUpsLoading ? (
-          <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading follow-ups...
-          </div>
-        ) : followUpsError ? (
-          <p role="alert" className="text-xs text-rose-400">
-            {followUpsError}
-          </p>
-        ) : dueFollowUps.length === 0 ? (
-          <p className="py-3 text-xs text-slate-500">
-            Nothing is due this week. Your scheduled follow-ups remain available
-            in Applications.
-          </p>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-3 text-xs">
-              <span className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-rose-300">
-                {overdueFollowUps} overdue
-              </span>
-              <span className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-amber-200">
-                {upcomingFollowUps} due this week
-              </span>
-            </div>
-            <ul className="divide-y divide-[#1f212d]">
-              {dueFollowUps.slice(0, 5).map((application) => (
-                <li
-                  key={application.id}
-                  className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-                >
-                  <Link
-                    href={`/applications#application-${application.id}`}
-                    className="min-w-0 hover:text-blue-300"
-                  >
-                    <p className="truncate text-xs font-medium text-slate-200">
-                      {application.company} · {application.position}
-                    </p>
-                    <p className="mt-1 truncate text-[11px] text-slate-500">
-                      {application.nextAction || "Follow up on this application"}
-                    </p>
-                  </Link>
-                  <span
-                    className={`shrink-0 text-[11px] ${
-                      application.daysUntil < 0
-                        ? "text-rose-300"
-                        : application.daysUntil === 0
-                          ? "text-amber-200"
-                          : "text-slate-400"
-                    }`}
-                  >
-                    {getFollowUpLabel(application.daysUntil)}
+        {dashboardVisibility.followUps && (
+          <div className="mt-4 space-y-4">
+            {followUpsLoading ? (
+              <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading follow-ups...
+              </div>
+            ) : followUpsError ? (
+              <p role="alert" className="text-xs text-rose-400">
+                {followUpsError}
+              </p>
+            ) : dueFollowUps.length === 0 ? (
+              <p className="py-3 text-xs text-slate-500">
+                Nothing is due this week. Your scheduled follow-ups remain
+                available in Applications.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-3 text-xs">
+                  <span className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-rose-300">
+                    {overdueFollowUps} overdue
                   </span>
-                </li>
-              ))}
-            </ul>
-          </>
+                  <span className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-amber-200">
+                    {upcomingFollowUps} due this week
+                  </span>
+                </div>
+                <ul className="divide-y divide-[#1f212d]">
+                  {dueFollowUps.slice(0, 5).map((application) => (
+                    <li
+                      key={application.id}
+                      className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                    >
+                      <Link
+                        href={`/applications#application-${application.id}`}
+                        className="min-w-0 hover:text-blue-300"
+                      >
+                        <p className="truncate text-xs font-medium text-slate-200">
+                          {application.company} · {application.position}
+                        </p>
+                        <p className="mt-1 truncate text-[11px] text-slate-500">
+                          {application.nextAction ||
+                            "Follow up on this application"}
+                        </p>
+                      </Link>
+                      <span
+                        className={`shrink-0 text-[11px] ${
+                          application.daysUntil < 0
+                            ? "text-rose-300"
+                            : application.daysUntil === 0
+                              ? "text-amber-200"
+                              : "text-slate-400"
+                        }`}
+                      >
+                        {getFollowUpLabel(application.daysUntil)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
         )}
       </section>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-12 gap-6 items-start">
-        {/* Left / Active Roadmap Column */}
-        <div
-          id="active-roadmap"
-          className="col-span-12 space-y-6 xl:col-span-8"
-        >
-          {/* Top Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-[#12131a] border border-[#1f212d] rounded-2xl p-5">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-mono">
-                Overall Progress
-              </span>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-3xl font-bold text-white">
-                  {activeRoadmap ? `${progressPercentage}%` : "--"}
-                </span>
-                <span className="text-xs text-slate-400 font-mono">
-                  {activeRoadmap
-                    ? `(${completedTasksCount}/${totalTasksCount} tasks completed)`
-                    : "No roadmap selected"}
-                </span>
-              </div>
-              <div className="w-full bg-[#1f212d] h-2 rounded-full mt-3 overflow-hidden">
-                <div
-                  className="bg-blue-500 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${progressPercentage}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="bg-[#12131a] border border-[#1f212d] rounded-2xl p-5">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-mono">
-                Skill Readiness Score
-              </span>
-              <div className="flex items-center gap-3 mt-2">
-                <span className="text-3xl font-bold text-amber-400">
-                  {activeRoadmap ? (
-                    activeRoadmap.title.startsWith("Proof Sprint:") ? (
-                      <span className="text-sm font-normal text-slate-400">
-                        Not scored
-                      </span>
-                    ) : (
-                      <>
-                        {activeRoadmap.readinessScore}
-                        <span className="text-sm text-slate-500 font-normal">
-                          /100
-                        </span>
-                      </>
-                    )
-                  ) : (
-                    "--"
-                  )}
-                </span>
-                <span className="text-[10px] text-slate-500">
-                  {activeRoadmap
-                    ? activeRoadmap.title.startsWith("Proof Sprint:")
-                      ? "Proof sprint"
-                      : "Current roadmap"
-                    : "No roadmap selected"}
-                </span>
-              </div>
-            </div>
+      <section
+        aria-labelledby="learning-workspace-heading"
+        className="overflow-hidden rounded-2xl border border-[#1f212d] bg-[#12131a]"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1f212d] px-5 py-4">
+          <div>
+            <h2
+              id="learning-workspace-heading"
+              className="text-sm font-semibold text-white"
+            >
+              Learning workspace
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Roadmap progress, active projects, and saved learning plans
+            </p>
           </div>
-
-          {/* Active Projects List */}
-          {activeRoadmap?.projects.length ? (
-            activeRoadmap.projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                id={project.id}
-                title={project.title}
-                description={project.description}
-                level={project.level}
-                tasks={project.tasks}
-                onToggleTask={handleToggleTask}
-              />
-            ))
-          ) : activeRoadmap ? (
-            <div className="p-12 text-center bg-[#12131a] border border-[#1f212d] rounded-2xl text-slate-500 text-sm">
-              This roadmap has no project tasks yet.
-            </div>
-          ) : (
-            <div className="p-12 text-center bg-[#12131a] border border-[#1f212d] rounded-2xl text-slate-500 text-sm">
-              No active tasks found. Click <strong>Generate New Roadmap</strong>{" "}
-              above to get started.
-            </div>
-          )}
-        </div>
-
-        {/* Right / Saved Roadmaps Sidebar Column */}
-        <div className="col-span-12 xl:col-span-4">
-          <SavedRoadmaps
-            roadmaps={roadmaps}
-            activeRoadmapId={activeRoadmapId}
-            onSelect={setActiveRoadmapId}
+          <DashboardSectionToggle
+            collapsed={!dashboardVisibility.learningWorkspace}
+            onToggle={() => toggleDashboardSection("learningWorkspace")}
+            sectionLabel="learning workspace"
+            disabled={!visibilityLoaded}
           />
         </div>
-      </div>
+
+        {dashboardVisibility.learningWorkspace && (
+          <div className="grid grid-cols-12 items-start gap-6 p-5">
+            <div
+              id="active-roadmap"
+              className="col-span-12 space-y-6 xl:col-span-8"
+            >
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-[#1f212d] bg-[#12131a] p-5">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Overall Progress
+                  </span>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-white">
+                      {activeRoadmap ? `${progressPercentage}%` : "--"}
+                    </span>
+                    <span className="font-mono text-xs text-slate-400">
+                      {activeRoadmap
+                        ? `(${completedTasksCount}/${totalTasksCount} tasks completed)`
+                        : "No roadmap selected"}
+                    </span>
+                  </div>
+                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[#1f212d]">
+                    <div
+                      className="h-full bg-blue-500 transition-all duration-300"
+                      style={{ width: `${progressPercentage}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[#1f212d] bg-[#12131a] p-5">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Skill Readiness Score
+                  </span>
+                  <div className="mt-2 flex items-center gap-3">
+                    <span className="text-3xl font-bold text-amber-400">
+                      {activeRoadmap ? (
+                        activeRoadmap.title.startsWith("Proof Sprint:") ? (
+                          <span className="text-sm font-normal text-slate-400">
+                            Not scored
+                          </span>
+                        ) : (
+                          <>
+                            {activeRoadmap.readinessScore}
+                            <span className="text-sm font-normal text-slate-500">
+                              /100
+                            </span>
+                          </>
+                        )
+                      ) : (
+                        "--"
+                      )}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {activeRoadmap
+                        ? activeRoadmap.title.startsWith("Proof Sprint:")
+                          ? "Proof sprint"
+                          : "Current roadmap"
+                        : "No roadmap selected"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {activeRoadmap?.projects.length ? (
+                activeRoadmap.projects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    id={project.id}
+                    title={project.title}
+                    description={project.description}
+                    level={project.level}
+                    tasks={project.tasks}
+                    onToggleTask={handleToggleTask}
+                  />
+                ))
+              ) : activeRoadmap ? (
+                <div className="rounded-2xl border border-[#1f212d] bg-[#12131a] p-12 text-center text-sm text-slate-500">
+                  This roadmap has no project tasks yet.
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-[#1f212d] bg-[#12131a] p-12 text-center text-sm text-slate-500">
+                  No active tasks found. Click{" "}
+                  <strong>Create learning roadmap</strong> above to get
+                  started.
+                </div>
+              )}
+            </div>
+
+            <div className="col-span-12 xl:col-span-4">
+              <SavedRoadmaps
+                roadmaps={roadmaps}
+                activeRoadmapId={activeRoadmapId}
+                onSelect={setActiveRoadmapId}
+              />
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

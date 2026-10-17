@@ -11,6 +11,7 @@ import {
   Trophy,
 } from "lucide-react";
 import type { GeneratedRoadmap } from "@/components/RoadmapGenerator";
+import { DashboardSectionToggle } from "@/components/dashboard/dashboard-section-toggle";
 
 interface CareerApplication {
   fitAssessment?: object | null;
@@ -42,9 +43,15 @@ const milestoneStyles = {
 export function CareerMomentum({
   applications,
   roadmaps,
+  collapsed,
+  onToggle,
+  disabled,
 }: {
   applications: CareerApplication[];
   roadmaps: GeneratedRoadmap[];
+  collapsed: boolean;
+  onToggle: () => void;
+  disabled: boolean;
 }) {
   const tasks = roadmaps.flatMap((roadmap) =>
     roadmap.projects.flatMap((project) => project.tasks),
@@ -136,23 +143,32 @@ export function CareerMomentum({
               {earnedCount} of {milestones.length} milestones
             </span>
           </div>
-        </div>
-        <div
-          className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#252836]"
-          role="progressbar"
-          aria-label="Career milestones"
-          aria-valuemin={0}
-          aria-valuemax={milestones.length}
-          aria-valuenow={earnedCount}
-        >
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-400 transition-all duration-500"
-            style={{ width: `${(earnedCount / milestones.length) * 100}%` }}
+          <DashboardSectionToggle
+            collapsed={collapsed}
+            onToggle={onToggle}
+            sectionLabel="career momentum"
+            disabled={disabled}
           />
         </div>
+        {!collapsed && (
+          <div
+            className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#252836]"
+            role="progressbar"
+            aria-label="Career milestones"
+            aria-valuemin={0}
+            aria-valuemax={milestones.length}
+            aria-valuenow={earnedCount}
+          >
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-400 transition-all duration-500"
+              style={{ width: `${(earnedCount / milestones.length) * 100}%` }}
+            />
+          </div>
+        )}
       </div>
 
-      <div className="grid gap-2.5 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3 2xl:grid-cols-5">
+      {!collapsed && (
+        <div className="grid gap-2.5 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3 2xl:grid-cols-5">
         {milestones.map((milestone) => {
           const Icon = milestone.icon;
           return (
@@ -199,9 +215,10 @@ export function CareerMomentum({
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
 
-      {nextMilestone ? (
+      {!collapsed && nextMilestone ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#1f212d] px-5 py-3.5 sm:px-6">
           <p className="text-xs text-slate-400">
             <span className="font-medium text-slate-200">Up next:</span>{" "}
@@ -215,11 +232,11 @@ export function CareerMomentum({
             <ArrowUpRight className="size-3.5" />
           </Link>
         </div>
-      ) : (
+      ) : !collapsed ? (
         <p className="border-t border-[#1f212d] px-5 py-3.5 text-xs text-slate-400 sm:px-6">
           You’ve reached every milestone. Keep building at your own pace.
         </p>
-      )}
+      ) : null}
     </section>
   );
 }

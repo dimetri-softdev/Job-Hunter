@@ -7,6 +7,7 @@ import {
   Map,
   Sparkles,
 } from "lucide-react";
+import { DashboardSectionToggle } from "@/components/dashboard/dashboard-section-toggle";
 
 const steps = [
   {
@@ -41,8 +42,14 @@ const steps = [
 
 export function FirstSteps({
   completed,
+  collapsed,
+  onToggle,
+  disabled,
 }: {
   completed: boolean[];
+  collapsed: boolean;
+  onToggle: () => void;
+  disabled: boolean;
 }) {
   const completedCount = completed.filter(Boolean).length;
   const nextStepIndex = completed.findIndex((isComplete) => !isComplete);
@@ -76,88 +83,102 @@ export function FirstSteps({
           <span className="rounded-full border border-[#303342] bg-[#0d0e14]/80 px-3 py-1.5 text-xs font-medium text-slate-300">
             {completedCount} of {steps.length} complete
           </span>
-        </div>
-        <div
-          className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#252836]"
-          role="progressbar"
-          aria-label="First steps progress"
-          aria-valuemin={0}
-          aria-valuemax={steps.length}
-          aria-valuenow={completedCount}
-        >
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-400 transition-all"
-            style={{ width: `${(completedCount / steps.length) * 100}%` }}
+          <DashboardSectionToggle
+            collapsed={collapsed}
+            onToggle={onToggle}
+            sectionLabel="first steps"
+            disabled={disabled}
           />
         </div>
+        {!collapsed && (
+          <div
+            className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#252836]"
+            role="progressbar"
+            aria-label="First steps progress"
+            aria-valuemin={0}
+            aria-valuemax={steps.length}
+            aria-valuenow={completedCount}
+          >
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-400 transition-all"
+              style={{ width: `${(completedCount / steps.length) * 100}%` }}
+            />
+          </div>
+        )}
       </div>
 
-      <ol className="grid gap-2 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-4">
-        {steps.map((step, index) => {
-          const Icon = step.icon;
-          const isComplete = completed[index];
-          const isNext = index === nextStepIndex;
+      {!collapsed && (
+        <ol className="grid gap-2 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-4">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            const isComplete = completed[index];
+            const isNext = index === nextStepIndex;
 
-          return (
-            <li
-              key={step.title}
-              className={`flex min-h-36 flex-col rounded-xl border p-3.5 ${
-                isNext
-                  ? "border-blue-500/30 bg-blue-500/[0.05]"
-                  : isComplete
-                    ? "border-emerald-500/20 bg-emerald-500/[0.035]"
-                    : "border-[#252836] bg-[#0d0e14]"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className={`flex size-8 items-center justify-center rounded-lg border ${
-                    isComplete
-                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
-                      : "border-[#303342] bg-[#151720] text-slate-400"
-                  }`}
-                >
-                  {isComplete ? (
-                    <Check className="size-4" aria-hidden="true" />
-                  ) : (
-                    <Icon className="size-4" aria-hidden="true" />
-                  )}
-                </span>
-                <span
-                  className={`text-[10px] font-medium ${
-                    isComplete
-                      ? "text-emerald-300"
+            return (
+              <li
+                key={step.title}
+                className={`flex min-h-36 flex-col rounded-xl border p-3.5 ${
+                  isNext
+                    ? "border-blue-500/30 bg-blue-500/[0.05]"
+                    : isComplete
+                      ? "border-emerald-500/20 bg-emerald-500/[0.035]"
+                      : "border-[#252836] bg-[#0d0e14]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={`flex size-8 items-center justify-center rounded-lg border ${
+                      isComplete
+                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+                        : "border-[#303342] bg-[#151720] text-slate-400"
+                    }`}
+                  >
+                    {isComplete ? (
+                      <Check className="size-4" aria-hidden="true" />
+                    ) : (
+                      <Icon className="size-4" aria-hidden="true" />
+                    )}
+                  </span>
+                  <span
+                    className={`text-[10px] font-medium ${
+                      isComplete
+                        ? "text-emerald-300"
+                        : isNext
+                          ? "text-blue-300"
+                          : "text-slate-500"
+                    }`}
+                  >
+                    {isComplete
+                      ? "Complete"
                       : isNext
-                        ? "text-blue-300"
-                        : "text-slate-500"
-                  }`}
-                >
-                  {isComplete ? "Complete" : isNext ? "Next step" : `Step ${index + 1}`}
-                </span>
-              </div>
-              <h3 className="mt-3 text-xs font-semibold text-slate-100">
-                {step.title}
-              </h3>
-              <p className="mt-1 flex-1 text-[11px] leading-4 text-slate-500">
-                {step.description}
-              </p>
-              {!isComplete && (
-                <Link
-                  href={step.href}
-                  className={`mt-3 inline-flex w-fit items-center gap-1 text-[11px] font-semibold ${
-                    isNext
-                      ? "text-blue-300 hover:text-blue-200"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  {step.action}
-                  <ArrowRight className="size-3" aria-hidden="true" />
-                </Link>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+                        ? "Next step"
+                        : `Step ${index + 1}`}
+                  </span>
+                </div>
+                <h3 className="mt-3 text-xs font-semibold text-slate-100">
+                  {step.title}
+                </h3>
+                <p className="mt-1 flex-1 text-[11px] leading-4 text-slate-500">
+                  {step.description}
+                </p>
+                {!isComplete && (
+                  <Link
+                    href={step.href}
+                    className={`mt-3 inline-flex w-fit items-center gap-1 text-[11px] font-semibold ${
+                      isNext
+                        ? "text-blue-300 hover:text-blue-200"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {step.action}
+                    <ArrowRight className="size-3" aria-hidden="true" />
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </section>
   );
 }
