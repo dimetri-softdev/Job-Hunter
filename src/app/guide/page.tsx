@@ -17,9 +17,12 @@ import { PublicSiteFooter } from "@/components/public-site-footer";
 import { PublicSiteHeader } from "@/components/public-site-header";
 
 export const metadata = {
-  title: "How to use JobHunter | JobHunter",
+  title: "How to use JobHunter",
   description:
     "A visual walkthrough of JobHunter: first steps, career milestones, dashboard controls, application drafts, job-fit checks, and learning plans.",
+  alternates: {
+    canonical: "/guide",
+  },
 };
 
 const guides = [

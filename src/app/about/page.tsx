@@ -11,8 +11,11 @@ import { PublicSiteFooter } from "@/components/public-site-footer";
 import { PublicSiteHeader } from "@/components/public-site-header";
 
 export const metadata = {
-  title: "About | JobHunter",
+  title: "About",
   description: "Why JobHunter exists and what it helps job seekers do.",
+  alternates: {
+    canonical: "/about",
+  },
 };
 
 export default function AboutPage() {

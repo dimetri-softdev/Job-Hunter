@@ -18,9 +18,12 @@ import { PublicSiteFooter } from "@/components/public-site-footer";
 import { PublicSiteHeader } from "@/components/public-site-header";
 
 export const metadata = {
-  title: "JobHunter | Make your next career move with clarity",
+  title: "Make your next career move with clarity",
   description:
     "Build your career profile, assess job fit, prepare application drafts, track progress, and shape your dashboard in one focused workspace.",
+  alternates: {
+    canonical: "/",
+  },
 };
 
 const features = [
