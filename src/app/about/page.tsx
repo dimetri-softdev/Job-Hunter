@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, Compass, ShieldCheck, Target } from "lucide-react";
+import {
+  ArrowRight,
+  Award,
+  Compass,
+  PanelsTopLeft,
+  ShieldCheck,
+  Target,
+} from "lucide-react";
 import { PublicSiteFooter } from "@/components/public-site-footer";
 import { PublicSiteHeader } from "@/components/public-site-header";
 
@@ -23,14 +30,15 @@ export default function AboutPage() {
           <p className="mt-6 max-w-3xl text-base leading-7 text-slate-300">
             Looking for work asks you to research roles, explain your
             experience, learn new skills, and follow up across many
-            opportunities. JobHunter brings those pieces into one workspace so
-            your next steps are easier to see.
+            opportunities. JobHunter brings those pieces into one workspace,
+            helps you find a first step, and lets you shape the dashboard around
+            the work that matters to you.
           </p>
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
-        <div className="grid gap-10 md:grid-cols-3">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
           <article className="border-t border-blue-500/40 pt-5">
             <Target className="h-5 w-5 text-blue-300" />
             <h2 className="mt-4 text-base font-semibold text-white">
@@ -61,6 +69,27 @@ export default function AboutPage() {
               substitute for reviewing a job posting yourself.
             </p>
           </article>
+          <article className="border-t border-emerald-400/40 pt-5">
+            <Award className="h-5 w-5 text-emerald-300" />
+            <h2 className="mt-4 text-base font-semibold text-white">
+              Notice progress that counts
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              A first-steps checklist and Career Momentum milestones recognize
+              profile setup, planning, and learning without streaks or
+              application-volume targets.
+            </p>
+          </article>
+          <article className="border-t border-violet-400/40 pt-5">
+            <PanelsTopLeft className="h-5 w-5 text-violet-300" />
+            <h2 className="mt-4 text-base font-semibold text-white">
+              Shape your workspace
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Hide or show dashboard sections individually or all together.
+              Your layout preference is saved in your browser on this device.
+            </p>
+          </article>
         </div>
         <div className="mt-14 rounded-2xl border border-white/[0.08] bg-[#101119] p-6 sm:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">
@@ -72,8 +101,9 @@ export default function AboutPage() {
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
             JobHunter can organize opportunities, review a pasted or pictured
             posting against your resume, suggest roles from your saved profile,
-            and help you plan evidence-building projects. It does not fill out
-            or submit applications on external job sites.
+            draft application materials for you to review, and help you plan
+            evidence-building projects. You submit applications yourself;
+            JobHunter does not fill out or submit forms on external job sites.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link

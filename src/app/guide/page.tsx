@@ -19,7 +19,7 @@ import { PublicSiteHeader } from "@/components/public-site-header";
 export const metadata = {
   title: "How to use JobHunter | JobHunter",
   description:
-    "A simple, visual walkthrough for tracking applications, checking job fit, planning next steps, and updating your resume.",
+    "A visual walkthrough of JobHunter: first steps, career milestones, dashboard controls, application drafts, job-fit checks, and learning plans.",
 };
 
 const guides = [
@@ -27,7 +27,7 @@ const guides = [
     number: "01",
     label: "Start here",
     title: "Tell JobHunter a little about you",
-    body: "Add a few details about your experience and the kind of work you want. You can leave optional fields blank and update everything later.",
+    body: "Use the dashboard checklist to get oriented, then add a few details about your experience and the kind of work you want. You can leave optional fields blank and update everything later.",
     steps: [
       "Open Settings from the left menu.",
       "Add your skills, experience, and the roles you are interested in.",
@@ -119,15 +119,16 @@ const guides = [
   {
     number: "07",
     label: "Learn as you go",
-    title: "Check your progress and compare offers",
-    body: "Analytics brings together your roadmap progress and job-search outcomes. If you have offers, you can compare them using the factors that matter most to you.",
+    title: "Track progress and make the dashboard yours",
+    body: "Your dashboard starts with a first-steps checklist and Career Momentum milestones based on real learning and preparation progress—not streaks or application quotas. You can hide or show dashboard sections individually or all at once; your choices are saved on this device.",
     steps: [
-      "Open Analytics to see your progress and application patterns.",
-      "If you have offers, add details like pay, commute, learning, and work-life balance.",
-      "Set your priorities and compare offers. The scores help you compare—they do not make the choice for you.",
+      "Start with Your first steps on the Career Dashboard; completed items are recognized from your saved profile, applications, roadmaps, and tasks.",
+      "Use Career Momentum to recognize milestones as you make progress.",
+      "Choose Hide or Show on a section, or use Show all and Hide all to adjust the dashboard layout. Your selection is stored in this browser.",
+      "Open Analytics to review search patterns. If you have offers, compare factors like pay, commute, learning, and work-life balance—the scores do not make the choice for you.",
     ],
     href: "/login",
-    linkLabel: "View your progress",
+    linkLabel: "Explore your dashboard",
     visual: "insights" as const,
     icon: BarChart3,
   },

@@ -2,14 +2,17 @@ import Link from "next/link";
 import {
   ArrowDown,
   ArrowRight,
+  Award,
   BriefcaseBusiness,
   Check,
   Compass,
   FileSearch,
   ListChecks,
+  PanelsTopLeft,
   ShieldCheck,
   Sparkles,
   Target,
+  UserRound,
 } from "lucide-react";
 import { PublicSiteFooter } from "@/components/public-site-footer";
 import { PublicSiteHeader } from "@/components/public-site-header";
@@ -17,59 +20,75 @@ import { PublicSiteHeader } from "@/components/public-site-header";
 export const metadata = {
   title: "JobHunter | Make your next career move with clarity",
   description:
-    "Assess job fit, organize applications, build evidence for skill gaps, and compare offers in one focused job-search workspace.",
+    "Build your career profile, assess job fit, prepare application drafts, track progress, and shape your dashboard in one focused workspace.",
 };
 
 const features = [
+  {
+    icon: UserRound,
+    title: "Start with your direction",
+    description:
+      "Build a career profile at your own pace, get role suggestions, and follow a first-steps checklist tailored to what you have already done.",
+    tone: "text-blue-300",
+    border: "border-blue-400/30",
+  },
   {
     icon: Target,
     title: "Understand the match",
     description:
       "Compare your experience with a job description and review relevant evidence, gaps, and questions to check.",
-    tone: "text-blue-300",
-    border: "border-blue-400/30",
+    tone: "text-violet-300",
+    border: "border-violet-400/30",
   },
   {
     icon: BriefcaseBusiness,
-    title: "Keep your search together",
+    title: "Keep applications moving",
     description:
-      "Track opportunities, follow-ups, saved fit assessments, and related learning plans in one place.",
+      "Track roles, follow-ups, and fit assessments. Prepare a cover-letter draft and role summary to review and copy; you submit applications yourself.",
     tone: "text-sky-300",
     border: "border-sky-400/30",
   },
   {
-    icon: ListChecks,
-    title: "Turn gaps into proof",
+    icon: Compass,
+    title: "Turn gaps into a plan",
     description:
-      "Create focused proof sprints for a skill gap and attach project evidence to your roadmap.",
+      "Create learning roadmaps and focused proof sprints, then save project notes or links as evidence of what you build.",
     tone: "text-amber-200",
     border: "border-amber-300/30",
   },
   {
-    icon: Compass,
-    title: "Make decisions your way",
+    icon: Award,
+    title: "See your career momentum",
     description:
-      "Learn from patterns in your own search and compare offers using the factors you value.",
+      "Recognize meaningful progress through milestones for preparation and learning—not streaks or application quotas.",
     tone: "text-emerald-300",
     border: "border-emerald-400/30",
+  },
+  {
+    icon: PanelsTopLeft,
+    title: "Make the dashboard yours",
+    description:
+      "Show or hide dashboard sections individually or all at once, and keep your preferred layout on this device.",
+    tone: "text-fuchsia-300",
+    border: "border-fuchsia-400/30",
   },
 ];
 
 const steps = [
   {
     number: "01",
-    title: "Set your direction",
-    body: "Add your experience, skills, target roles, and preferences to your career profile.",
+    title: "Take your first steps",
+    body: "Build your career profile, save a role, make a learning plan, and complete a task—at your own pace.",
   },
   {
     number: "02",
     title: "Review each opportunity",
-    body: "Assess fit, record your next step, and keep application details organized.",
+    body: "Assess fit, prepare application drafts to review, and keep your next steps organized.",
   },
   {
     number: "03",
-    title: "Build momentum",
-    body: "Work on a focused project, keep evidence of your progress, and reflect on what is working.",
+    title: "Make progress your way",
+    body: "Build evidence, track career milestones, and show only the dashboard sections you want.",
   },
 ];
 
@@ -230,7 +249,7 @@ export default function HomePage() {
             and make progress at your own pace.
           </p>
         </div>
-        <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => {
             const Icon = feature.icon;
             return (
