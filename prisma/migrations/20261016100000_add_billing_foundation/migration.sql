@@ -11,7 +11,7 @@ INSERT INTO "BillingConfiguration" ("id", "enabled", "updatedAt")
 VALUES ('global', false, CURRENT_TIMESTAMP);
 
 CREATE TABLE "UserSubscription" (
-    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "plan" TEXT NOT NULL,
     "status" TEXT NOT NULL,
@@ -36,9 +36,10 @@ CREATE UNIQUE INDEX "UserSubscription_providerSubscriptionId_key"
     ON "UserSubscription"("providerSubscriptionId");
 
 CREATE TABLE "BillingUsageEvent" (
-    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "feature" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'RESERVED',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "BillingUsageEvent_pkey" PRIMARY KEY ("id"),
@@ -50,7 +51,7 @@ CREATE INDEX "BillingUsageEvent_userId_feature_createdAt_idx"
     ON "BillingUsageEvent"("userId", "feature", "createdAt");
 
 CREATE TABLE "BillingAuditLog" (
-    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "id" TEXT NOT NULL,
     "actorId" TEXT NOT NULL,
     "actorEmail" TEXT NOT NULL,
     "subjectUserId" TEXT,

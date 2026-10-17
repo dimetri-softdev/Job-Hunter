@@ -509,24 +509,24 @@ def _feature_available(plan: str, feature: str) -> bool:
     )
 
 
-async def reserve_billing_usage(user_id: str, feature: str) -> Optional[dict]:
+async def reserve_billing_usage(
+    request: Request,
+    user_id: str,
+    feature: str,
+) -> Optional[dict]:
     if not await billing_is_enabled():
         return None
 
     now = datetime.now(timezone.utc)
     month_start = _month_start_utc(now)
     async with db.tx() as transaction:
-        await transaction.query_raw(
-            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-            f"{user_id}:{feature}:{month_start.strftime('%Y-%m')}",
-        )
         subscriptions = await transaction.query_raw(
             'SELECT "plan", "status", "trialEndsAt", "currentPeriodEnd", "paymentFailedAt" '
-            'FROM "UserSubscription" WHERE "userId" = $1',
+            'FROM "UserSubscription" WHERE "userId" = $1 FOR UPDATE',
             user_id,
         )
         subscription = subscriptions[0] if subscriptions else None
-        if not _subscription_is_entitled(subscription, now):
+        if subscription is None or not _subscription_is_entitled(subscription, now):
             raise HTTPException(
                 status_code=402,
                 detail="Paid access is not active for this account.",
@@ -543,10 +543,14 @@ async def reserve_billing_usage(user_id: str, feature: str) -> Optional[dict]:
         limit = BILLING_PLANS[plan][feature]
         counts = await transaction.query_raw(
             'SELECT COUNT(*)::int AS "used" FROM "BillingUsageEvent" '
-            'WHERE "userId" = $1 AND "feature" = $2 AND "createdAt" >= $3',
+            'WHERE "userId" = $1 AND "feature" = $2 AND "createdAt" >= $3 '
+            'AND ("status" = $4 OR ("status" = $5 AND "createdAt" >= $6))',
             user_id,
             feature,
             month_start,
+            "USED",
+            "RESERVED",
+            now - timedelta(minutes=15),
         )
         used = int(counts[0]["used"]) if counts else 0
         if used >= limit:
@@ -558,13 +562,30 @@ async def reserve_billing_usage(user_id: str, feature: str) -> Optional[dict]:
                 ),
             )
 
+        event_id = str(uuid.uuid4())
         await transaction.execute_raw(
             'INSERT INTO "BillingUsageEvent" ("id", "userId", "feature") VALUES ($1, $2, $3)',
-            str(uuid.uuid4()),
+            event_id,
             user_id,
             feature,
         )
+    reservations = getattr(request.state, "billing_usage_event_ids", None)
+    if not isinstance(reservations, list):
+        reservations = []
+        request.state.billing_usage_event_ids = reservations
+    reservations.append(event_id)
     return {"plan": plan, "used": used + 1, "limit": limit}
+
+
+async def finalize_billing_usage(request: Request, succeeded: bool) -> None:
+    event_ids = getattr(request.state, "billing_usage_event_ids", [])
+    if not isinstance(event_ids, list) or not event_ids:
+        return
+    await db.execute_raw(
+        'UPDATE "BillingUsageEvent" SET "status" = $1 WHERE "id" = ANY($2::text[])',
+        "USED" if succeeded else "FAILED",
+        event_ids,
+    )
 
 
 @app.middleware("http")
@@ -584,7 +605,13 @@ async def enforce_billing_for_writes(request: Request, call_next):
         await require_billing_account_access(user_id)
     except HTTPException as exc:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
-    return await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        await finalize_billing_usage(request, False)
+        raise
+    await finalize_billing_usage(request, response.status_code < 400)
+    return response
 
 
 @app.get("/api/v1/billing/status")
@@ -600,9 +627,10 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
     month_start = _month_start_utc(now)
     counts = await db.query_raw(
         'SELECT "feature", COUNT(*)::int AS "used" FROM "BillingUsageEvent" '
-        'WHERE "userId" = $1 AND "createdAt" >= $2 GROUP BY "feature"',
+        'WHERE "userId" = $1 AND "createdAt" >= $2 AND "status" = $3 GROUP BY "feature"',
         user_id,
         month_start,
+        "USED",
     )
     usage = {row["feature"]: int(row["used"]) for row in counts}
     plan = str(subscription["plan"]).lower() if subscription else None
@@ -738,6 +766,7 @@ async def update_career_profile(
 
 @app.post("/api/v1/career-profile/recommendations")
 async def recommend_job_roles(
+    request: Request,
     payload: CareerRecommendationsRequest,
     user_id: str = Depends(get_current_user),
 ):
@@ -755,7 +784,7 @@ async def recommend_job_roles(
     profile = profiles[0]
     if not any(profile.get(field) for field in ("careerSummary", "skills", "workHistory", "education", "accomplishments")):
         raise HTTPException(status_code=400, detail="Add experience, education, skills, or accomplishments before requesting role suggestions.")
-    await reserve_billing_usage(user_id, "role_suggestions")
+    await reserve_billing_usage(request, user_id, "role_suggestions")
 
     prompt = f"""
     Suggest up to five realistic job titles based only on the candidate profile below.
@@ -915,10 +944,11 @@ async def update_project_proof(
 
 @app.post("/api/v1/roadmaps/generate")
 async def generate_roadmap(
+    request: Request,
     payload: GenerateRoadmapRequest,
     user_id: str = Depends(get_current_user)
 ):
-    await reserve_billing_usage(user_id, "roadmap_generation")
+    await reserve_billing_usage(request, user_id, "roadmap_generation")
     prompt = f"""
     Create a detailed learning roadmap for a {payload.targetLevel} {payload.role}.
     Return one valid JSON object with a title, a readinessScore from 0 to 100
@@ -959,6 +989,7 @@ async def generate_roadmap(
 
 @app.post("/api/v1/roadmaps/generate-from-cv")
 async def generate_roadmap_from_cv(
+    request: Request,
     file: UploadFile = File(...),
     user_id: str = Depends(get_current_user)
 ):
@@ -974,7 +1005,7 @@ async def generate_roadmap_from_cv(
         if not cv_text.strip():
             raise HTTPException(status_code=400, detail="Could not extract text from the provided PDF file.")
 
-        await reserve_billing_usage(user_id, "roadmap_generation")
+        await reserve_billing_usage(request, user_id, "roadmap_generation")
         prompt = f"""
         Analyze the following resume text and create a targeted learning roadmap to bridge skill gaps and level up the candidate.
         Resume Context:
@@ -1019,13 +1050,14 @@ async def generate_roadmap_from_cv(
 # 7. Job Application Tracker Handlers
 @app.post("/api/v1/applications/analyze")
 async def analyze_job_posting(
+    request: Request,
     payload: JobPostingAnalyzeRequest,
     user_id: str = Depends(get_current_user),
 ):
     description = payload.description.strip()
     if len(description) < 80:
         raise HTTPException(status_code=400, detail="Paste more of the job posting to analyze it.")
-    await reserve_billing_usage(user_id, "job_fit")
+    await reserve_billing_usage(request, user_id, "job_fit")
 
     prompt = f"""
     Extract factual details from this job posting and return one JSON object with:
@@ -1072,6 +1104,7 @@ async def analyze_job_posting(
 
 @app.post("/api/v1/applications/match")
 async def match_job_fit(
+    request: Request,
     resume: UploadFile = File(...),
     job_description: str = Form(""),
     ai_processing_consent: bool = Form(...),
@@ -1123,7 +1156,7 @@ async def match_job_fit(
             raise HTTPException(status_code=413, detail="Job-post images must be 5 MB or smaller.")
         job_image_mime = validate_image_upload(job_image_bytes)
 
-    await reserve_billing_usage(user_id, "job_fit")
+    await reserve_billing_usage(request, user_id, "job_fit")
     prompt = f"""
     Compare the resume evidence with the job posting and any attached images.
     Return one JSON object with:
@@ -1211,6 +1244,7 @@ async def match_job_fit(
 
 @app.post("/api/v1/resume/roadmap-update")
 async def generate_resume_roadmap_update(
+    request: Request,
     resume: UploadFile = File(...),
     target_role: str = Form(..., min_length=2, max_length=160),
     project_ids: str = Form(..., max_length=1000),
@@ -1312,7 +1346,7 @@ async def generate_resume_roadmap_update(
             "proofNotes": proof_notes_by_id.get(project.id, "")[:1500],
         })
 
-    await reserve_billing_usage(user_id, "resume_updates")
+    await reserve_billing_usage(request, user_id, "resume_updates")
     prompt = f"""
     Prepare truthful, editable resume update suggestions for the target role:
     {target_role.strip()}
@@ -1653,6 +1687,7 @@ async def import_applications(
 
 @app.post("/api/v1/applications/{application_id}/roadmaps")
 async def generate_roadmap_from_fit_gaps(
+    request: Request,
     application_id: str,
     payload: FitGapRoadmapRequest,
     user_id: str = Depends(get_current_user),
@@ -1688,7 +1723,7 @@ async def generate_roadmap_from_fit_gaps(
         "gaps": gap_items[:5],
         "questionsToConfirm": question_items[:5],
     }
-    await reserve_billing_usage(user_id, "roadmap_generation")
+    await reserve_billing_usage(request, user_id, "roadmap_generation")
     prompt = f"""
     Create a practical learning roadmap for the {payload.targetLevel} {role} role,
     using only the job-fit gaps and open questions below. Turn each relevant gap
@@ -1734,6 +1769,7 @@ async def generate_roadmap_from_fit_gaps(
 
 @app.post("/api/v1/applications/{application_id}/proof-sprints")
 async def generate_proof_sprint(
+    request: Request,
     application_id: str,
     payload: ProofSprintRequest,
     user_id: str = Depends(get_current_user),
@@ -1764,7 +1800,7 @@ async def generate_proof_sprint(
     if selected_gap not in saved_gaps:
         raise HTTPException(status_code=400, detail="Choose a skill gap from this saved fit assessment.")
 
-    await reserve_billing_usage(user_id, "job_fit")
+    await reserve_billing_usage(request, user_id, "job_fit")
     role = application["position"]
     prompt = f"""
     Create one focused portfolio proof sprint for a candidate targeting the role
@@ -1858,6 +1894,7 @@ async def generate_proof_sprint(
 @app.post("/api/v1/applications/{application_id}/application-pack")
 @app.post("/api/v1/applications/{application_id}/pnet-pack", include_in_schema=False)
 async def prepare_application_pack(
+    request: Request,
     application_id: str,
     payload: ApplicationPackRequest,
     user_id: str = Depends(get_current_user),
@@ -1899,7 +1936,7 @@ async def prepare_application_pack(
     ):
         raise HTTPException(status_code=400, detail="Add experience, education, skills, or accomplishments to your career profile first.")
 
-    await reserve_billing_usage(user_id, "application_drafts")
+    await reserve_billing_usage(request, user_id, "application_drafts")
     prompt = f"""
     Prepare a review-only application pack for this job. Return JSON with
     coverLetter, roleSummary, and evidenceToEmphasize (an array of up to four

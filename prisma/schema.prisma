@@ -126,6 +126,7 @@ model BillingUsageEvent {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   feature   String
+  status    String   @default("RESERVED")
   createdAt DateTime @default(now())
 
   @@index([userId, feature, createdAt])
