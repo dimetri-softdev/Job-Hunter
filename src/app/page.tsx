@@ -322,6 +322,9 @@ export default function HomePage() {
                 selected information. Suggestions are a starting point;
                 JobHunter does not apply to jobs on your behalf.
               </p>
+              <p className="mt-3 text-[11px] font-medium text-slate-500">
+                Created by Dimetri SoftDev
+              </p>
             </div>
           </div>
           <Link

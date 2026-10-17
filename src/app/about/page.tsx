@@ -22,7 +22,7 @@ export default function AboutPage() {
       <section className="border-b border-white/10 bg-[#12131a]">
         <div className="mx-auto max-w-7xl px-6 py-16 sm:px-10 sm:py-20 lg:px-16">
           <p className="text-xs font-semibold uppercase text-blue-300">
-            About JobHunter
+            About JobHunter · Created by Dimetri SoftDev
           </p>
           <h1 className="mt-4 max-w-4xl font-serif text-4xl leading-tight text-white sm:text-5xl">
             A more considered way to search for work.
@@ -91,6 +91,40 @@ export default function AboutPage() {
             </p>
           </article>
         </div>
+        <section
+          aria-labelledby="creator-heading"
+          className="mt-14 overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-br from-blue-500/[0.07] via-[#101119] to-violet-500/[0.06]"
+        >
+          <div className="grid gap-6 p-6 sm:grid-cols-[auto_1fr] sm:items-start sm:p-8">
+            <div
+              aria-hidden="true"
+              className="flex size-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10 text-sm font-bold tracking-wide text-blue-200"
+            >
+              DS
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">
+                The person behind the product
+              </p>
+              <h2
+                id="creator-heading"
+                className="mt-2 text-xl font-semibold text-white"
+              >
+                Built by Dimetri SoftDev
+              </h2>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+                Job hunting can be discouraging: you find a role that feels
+                right, then notice a few skills in the posting that you have
+                not built yet. That experience inspired JobHunter. I wanted to
+                create a practical place to keep a search organized, understand
+                where experience fits, and turn skill gaps into manageable
+                learning steps and project evidence. JobHunter is built to
+                help make the next step clearer while keeping every decision
+                yours.
+              </p>
+            </div>
+          </div>
+        </section>
         <div className="mt-14 rounded-2xl border border-white/[0.08] bg-[#101119] p-6 sm:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">
             A tool for your process, not a decision-maker
