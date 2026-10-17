@@ -10,12 +10,15 @@ import { fetcher } from "@/lib/api";
 const FEATURES = [
   { key: "job_fit", label: "Job-fit analysis and resume matching" },
   { key: "application_tracking", label: "Application tracker and follow-ups" },
+  { key: "account_settings", label: "Account settings and career profile" },
   { key: "career_suggestions", label: "Career profile and role suggestions" },
   { key: "roadmaps", label: "Learning roadmaps and readiness plans" },
   { key: "proof_sprints", label: "Proof Sprints and project evidence" },
-  { key: "search_playbook", label: "Search Playbook and outcome analytics" },
-  { key: "offer_comparison", label: "Offer Trade-off Simulator" },
-  { key: "application_packs", label: "Application-pack drafting" },
+  { key: "career_momentum", label: "Career Momentum milestones" },
+  { key: "search_playbook", label: "Search insights and outcome analytics" },
+  { key: "offer_comparison", label: "Offer comparison and priorities" },
+  { key: "application_assistant", label: "Application preparation assistant" },
+  { key: "application_packs", label: "Cover-letter and application drafts" },
   { key: "csv_backups", label: "CSV import and export" },
 ] as const;
 
@@ -157,7 +160,7 @@ export default function FeedbackPage() {
     <div className="w-full space-y-6">
       <DashboardPageHeader
         title="Share feedback"
-        description="Finished exploring JobHunter? Sign-in is required to submit, but your answers are saved without your account ID or email."
+        description="Tell us what you think of the latest JobHunter features. Sign-in is required to submit, but your answers are saved without your account ID or email."
       />
 
       {submitted ? (
@@ -217,8 +220,9 @@ export default function FeedbackPage() {
                 <span className="text-blue-300">*</span>
               </legend>
               <p className="text-xs leading-5 text-slate-500">
-                Leave features you did not try at “Not tried.” Rate at least
-                one feature.
+                Recent additions include Career Momentum and the application
+                preparation assistant. Leave anything you did not try at “Not
+                tried”; rate at least one feature.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {FEATURES.map((feature) => (

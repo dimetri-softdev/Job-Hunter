@@ -53,12 +53,15 @@ const ANSWER_LABELS: Record<string, string> = {
 const FEATURE_LABELS: Record<string, string> = {
   job_fit: "Job-fit analysis",
   application_tracking: "Application tracking",
+  account_settings: "Account settings and career profile",
   career_suggestions: "Career suggestions",
   roadmaps: "Learning roadmaps",
   proof_sprints: "Proof Sprints",
-  search_playbook: "Search Playbook",
-  offer_comparison: "Offer comparison",
-  application_packs: "Application packs",
+  career_momentum: "Career Momentum milestones",
+  search_playbook: "Search insights and outcome analytics",
+  offer_comparison: "Offer comparison and priorities",
+  application_assistant: "Application preparation assistant",
+  application_packs: "Cover-letter and application drafts",
   csv_backups: "CSV import/export",
 };
 
