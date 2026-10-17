@@ -543,8 +543,8 @@ async def reserve_billing_usage(
         limit = BILLING_PLANS[plan][feature]
         counts = await transaction.query_raw(
             'SELECT COUNT(*)::int AS "used" FROM "BillingUsageEvent" '
-            'WHERE "userId" = $1 AND "feature" = $2 AND "createdAt" >= $3 '
-            'AND ("status" = $4 OR ("status" = $5 AND "createdAt" >= $6))',
+            'WHERE "userId" = $1 AND "feature" = $2 AND "createdAt" >= CAST($3 AS TIMESTAMP) '
+            'AND ("status" = $4 OR ("status" = $5 AND "createdAt" >= CAST($6 AS TIMESTAMP)))',
             user_id,
             feature,
             month_start,
@@ -627,7 +627,8 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
     month_start = _month_start_utc(now)
     counts = await db.query_raw(
         'SELECT "feature", COUNT(*)::int AS "used" FROM "BillingUsageEvent" '
-        'WHERE "userId" = $1 AND "createdAt" >= $2 AND "status" = $3 GROUP BY "feature"',
+        'WHERE "userId" = $1 AND "createdAt" >= CAST($2 AS TIMESTAMP) '
+        'AND "status" = $3 GROUP BY "feature"',
         user_id,
         month_start,
         "USED",
