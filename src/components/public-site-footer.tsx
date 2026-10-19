@@ -31,6 +31,12 @@ export function PublicSiteFooter() {
           >
             About
           </Link>
+          <a
+            href="mailto:jobhunter408@gmail.com"
+            className="text-slate-400 transition-colors hover:text-white"
+          >
+            Contact support
+          </a>
           <Link
             href="/login"
             className="text-slate-400 transition-colors hover:text-white"

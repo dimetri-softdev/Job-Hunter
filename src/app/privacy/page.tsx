@@ -167,8 +167,26 @@ export default function PrivacyPage() {
               You can edit your career profile and delete saved applications,
               generated content, or roadmaps in the app. Account deletion
               currently requires administrator action; there is no self-service
-              account-deletion control. A public privacy contact still needs to
-              be set up before this page is ready to publish.
+              account-deletion control.
+            </p>
+          </section>
+
+          <section aria-labelledby="contact-heading">
+            <h2
+              id="contact-heading"
+              className="text-xl font-semibold text-white"
+            >
+              Questions or privacy requests
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              Contact JobHunter at{" "}
+              <a
+                href="mailto:jobhunter408@gmail.com"
+                className="font-medium text-blue-300 underline decoration-blue-300/40 underline-offset-4 hover:text-blue-200"
+              >
+                jobhunter408@gmail.com
+              </a>
+              .
             </p>
           </section>
 
@@ -183,7 +201,6 @@ export default function PrivacyPage() {
               Before this draft is published as final
             </h2>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-amber-100/75">
-              <li>Add a real email or other contact for privacy requests.</li>
               <li>
                 Review current Google Gemini and Groq policies and confirm
                 provider-side retention and data-use settings.
