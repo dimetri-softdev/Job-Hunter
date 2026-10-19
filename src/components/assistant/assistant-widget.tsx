@@ -52,7 +52,7 @@ export function AssistantWidget() {
       </DialogTrigger>
       <DialogContent
         keepMounted
-        className="flex max-h-[92dvh] flex-col gap-3 overflow-hidden border border-white/20 bg-slate-950/55 p-3 text-slate-100 shadow-2xl shadow-blue-950/40 backdrop-blur-2xl sm:max-w-xl"
+        className="flex h-[min(92dvh,50rem)] min-h-0 flex-col gap-0 overflow-hidden border border-white/20 bg-slate-950/75 p-2 text-slate-100 shadow-2xl shadow-blue-950/40 backdrop-blur-2xl sm:max-w-xl sm:p-3"
       >
         <DialogHeader className="sr-only">
           <DialogTitle>JobHunter AI assistant</DialogTitle>
@@ -65,7 +65,7 @@ export function AssistantWidget() {
           key={prompt}
           initialPrompt={prompt}
           compact
-          className="h-[82vh] max-h-[50rem] min-h-0 border-0"
+          className="h-full max-h-full min-h-0 border-0"
         />
       </DialogContent>
     </Dialog>

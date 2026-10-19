@@ -214,7 +214,7 @@ export function AssistantChat({
         aria-hidden="true"
         className="pointer-events-none absolute -right-16 -top-24 -z-10 size-72 rounded-full bg-blue-500/20 blur-3xl"
       />
-      <header className="relative border-b border-white/10 bg-gradient-to-r from-blue-950/80 via-slate-900/80 to-indigo-950/70 px-4 py-4 sm:px-5">
+      <header className="relative shrink-0 border-b border-white/10 bg-gradient-to-r from-blue-950/80 via-slate-900/80 to-indigo-950/70 px-4 py-3 sm:px-5 sm:py-4">
         <div className="flex items-center gap-3">
           <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-blue-200/30 bg-gradient-to-br from-blue-400/30 to-indigo-500/20 text-blue-100 shadow-lg shadow-blue-950/40">
             <Bot className="size-5" aria-hidden="true" />
@@ -289,7 +289,7 @@ export function AssistantChat({
 
       <div
         aria-live="polite"
-        className={`flex min-h-28 flex-1 flex-col gap-4 overflow-y-auto bg-gradient-to-b from-slate-950/35 to-blue-950/[0.12] p-4 sm:p-5 ${compact ? "max-h-[38vh]" : "max-h-[60vh]"}`}
+        className={`flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-gradient-to-b from-slate-950/35 to-blue-950/[0.12] p-4 sm:p-5 ${compact ? "max-h-[38vh]" : "max-h-[60vh]"}`}
       >
         {messages.length === 0 ? (
           <div className="my-auto w-full space-y-4">
@@ -364,7 +364,9 @@ export function AssistantChat({
 
       <form
         onSubmit={sendMessage}
-        className="space-y-3 border-t border-white/10 bg-[#0b1120]/95 p-4 sm:p-5"
+        className={`shrink-0 space-y-3 border-t border-white/10 bg-[#0b1120]/95 p-3 sm:p-5 ${
+          compact ? "max-h-[55%] overflow-y-auto" : ""
+        }`}
       >
         {activeMode === "career" && (
           <div className="space-y-2 rounded-xl border border-white/10 bg-slate-900/75 p-3 shadow-inner shadow-white/[0.03]">
