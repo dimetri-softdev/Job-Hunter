@@ -94,7 +94,6 @@ export function AssistantChat({
     setMessages(submittedMessages);
     setInput("");
     setError(null);
-    setConsent(false);
     setSending(true);
 
     try {
@@ -151,6 +150,11 @@ export function AssistantChat({
       });
       setMessages([...submittedMessages, { role: "assistant", content: result.reply }]);
       setTypedContext("");
+      setIncludeProfile(false);
+      setIncludeApplication(false);
+      setSelectedApplicationId("");
+      setApplications(null);
+      setApplicationsError(null);
     } catch (sendError: unknown) {
       setMessages(messages);
       setInput(message);
@@ -361,19 +365,28 @@ export function AssistantChat({
           aria-label="Your message"
           className="w-full resize-y rounded-lg border border-[#343746] bg-[#090a0f] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus-visible:border-blue-400"
         />
-        <label className="flex items-start gap-2 text-[11px] leading-4 text-slate-400">
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={(event) => setConsent(event.target.checked)}
-            className="mt-0.5 accent-blue-500"
-          />
-          <span>
-            I agree to send this message, recent chat, and any selected context
-            to JobHunter&apos;s AI provider for a reply. JobHunter does not save
-            this chat transcript.
-          </span>
-        </label>
+        {!consent ? (
+          <label className="flex items-start gap-2 text-[11px] leading-4 text-slate-400">
+            <input
+              type="checkbox"
+              checked={false}
+              onChange={(event) => setConsent(event.target.checked)}
+              className="mt-0.5 accent-blue-500"
+            />
+            <span>
+              I agree to send messages in this chat and the recent chat history
+              to JobHunter&apos;s AI provider. Any saved profile or application
+              details are sent only when I select them for a message. JobHunter
+              does not save this transcript; the AI provider processes messages
+              under its own privacy terms.
+            </span>
+          </label>
+        ) : (
+          <p className="text-[11px] leading-4 text-emerald-200">
+            Consent is active for this chat. Clear the conversation to start a
+            new chat and reset consent.
+          </p>
+        )}
         {error && (
           <p role="alert" className="text-xs text-rose-300">
             {error}
