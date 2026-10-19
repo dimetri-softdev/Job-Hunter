@@ -42,7 +42,6 @@ export function AssistantWidget() {
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
-        if (!nextOpen) setPrompt("");
       }}
     >
       <DialogTrigger
@@ -63,6 +62,7 @@ export function AssistantWidget() {
           </DialogDescription>
         </DialogHeader>
         <AssistantChat
+          key={prompt}
           initialPrompt={prompt}
           compact
           className="h-[82vh] max-h-[50rem] min-h-0 border-0"
