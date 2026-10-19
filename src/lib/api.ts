@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { getApiErrorMessage } from "@/lib/user-facing-errors";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -29,38 +30,30 @@ export async function fetcher<T>(endpoint: string, options?: RequestInit): Promi
     delete headers["Content-Type"];
   }
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    throw new Error(
+      "We couldn’t connect right now. Check your connection and try again.",
+    );
+  }
 
   if (!res.ok) {
-    const responseBody = await res.text();
-    let errorDetail = responseBody;
-
+    let payload: unknown = null;
     try {
-      const payload: unknown = JSON.parse(responseBody);
-      if (payload && typeof payload === "object") {
-        const errorPayload = payload as {
-          detail?: unknown;
-          error?: unknown;
-          message?: unknown;
-        };
-        const detail =
-          errorPayload.detail ?? errorPayload.error ?? errorPayload.message;
-        if (typeof detail === "string") {
-          errorDetail = detail;
-        } else if (detail !== undefined) {
-          errorDetail = JSON.stringify(detail);
-        }
-      }
+      payload = await res.json();
     } catch {
-      // Keep the raw response body when the API did not return JSON.
+      payload = null;
     }
 
-    throw new Error(
-      `API error: ${res.status} ${errorDetail || res.statusText}`,
-    );
+    throw new Error(getApiErrorMessage(payload, res.status));
   }
 
   return res.json();

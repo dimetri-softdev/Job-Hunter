@@ -184,10 +184,14 @@ export function AssistantChat({
   return (
     <section
       aria-label="JobHunter AI assistant"
-      className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[#252938] bg-[#101119] ${className}`}
+      className={`relative isolate flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/65 shadow-2xl shadow-blue-950/30 backdrop-blur-2xl ${className}`}
     >
-      <header className="flex items-center gap-3 border-b border-[#252938] p-4">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/10 text-blue-200">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-20 -top-24 -z-10 size-64 rounded-full bg-blue-500/15 blur-3xl"
+      />
+      <header className="flex items-center gap-3 border-b border-white/10 bg-white/[0.035] p-4">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-blue-200/25 bg-blue-400/15 text-blue-100 shadow-inner shadow-white/10 backdrop-blur-xl">
           <Bot className="size-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
@@ -202,7 +206,7 @@ export function AssistantChat({
             onClick={clearConversation}
             aria-label="Clear conversation"
             title="Clear conversation"
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#343746] text-slate-300 transition hover:bg-white/[0.05]"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/[0.04] text-slate-300 backdrop-blur-lg transition hover:border-white/25 hover:bg-white/10"
           >
             <RotateCcw className="size-4" aria-hidden="true" />
           </button>
@@ -214,7 +218,7 @@ export function AssistantChat({
           id="assistant-mode"
           value={activeMode}
           onChange={(event) => setMode(event.target.value as AssistantMode)}
-          className="max-w-36 rounded-lg border border-[#343746] bg-[#090a0f] px-2 py-2 text-xs text-slate-200"
+          className="max-w-36 rounded-lg border border-white/15 bg-slate-900/70 px-2 py-2 text-xs text-slate-100 shadow-inner shadow-white/5 backdrop-blur-xl"
         >
           <option value="career" disabled={!user}>
             {user ? "Career guidance" : "Career guidance (sign-in required)"}
@@ -257,8 +261,8 @@ export function AssistantChat({
               key={`${item.role}-${index}`}
               className={`max-w-[90%] whitespace-pre-wrap rounded-xl px-3 py-2.5 text-sm leading-6 ${
                 item.role === "user"
-                  ? "self-end bg-blue-600/20 text-blue-50"
-                  : "self-start border border-[#2b2e3b] bg-[#171923] text-slate-200"
+                  ? "self-end border border-blue-200/20 bg-blue-500/20 text-blue-50 shadow-lg shadow-blue-950/20 backdrop-blur-xl"
+                  : "self-start border border-white/10 bg-white/[0.07] text-slate-100 shadow-lg shadow-black/10 backdrop-blur-xl"
               }`}
             >
               {item.content}
@@ -273,9 +277,9 @@ export function AssistantChat({
         )}
       </div>
 
-      <form onSubmit={sendMessage} className="space-y-3 border-t border-[#252938] p-4">
+      <form onSubmit={sendMessage} className="space-y-3 border-t border-white/10 bg-white/[0.025] p-4">
         {activeMode === "career" && (
-          <div className="space-y-2 rounded-xl border border-[#252938] bg-[#0c0d13] p-3">
+          <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.045] p-3 shadow-inner shadow-white/[0.03] backdrop-blur-xl">
             {user && (
               <>
                 <label className="flex items-center gap-2 text-xs text-slate-300">
@@ -315,7 +319,7 @@ export function AssistantChat({
                       id="assistant-application"
                       value={selectedApplicationId}
                       onChange={(event) => setSelectedApplicationId(event.target.value)}
-                      className="w-full rounded-lg border border-[#343746] bg-[#090a0f] px-2 py-2 text-xs text-slate-200"
+                      className="w-full rounded-lg border border-white/15 bg-slate-950/65 px-2 py-2 text-xs text-slate-100 backdrop-blur-xl"
                     >
                       <option value="">Select an application</option>
                       {(applications ?? []).map((application) => (
@@ -346,7 +350,7 @@ export function AssistantChat({
               maxLength={6000}
               rows={compact ? 2 : 3}
               placeholder="You can paste relevant experience or a resume excerpt here."
-              className="w-full resize-y rounded-lg border border-[#343746] bg-[#090a0f] px-3 py-2 text-xs text-white outline-none placeholder:text-slate-600 focus-visible:border-blue-400"
+              className="w-full resize-y rounded-lg border border-white/15 bg-slate-950/55 px-3 py-2 text-xs text-white outline-none placeholder:text-slate-400 focus-visible:border-blue-300/60 focus-visible:ring-2 focus-visible:ring-blue-400/20 backdrop-blur-xl"
             />
             {!user && (
               <p className="text-[11px] leading-4 text-slate-500">
@@ -363,7 +367,7 @@ export function AssistantChat({
           rows={compact ? 2 : 3}
           placeholder="Write your message…"
           aria-label="Your message"
-          className="w-full resize-y rounded-lg border border-[#343746] bg-[#090a0f] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus-visible:border-blue-400"
+          className="w-full resize-y rounded-lg border border-white/15 bg-slate-950/55 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-400 focus-visible:border-blue-300/60 focus-visible:ring-2 focus-visible:ring-blue-400/20 backdrop-blur-xl"
         />
         {!consent ? (
           <label className="flex items-start gap-2 text-[11px] leading-4 text-slate-400">
@@ -411,7 +415,7 @@ export function AssistantChat({
                 includeApplication &&
                 !selectedApplicationId)
             }
-            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-blue-200/20 bg-blue-500/80 px-3 text-xs font-semibold text-white shadow-lg shadow-blue-950/30 backdrop-blur-xl transition hover:bg-blue-400/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {sending ? "Sending" : "Send"}
             {sending ? (

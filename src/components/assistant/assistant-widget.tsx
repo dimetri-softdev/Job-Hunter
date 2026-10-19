@@ -47,11 +47,11 @@ export function AssistantWidget() {
     >
       <DialogTrigger
         aria-label="Open JobHunter AI assistant"
-        className="fixed bottom-5 right-5 z-40 inline-flex size-14 items-center justify-center rounded-full border border-blue-300/30 bg-blue-600 text-white shadow-xl shadow-black/40 transition hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300"
+        className="fixed bottom-5 right-5 z-40 inline-flex size-14 items-center justify-center rounded-full border border-white/30 bg-gradient-to-br from-blue-400/80 via-blue-600/80 to-indigo-700/85 text-white shadow-xl shadow-blue-950/50 backdrop-blur-2xl transition hover:scale-105 hover:border-white/45 hover:from-blue-300/90 hover:to-indigo-600/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300"
       >
         <Bot className="size-6" aria-hidden="true" />
       </DialogTrigger>
-      <DialogContent className="flex max-h-[92dvh] flex-col gap-3 overflow-hidden border-[#252938] bg-[#090a0f] p-3 text-slate-100 sm:max-w-xl">
+      <DialogContent className="flex max-h-[92dvh] flex-col gap-3 overflow-hidden border border-white/20 bg-slate-950/55 p-3 text-slate-100 shadow-2xl shadow-blue-950/40 backdrop-blur-2xl sm:max-w-xl">
         <DialogHeader className="sr-only">
           <DialogTitle>JobHunter AI assistant</DialogTitle>
           <DialogDescription>
