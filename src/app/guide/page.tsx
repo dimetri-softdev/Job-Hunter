@@ -501,130 +501,130 @@ export default function GuidePage() {
     <div className="min-h-screen bg-[#090a0f] text-slate-100">
       <PublicSiteHeader />
       <main>
-      <section className="relative overflow-hidden border-b border-white/10 bg-[#101119]">
-        <div
-          aria-hidden="true"
-          className="absolute -right-20 -top-28 size-96 rounded-full bg-blue-500/[0.08] blur-3xl"
-        />
-        <div className="relative mx-auto max-w-7xl px-6 py-16 sm:px-10 sm:py-20 lg:px-16">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-300">
-            A simple, visual guide
-          </p>
-          <h1 className="mt-4 max-w-3xl font-serif text-4xl leading-tight text-white sm:text-6xl">
-            Your job search, one clear step at a time.
-          </h1>
-          <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
-            New here? Start with your profile, save a job you like, and use the
-            pictures below to see what you can do next. You do not have to use
-            every tool—pick what helps you.
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
+        <section className="relative overflow-hidden border-b border-white/10 bg-[#101119]">
+          <div
+            aria-hidden="true"
+            className="absolute -right-20 -top-28 size-96 rounded-full bg-blue-500/[0.08] blur-3xl"
+          />
+          <div className="relative mx-auto max-w-7xl px-6 py-16 sm:px-10 sm:py-20 lg:px-16">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-300">
+              A simple, visual guide
+            </p>
+            <h1 className="mt-4 max-w-3xl font-serif text-4xl leading-tight text-white sm:text-6xl">
+              Your job search, one clear step at a time.
+            </h1>
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
+              New here? Start with your profile, save a job you like, and use the
+              pictures below to see what you can do next. You do not have to use
+              every tool—pick what helps you.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Link
+                href="/signup"
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-500"
+              >
+                Get started <ArrowRight className="size-4" />
+              </Link>
+              <a
+                href="#walkthrough"
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#303342] px-4 text-sm font-medium text-slate-200 transition hover:bg-white/5"
+              >
+                See how it works <ChevronRight className="size-4" />
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="walkthrough"
+          className="mx-auto max-w-7xl scroll-mt-8 px-6 py-8 sm:px-10 sm:py-12 lg:px-16"
+        >
+          <div className="mb-5 flex items-center gap-3 text-xs text-slate-500">
+            <Sparkles className="size-4 text-blue-300" aria-hidden="true" />
+            <p>Example screens are illustrations to help you find your way.</p>
+          </div>
+          <ol className="space-y-5 sm:space-y-7">
+            {guides.map((guide, index) => {
+              const Icon = guide.icon;
+              const visualOnLeft = index % 2 === 1;
+              return (
+                <li
+                  key={guide.number}
+                  className="grid items-center gap-6 rounded-2xl border border-white/[0.08] bg-[#101119] p-5 sm:gap-8 sm:p-8 lg:grid-cols-2 lg:gap-12 lg:p-10"
+                >
+                  <div className={visualOnLeft ? "lg:order-2" : ""}>
+                    <div className="mb-4 flex items-center gap-2">
+                      <span className="flex size-8 items-center justify-center rounded-lg border border-blue-400/20 bg-blue-500/10">
+                        <Icon
+                          className="size-4 text-blue-300"
+                          aria-hidden="true"
+                        />
+                      </span>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-300">
+                        Step {guide.number} · {guide.label}
+                      </span>
+                    </div>
+                    <h2 className="max-w-lg text-xl font-semibold leading-snug text-white sm:text-2xl">
+                      {guide.title}
+                    </h2>
+                    <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400">
+                      {guide.body}
+                    </p>
+                    <ol className="mt-5 space-y-3">
+                      {guide.steps.map((step, stepIndex) => (
+                        <li
+                          key={step}
+                          className="flex items-start gap-3 text-sm leading-6 text-slate-300"
+                        >
+                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-blue-400/20 bg-blue-500/10 text-[10px] font-semibold text-blue-200">
+                            {stepIndex + 1}
+                          </span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                    <Link
+                      href={guide.href}
+                      className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-blue-300 transition hover:text-blue-200"
+                    >
+                      {guide.linkLabel} <ArrowRight className="size-4" />
+                    </Link>
+                  </div>
+                  <div className={visualOnLeft ? "lg:order-1" : ""}>
+                    <GuideVisual kind={guide.visual} />
+                    <p className="mt-2 text-center text-[10px] text-slate-600">
+                      A sample view—not real account information
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        <section className="border-y border-white/[0.08] bg-[#101119]">
+          <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-10 sm:px-10 sm:py-12 md:flex-row md:items-center md:justify-between lg:px-16">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">
+                You are in control
+              </p>
+              <h2 className="mt-3 text-xl font-semibold text-white">
+                Use the suggestions as a starting point—not the final word.
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Review AI-generated content carefully, only share information
+                when you are comfortable, and make every career decision for
+                yourself.
+              </p>
+            </div>
             <Link
               href="/signup"
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-500"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-500"
             >
-              Get started <ArrowRight className="size-4" />
+              Start with JobHunter <ArrowRight className="size-4" />
             </Link>
-            <a
-              href="#walkthrough"
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#303342] px-4 text-sm font-medium text-slate-200 transition hover:bg-white/5"
-            >
-              See how it works <ChevronRight className="size-4" />
-            </a>
           </div>
-        </div>
-      </section>
-
-      <section
-        id="walkthrough"
-        className="mx-auto max-w-7xl scroll-mt-8 px-6 py-8 sm:px-10 sm:py-12 lg:px-16"
-      >
-        <div className="mb-5 flex items-center gap-3 text-xs text-slate-500">
-          <Sparkles className="size-4 text-blue-300" aria-hidden="true" />
-          <p>Example screens are illustrations to help you find your way.</p>
-        </div>
-        <ol className="space-y-5 sm:space-y-7">
-          {guides.map((guide, index) => {
-            const Icon = guide.icon;
-            const visualOnLeft = index % 2 === 1;
-            return (
-              <li
-                key={guide.number}
-                className="grid items-center gap-6 rounded-2xl border border-white/[0.08] bg-[#101119] p-5 sm:gap-8 sm:p-8 lg:grid-cols-2 lg:gap-12 lg:p-10"
-              >
-                <div className={visualOnLeft ? "lg:order-2" : ""}>
-                  <div className="mb-4 flex items-center gap-2">
-                    <span className="flex size-8 items-center justify-center rounded-lg border border-blue-400/20 bg-blue-500/10">
-                      <Icon
-                        className="size-4 text-blue-300"
-                        aria-hidden="true"
-                      />
-                    </span>
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-300">
-                      Step {guide.number} · {guide.label}
-                    </span>
-                  </div>
-                  <h2 className="max-w-lg text-xl font-semibold leading-snug text-white sm:text-2xl">
-                    {guide.title}
-                  </h2>
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400">
-                    {guide.body}
-                  </p>
-                  <ol className="mt-5 space-y-3">
-                    {guide.steps.map((step, stepIndex) => (
-                      <li
-                        key={step}
-                        className="flex items-start gap-3 text-sm leading-6 text-slate-300"
-                      >
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-blue-400/20 bg-blue-500/10 text-[10px] font-semibold text-blue-200">
-                          {stepIndex + 1}
-                        </span>
-                        <span>{step}</span>
-                      </li>
-                    ))}
-                  </ol>
-                  <Link
-                    href={guide.href}
-                    className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-blue-300 transition hover:text-blue-200"
-                  >
-                    {guide.linkLabel} <ArrowRight className="size-4" />
-                  </Link>
-                </div>
-                <div className={visualOnLeft ? "lg:order-1" : ""}>
-                  <GuideVisual kind={guide.visual} />
-                  <p className="mt-2 text-center text-[10px] text-slate-600">
-                    A sample view—not real account information
-                  </p>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
-
-      <section className="border-y border-white/[0.08] bg-[#101119]">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-10 sm:px-10 sm:py-12 md:flex-row md:items-center md:justify-between lg:px-16">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">
-              You are in control
-            </p>
-            <h2 className="mt-3 text-xl font-semibold text-white">
-              Use the suggestions as a starting point—not the final word.
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Review AI-generated content carefully, only share information
-              when you are comfortable, and make every career decision for
-              yourself.
-            </p>
-          </div>
-          <Link
-            href="/signup"
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-500"
-          >
-            Start with JobHunter <ArrowRight className="size-4" />
-          </Link>
-        </div>
-      </section>
+        </section>
       </main>
       <PublicSiteFooter />
     </div>

@@ -23,142 +23,142 @@ export default function AboutPage() {
     <div className="min-h-screen bg-[#090a0f] text-slate-100">
       <PublicSiteHeader />
       <main>
-      <section className="border-b border-white/10 bg-[#12131a]">
-        <div className="mx-auto max-w-7xl px-6 py-16 sm:px-10 sm:py-20 lg:px-16">
-          <p className="text-xs font-semibold uppercase text-blue-300">
-            About JobHunter · Created by Dimetri SoftDev
-          </p>
-          <h1 className="mt-4 max-w-4xl font-serif text-4xl leading-tight text-white sm:text-5xl">
-            A more considered way to search for work.
-          </h1>
-          <p className="mt-6 max-w-3xl text-base leading-7 text-slate-300">
-            Looking for work asks you to research roles, explain your
-            experience, learn new skills, and follow up across many
-            opportunities. JobHunter brings those pieces into one workspace,
-            helps you find a first step, and lets you shape the dashboard around
-            the work that matters to you.
-          </p>
-        </div>
-      </section>
+        <section className="border-b border-white/10 bg-[#12131a]">
+          <div className="mx-auto max-w-7xl px-6 py-16 sm:px-10 sm:py-20 lg:px-16">
+            <p className="text-xs font-semibold uppercase text-blue-300">
+              About JobHunter · Created by Dimetri SoftDev
+            </p>
+            <h1 className="mt-4 max-w-4xl font-serif text-4xl leading-tight text-white sm:text-5xl">
+              A more considered way to search for work.
+            </h1>
+            <p className="mt-6 max-w-3xl text-base leading-7 text-slate-300">
+              Looking for work asks you to research roles, explain your
+              experience, learn new skills, and follow up across many
+              opportunities. JobHunter brings those pieces into one workspace,
+              helps you find a first step, and lets you shape the dashboard around
+              the work that matters to you.
+            </p>
+          </div>
+        </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
-          <article className="border-t border-blue-500/40 pt-5">
-            <Target className="h-5 w-5 text-blue-300" />
-            <h2 className="mt-4 text-base font-semibold text-white">
-              Make fit easier to judge
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Compare your resume with a role and review the evidence, unknowns,
-              and gaps before deciding whether to apply.
-            </p>
-          </article>
-          <article className="border-t border-sky-400/40 pt-5">
-            <Compass className="h-5 w-5 text-sky-300" />
-            <h2 className="mt-4 text-base font-semibold text-white">
-              Keep a direction
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              A self-reported career profile can help surface job titles to
-              explore and skills to strengthen.
-            </p>
-          </article>
-          <article className="border-t border-amber-300/50 pt-5">
-            <ShieldCheck className="h-5 w-5 text-amber-200" />
-            <h2 className="mt-4 text-base font-semibold text-white">
-              Keep the decision yours
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              AI output is a starting point, not a promise of employment or a
-              substitute for reviewing a job posting yourself.
-            </p>
-          </article>
-          <article className="border-t border-emerald-400/40 pt-5">
-            <Award className="h-5 w-5 text-emerald-300" />
-            <h2 className="mt-4 text-base font-semibold text-white">
-              Notice progress that counts
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              A first-steps checklist and Career Momentum milestones recognize
-              profile setup, planning, and learning without streaks or
-              application-volume targets.
-            </p>
-          </article>
-          <article className="border-t border-violet-400/40 pt-5">
-            <PanelsTopLeft className="h-5 w-5 text-violet-300" />
-            <h2 className="mt-4 text-base font-semibold text-white">
-              Shape your workspace
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Hide or show dashboard sections individually or all together.
-              Your layout preference is saved in your browser on this device.
-            </p>
-          </article>
-        </div>
-        <section
-          aria-labelledby="creator-heading"
-          className="mt-14 overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-br from-blue-500/[0.07] via-[#101119] to-violet-500/[0.06]"
-        >
-          <div className="grid gap-6 p-6 sm:grid-cols-[auto_1fr] sm:items-start sm:p-8">
-            <div
-              aria-hidden="true"
-              className="flex size-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10 text-sm font-bold tracking-wide text-blue-200"
-            >
-              DS
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">
-                The person behind the product
-              </p>
-              <h2
-                id="creator-heading"
-                className="mt-2 text-xl font-semibold text-white"
-              >
-                Built by Dimetri SoftDev
+        <section className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+            <article className="border-t border-blue-500/40 pt-5">
+              <Target className="h-5 w-5 text-blue-300" />
+              <h2 className="mt-4 text-base font-semibold text-white">
+                Make fit easier to judge
               </h2>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
-                Job hunting can be discouraging: you find a role that feels
-                right, then notice a few skills in the posting that you have
-                not built yet. That experience inspired JobHunter. I wanted to
-                create a practical place to keep a search organized, understand
-                where experience fits, and turn skill gaps into manageable
-                learning steps and project evidence. JobHunter is built to
-                help make the next step clearer while keeping every decision
-                yours.
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Compare your resume with a role and review the evidence, unknowns,
+                and gaps before deciding whether to apply.
               </p>
+            </article>
+            <article className="border-t border-sky-400/40 pt-5">
+              <Compass className="h-5 w-5 text-sky-300" />
+              <h2 className="mt-4 text-base font-semibold text-white">
+                Keep a direction
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                A self-reported career profile can help surface job titles to
+                explore and skills to strengthen.
+              </p>
+            </article>
+            <article className="border-t border-amber-300/50 pt-5">
+              <ShieldCheck className="h-5 w-5 text-amber-200" />
+              <h2 className="mt-4 text-base font-semibold text-white">
+                Keep the decision yours
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                AI output is a starting point, not a promise of employment or a
+                substitute for reviewing a job posting yourself.
+              </p>
+            </article>
+            <article className="border-t border-emerald-400/40 pt-5">
+              <Award className="h-5 w-5 text-emerald-300" />
+              <h2 className="mt-4 text-base font-semibold text-white">
+                Notice progress that counts
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                A first-steps checklist and Career Momentum milestones recognize
+                profile setup, planning, and learning without streaks or
+                application-volume targets.
+              </p>
+            </article>
+            <article className="border-t border-violet-400/40 pt-5">
+              <PanelsTopLeft className="h-5 w-5 text-violet-300" />
+              <h2 className="mt-4 text-base font-semibold text-white">
+                Shape your workspace
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Hide or show dashboard sections individually or all together.
+                Your layout preference is saved in your browser on this device.
+              </p>
+            </article>
+          </div>
+          <section
+            aria-labelledby="creator-heading"
+            className="mt-14 overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-br from-blue-500/[0.07] via-[#101119] to-violet-500/[0.06]"
+          >
+            <div className="grid gap-6 p-6 sm:grid-cols-[auto_1fr] sm:items-start sm:p-8">
+              <div
+                aria-hidden="true"
+                className="flex size-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10 text-sm font-bold tracking-wide text-blue-200"
+              >
+                DS
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">
+                  The person behind the product
+                </p>
+                <h2
+                  id="creator-heading"
+                  className="mt-2 text-xl font-semibold text-white"
+                >
+                  Built by Dimetri SoftDev
+                </h2>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+                  Job hunting can be discouraging: you find a role that feels
+                  right, then notice a few skills in the posting that you have
+                  not built yet. That experience inspired JobHunter. I wanted to
+                  create a practical place to keep a search organized, understand
+                  where experience fits, and turn skill gaps into manageable
+                  learning steps and project evidence. JobHunter is built to
+                  help make the next step clearer while keeping every decision
+                  yours.
+                </p>
+              </div>
+            </div>
+          </section>
+          <div className="mt-14 rounded-2xl border border-white/[0.08] bg-[#101119] p-6 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">
+              A tool for your process, not a decision-maker
+            </p>
+            <h2 className="mt-3 text-xl font-semibold text-white">
+              Keep the human judgment where it belongs—with you.
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
+              JobHunter can organize opportunities, review a pasted or pictured
+              posting against your resume, suggest roles from your saved profile,
+              draft application materials for you to review, and help you plan
+              evidence-building projects. You submit applications yourself;
+              JobHunter does not fill out or submit forms on external job sites.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/guide"
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/15 px-4 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.05]"
+              >
+                See how it works <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/signup"
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
+              >
+                Get started <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
           </div>
         </section>
-        <div className="mt-14 rounded-2xl border border-white/[0.08] bg-[#101119] p-6 sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">
-            A tool for your process, not a decision-maker
-          </p>
-          <h2 className="mt-3 text-xl font-semibold text-white">
-            Keep the human judgment where it belongs—with you.
-          </h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-            JobHunter can organize opportunities, review a pasted or pictured
-            posting against your resume, suggest roles from your saved profile,
-            draft application materials for you to review, and help you plan
-            evidence-building projects. You submit applications yourself;
-            JobHunter does not fill out or submit forms on external job sites.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/guide"
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/15 px-4 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.05]"
-            >
-              See how it works <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/signup"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
-            >
-              Get started <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
       </main>
       <PublicSiteFooter />
     </div>
