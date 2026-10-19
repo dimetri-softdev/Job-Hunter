@@ -88,15 +88,14 @@ export default function LoginPage({
           )}
 
           <p role="status" className="text-center text-xs text-slate-500">
-            GitHub and Google sign-in are under construction and unavailable
-            for now. Please use email and password.
+            Email and password are currently the only sign-in option.
           </p>
 
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               disabled
-              aria-label="GitHub sign-in coming soon"
+              aria-label="GitHub sign-in unavailable"
               className="flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-500 opacity-70"
             >
               <SiGithub className="size-4" aria-hidden="true" />
@@ -105,7 +104,7 @@ export default function LoginPage({
             <button
               type="button"
               disabled
-              aria-label="Google sign-in coming soon"
+              aria-label="Google sign-in unavailable"
               className="flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-500 opacity-70"
             >
               <SiGoogle className="size-4" aria-hidden="true" />

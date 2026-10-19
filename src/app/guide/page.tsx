@@ -498,8 +498,9 @@ function GuideVisual({ kind }: { kind: VisualKind }) {
 
 export default function GuidePage() {
   return (
-    <main className="min-h-screen bg-[#090a0f] text-slate-100">
+    <div className="min-h-screen bg-[#090a0f] text-slate-100">
       <PublicSiteHeader />
+      <main>
       <section className="relative overflow-hidden border-b border-white/10 bg-[#101119]">
         <div
           aria-hidden="true"
@@ -624,7 +625,8 @@ export default function GuidePage() {
           </Link>
         </div>
       </section>
+      </main>
       <PublicSiteFooter />
-    </main>
+    </div>
   );
 }

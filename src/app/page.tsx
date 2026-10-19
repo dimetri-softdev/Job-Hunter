@@ -98,8 +98,9 @@ const steps = [
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#090a0f] text-slate-100">
+    <div className="min-h-screen bg-[#090a0f] text-slate-100">
       <PublicSiteHeader />
+      <main className="overflow-hidden">
       <section className="relative isolate border-b border-white/10">
         <div
           aria-hidden="true"
@@ -344,7 +345,8 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
+      </main>
       <PublicSiteFooter />
-    </main>
+    </div>
   );
 }

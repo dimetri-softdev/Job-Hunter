@@ -20,8 +20,9 @@ export const metadata = {
 
 export default function AboutPage() {
   return (
-    <main className="min-h-screen bg-[#090a0f] text-slate-100">
+    <div className="min-h-screen bg-[#090a0f] text-slate-100">
       <PublicSiteHeader />
+      <main>
       <section className="border-b border-white/10 bg-[#12131a]">
         <div className="mx-auto max-w-7xl px-6 py-16 sm:px-10 sm:py-20 lg:px-16">
           <p className="text-xs font-semibold uppercase text-blue-300">
@@ -158,7 +159,8 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+      </main>
       <PublicSiteFooter />
-    </main>
+    </div>
   );
 }
