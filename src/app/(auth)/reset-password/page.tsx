@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AuthSidebar } from "@/components/auth/auth-sidebar";
 import { validatePassword } from "@/lib/password-validation";
+import { getAuthErrorMessage } from "@/lib/user-facing-errors";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -36,9 +37,10 @@ export default function ResetPasswordPage() {
       window.setTimeout(() => router.replace("/dashboard"), 1200);
     } catch (updateError: unknown) {
       setError(
-        updateError instanceof Error
-          ? updateError.message
-          : "Unable to update your password. Request a new reset link and try again.",
+        getAuthErrorMessage(
+          updateError,
+          "We couldn’t update your password. Request a new reset link and try again.",
+        ),
       );
     } finally {
       setLoading(false);

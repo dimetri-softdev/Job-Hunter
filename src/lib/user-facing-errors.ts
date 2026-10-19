@@ -56,3 +56,50 @@ export function getUserFacingError(error: unknown, fallback: string): string {
 
   return fallback;
 }
+
+export function getAuthErrorMessage(
+  error: unknown,
+  fallback: string,
+): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (
+    message.includes("invalid login credentials") ||
+    message.includes("invalid email or password")
+  ) {
+    return "The email or password doesn’t match. Check your details or reset your password.";
+  }
+  if (
+    message.includes("email not confirmed") ||
+    message.includes("email_not_confirmed")
+  ) {
+    return "Please confirm your email using the link we sent before signing in.";
+  }
+  if (
+    message.includes("user already registered") ||
+    message.includes("already been registered")
+  ) {
+    return "An account with this email already exists. Try signing in instead.";
+  }
+  if (
+    message.includes("rate limit") ||
+    message.includes("too many requests")
+  ) {
+    return "Please wait a few minutes before trying again.";
+  }
+  if (
+    message.includes("token has expired") ||
+    message.includes("otp_expired") ||
+    message.includes("invalid token")
+  ) {
+    return "This link has expired or is no longer valid. Request a new one and try again.";
+  }
+  if (
+    message.includes("password should be") ||
+    message.includes("password must")
+  ) {
+    return "Your password doesn’t meet the requirements. Use at least 7 characters, including a number and a symbol.";
+  }
+
+  return getUserFacingError(error, fallback);
+}

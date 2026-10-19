@@ -6,6 +6,7 @@ import { SiGithub, SiGoogle } from "@icons-pack/react-simple-icons";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { AuthSidebar } from "@/components/auth/auth-sidebar";
+import { getAuthErrorMessage } from "@/lib/user-facing-errors";
 
 export default function LoginPage({
   searchParams,
@@ -17,7 +18,7 @@ export default function LoginPage({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(
-    error === "oauth_callback_failed"
+    (Array.isArray(error) ? error[0] : error) === "oauth_callback_failed"
       ? "Sign-in could not be completed. Please try again."
       : null,
   );
@@ -35,7 +36,12 @@ export default function LoginPage({
       });
 
       if (error) {
-        setErrorMsg(error.message);
+        setErrorMsg(
+          getAuthErrorMessage(
+            error,
+            "We couldn’t sign you in. Check your details and try again.",
+          ),
+        );
         setLoading(false);
         return;
       }
@@ -45,13 +51,16 @@ export default function LoginPage({
         window.location.href = "/dashboard";
       } else {
         setErrorMsg(
-          "Check your email for a confirmation link or auto-confirm your user in Supabase.",
+          "Check your email for a confirmation link. If you’ve already confirmed it, try signing in again.",
         );
         setLoading(false);
       }
     } catch (err: unknown) {
       setErrorMsg(
-        err instanceof Error ? err.message : "An unexpected error occurred.",
+        getAuthErrorMessage(
+          err,
+          "We couldn’t sign you in. Please try again.",
+        ),
       );
       setLoading(false);
     }
@@ -73,7 +82,7 @@ export default function LoginPage({
           </div>
 
           {errorMsg && (
-            <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs">
+            <div role="alert" className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs">
               {errorMsg}
             </div>
           )}

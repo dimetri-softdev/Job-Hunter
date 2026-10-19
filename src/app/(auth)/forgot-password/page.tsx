@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { AuthSidebar } from "@/components/auth/auth-sidebar";
+import { getAuthErrorMessage } from "@/lib/user-facing-errors";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -28,9 +29,10 @@ export default function ForgotPasswordPage() {
       setMessage("If an account exists for that email, a password reset link is on its way.");
     } catch (requestError: unknown) {
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to request a password reset. Please try again.",
+        getAuthErrorMessage(
+          requestError,
+          "We couldn’t send a reset link. Please try again.",
+        ),
       );
     } finally {
       setLoading(false);

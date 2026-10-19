@@ -8,6 +8,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { AuthSidebar } from "@/components/auth/auth-sidebar";
 import { validatePassword } from "@/lib/password-validation";
+import { getAuthErrorMessage } from "@/lib/user-facing-errors";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -54,7 +55,12 @@ export default function SignupPage() {
       });
 
       if (error) {
-        setErrorMsg(error.message);
+        setErrorMsg(
+          getAuthErrorMessage(
+            error,
+            "We couldn’t create your account. Check your details and try again.",
+          ),
+        );
       } else if (data.session) {
         router.push("/dashboard");
       } else {
@@ -62,9 +68,10 @@ export default function SignupPage() {
       }
     } catch (signUpError: unknown) {
       setErrorMsg(
-        signUpError instanceof Error
-          ? signUpError.message
-          : "Unable to create your account. Please try again.",
+        getAuthErrorMessage(
+          signUpError,
+          "We couldn’t create your account. Please try again.",
+        ),
       );
     } finally {
       setLoading(false);
@@ -87,7 +94,7 @@ export default function SignupPage() {
           </div>
 
           {errorMsg && (
-            <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs">
+            <div role="alert" className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs">
               {errorMsg}
             </div>
           )}
