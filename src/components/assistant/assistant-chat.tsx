@@ -64,6 +64,10 @@ export function AssistantChat({
   const activeMode: AssistantMode = user ? mode : "product";
 
   useEffect(() => {
+    if (initialPrompt) setInput(initialPrompt);
+  }, [initialPrompt]);
+
+  useEffect(() => {
     if (!user || !includeApplication || applications !== null) return;
     let active = true;
     fetcher<ApplicationContext[]>("/applications")

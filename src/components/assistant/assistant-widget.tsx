@@ -51,7 +51,10 @@ export function AssistantWidget() {
       >
         <Bot className="size-6" aria-hidden="true" />
       </DialogTrigger>
-      <DialogContent className="flex max-h-[92dvh] flex-col gap-3 overflow-hidden border border-white/20 bg-slate-950/55 p-3 text-slate-100 shadow-2xl shadow-blue-950/40 backdrop-blur-2xl sm:max-w-xl">
+      <DialogContent
+        keepMounted
+        className="flex max-h-[92dvh] flex-col gap-3 overflow-hidden border border-white/20 bg-slate-950/55 p-3 text-slate-100 shadow-2xl shadow-blue-950/40 backdrop-blur-2xl sm:max-w-xl"
+      >
         <DialogHeader className="sr-only">
           <DialogTitle>JobHunter AI assistant</DialogTitle>
           <DialogDescription>
@@ -60,7 +63,6 @@ export function AssistantWidget() {
           </DialogDescription>
         </DialogHeader>
         <AssistantChat
-          key={`${open}-${prompt}`}
           initialPrompt={prompt}
           compact
           className="h-[82vh] max-h-[50rem] min-h-0 border-0"
