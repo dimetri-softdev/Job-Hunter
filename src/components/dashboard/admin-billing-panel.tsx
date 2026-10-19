@@ -143,7 +143,8 @@ export function AdminBillingPanel() {
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">
               When enabled, users need an active plan or an administrator-granted
-              trial to make changes or use AI features. Existing information stays
+              trial to make changes or use personalized AI features. Public
+              product guidance remains available. Existing information stays
               available to view and export.
             </p>
           </div>

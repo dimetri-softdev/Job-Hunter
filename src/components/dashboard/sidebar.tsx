@@ -14,6 +14,7 @@ import {
   MessageSquareText,
   FileText,
   CreditCard,
+  Bot,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { ActionHint } from "@/components/action-hint";
@@ -66,6 +67,12 @@ const navItems = [
     description: "Send an idea or report an issue",
     href: "/feedback",
     icon: MessageSquareText,
+  },
+  {
+    name: "AI assistant",
+    description: "Product help and career guidance",
+    href: "/assistant",
+    icon: Bot,
   },
 ];
 

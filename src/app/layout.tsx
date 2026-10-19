@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { AuthProvider } from "@/context/AuthContext";
 import { RouteTransition } from "@/components/dashboard/route-transition";
+import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { siteUrl } from "@/lib/site-url";
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default function RootLayout({
       <body className="bg-[#090a0f] text-slate-200 antialiased">
         <AuthProvider>
           <RouteTransition>{children}</RouteTransition>
+          <AssistantWidget />
         </AuthProvider>
       </body>
     </html>

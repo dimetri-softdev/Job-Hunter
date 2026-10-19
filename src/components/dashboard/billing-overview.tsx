@@ -36,6 +36,7 @@ const FEATURE_ORDER = [
   "role_suggestions",
   "application_drafts",
   "resume_updates",
+  "assistant_chat",
 ];
 
 function formatDate(value: string | null) {
@@ -117,7 +118,7 @@ export function BillingOverview() {
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               {!status.billingEnabled
-                ? "Pilot mode is active. Paid access and usage limits are not being enforced."
+                ? "Pilot mode is active. Paid access and monthly usage limits are not being enforced; the AI assistant has a separate daily cap."
                 : activeTrial
                   ? `Your Standard trial is active${trialEnd ? ` until ${trialEnd}` : ""}.`
                   : status.status === "EXPIRED"
@@ -169,7 +170,8 @@ export function BillingOverview() {
           </div>
           <p className="mt-1 text-xs text-slate-500">
             Usage resets on the first day of each month. Job-fit allowance also
-            covers job-post analysis and Proof Sprints.
+            covers job-post analysis and Proof Sprints. The AI assistant also
+            has a separate daily cap.
           </p>
           <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURE_ORDER.map((key) => {
@@ -238,7 +240,11 @@ export function BillingOverview() {
                       (plan === "standard" &&
                         key !== "resume_updates") ||
                       (plan === "basic" &&
-                        ["job_fit", "roadmap_generation"].includes(key)));
+                        [
+                          "job_fit",
+                          "roadmap_generation",
+                          "assistant_chat",
+                        ].includes(key)));
                   return (
                     <li key={key} className="flex items-start gap-2 text-xs">
                       {included ? (
@@ -262,7 +268,7 @@ export function BillingOverview() {
               </ul>
               <p className="mt-4 border-t border-[#252735] pt-3 text-[11px] text-slate-500">
                 {plan === "basic"
-                  ? "Job-fit checks and roadmap generation"
+                  ? "Job-fit checks, roadmap generation, and AI assistant"
                   : plan === "standard"
                     ? "Adds role suggestions and application drafts"
                     : "Adds resume updates and the highest allowances"}

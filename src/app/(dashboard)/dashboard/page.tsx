@@ -12,6 +12,7 @@ import { GeneratorModal } from "@/components/dashboard/generator-modal";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import type { GeneratedRoadmap } from "@/components/RoadmapGenerator";
 import { fetcher } from "@/lib/api";
+import { AssistantLauncher } from "@/components/assistant/assistant-launcher";
 
 interface ApplicationFollowUp {
   id: string;
@@ -326,6 +327,10 @@ export default function DashboardPage() {
         <GeneratorModal
           buttonLabel="Create learning roadmap"
           onRoadmapGenerated={handleRoadmapGenerated}
+        />
+        <AssistantLauncher
+          label="Ask for guidance"
+          prompt="Help me decide on a practical next step for my job search."
         />
       </DashboardPageHeader>
 

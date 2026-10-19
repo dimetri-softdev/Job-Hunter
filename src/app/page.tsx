@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { PublicSiteFooter } from "@/components/public-site-footer";
 import { PublicSiteHeader } from "@/components/public-site-header";
+import { AssistantLauncher } from "@/components/assistant/assistant-launcher";
 
 export const metadata = {
   title: "Make your next career move with clarity",
@@ -133,6 +134,11 @@ export default function HomePage() {
                 See how it works
                 <ArrowDown className="size-4" aria-hidden="true" />
               </Link>
+              <AssistantLauncher
+                label="Ask the assistant"
+                prompt="What can JobHunter help me with?"
+                className="h-12"
+              />
             </div>
             <p className="mt-5 flex items-center gap-2 text-xs text-slate-500">
               <ShieldCheck className="size-4 shrink-0 text-emerald-300" aria-hidden="true" />
