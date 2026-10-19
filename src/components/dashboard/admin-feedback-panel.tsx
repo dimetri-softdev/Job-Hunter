@@ -9,6 +9,10 @@ import {
   MessageSquareText,
   Save,
 } from "lucide-react";
+import {
+  getApiErrorMessage,
+  getUserFacingError,
+} from "@/lib/user-facing-errors";
 
 interface FeedbackRecord {
   id: string;
@@ -64,15 +68,6 @@ const FEATURE_LABELS: Record<string, string> = {
   application_packs: "Cover-letter and application drafts",
   csv_backups: "CSV import/export",
 };
-
-function getErrorMessage(payload: unknown, status: number) {
-  return payload &&
-    typeof payload === "object" &&
-    "error" in payload &&
-    typeof payload.error === "string"
-    ? payload.error
-    : `Request failed (${status}).`;
-}
 
 function formatAnswer(key: string, value: unknown): string {
   if (key === "featureRatings" && Array.isArray(value)) {
@@ -135,7 +130,9 @@ export function AdminFeedbackPanel() {
           signal: controller.signal,
         });
         const payload: unknown = await response.json();
-        if (!response.ok) throw new Error(getErrorMessage(payload, response.status));
+        if (!response.ok) {
+          throw new Error(getApiErrorMessage(payload, response.status));
+        }
         if (
           !payload ||
           typeof payload !== "object" ||
@@ -161,9 +158,7 @@ export function AdminFeedbackPanel() {
       } catch (loadError: unknown) {
         if (controller.signal.aborted) return;
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Unable to load feedback.",
+          getUserFacingError(loadError, "Unable to load feedback."),
         );
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -190,7 +185,7 @@ export function AdminFeedbackPanel() {
       });
       if (!response.ok) {
         const payload: unknown = await response.json();
-        throw new Error(getErrorMessage(payload, response.status));
+        throw new Error(getApiErrorMessage(payload, response.status));
       }
       const url = URL.createObjectURL(await response.blob());
       const anchor = document.createElement("a");
@@ -202,9 +197,7 @@ export function AdminFeedbackPanel() {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (exportError: unknown) {
       setError(
-        exportError instanceof Error
-          ? exportError.message
-          : "Unable to export feedback.",
+        getUserFacingError(exportError, "Unable to export feedback."),
       );
     } finally {
       setExporting(false);
@@ -223,7 +216,9 @@ export function AdminFeedbackPanel() {
         body: JSON.stringify(draft),
       });
       const payload: unknown = await response.json();
-      if (!response.ok) throw new Error(getErrorMessage(payload, response.status));
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload, response.status));
+      }
       setResult((current) =>
         current
           ? {
@@ -236,9 +231,7 @@ export function AdminFeedbackPanel() {
       );
     } catch (saveError: unknown) {
       setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Unable to save feedback changes.",
+        getUserFacingError(saveError, "Unable to save feedback changes."),
       );
     } finally {
       setBusyId(null);

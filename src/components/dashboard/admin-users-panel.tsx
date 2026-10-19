@@ -12,6 +12,10 @@ import {
   UserRound,
   UserRoundX,
 } from "lucide-react";
+import {
+  getApiErrorMessage,
+  getUserFacingError,
+} from "@/lib/user-facing-errors";
 
 interface AdminUser {
   id: string;
@@ -45,15 +49,6 @@ interface AdminRecord {
   source: "environment" | "database";
   createdAt: string | null;
   addedBy: string | null;
-}
-
-function getErrorMessage(payload: unknown, status: number) {
-  return payload &&
-    typeof payload === "object" &&
-    "error" in payload &&
-    typeof payload.error === "string"
-    ? payload.error
-    : `Request failed (${status}).`;
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -109,10 +104,10 @@ export function AdminUsersPanel() {
           readJson(adminResponse),
         ]);
         if (!userResponse.ok) {
-          throw new Error(getErrorMessage(userPayload, userResponse.status));
+          throw new Error(getApiErrorMessage(userPayload, userResponse.status));
         }
         if (!adminResponse.ok) {
-          throw new Error(getErrorMessage(adminPayload, adminResponse.status));
+          throw new Error(getApiErrorMessage(adminPayload, adminResponse.status));
         }
         if (
           !userPayload ||
@@ -131,9 +126,7 @@ export function AdminUsersPanel() {
       } catch (loadError: unknown) {
         if (controller.signal.aborted) return;
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Unable to load accounts.",
+          getUserFacingError(loadError, "Unable to load accounts."),
         );
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -175,13 +168,13 @@ export function AdminUsersPanel() {
         });
       }
       const payload = await readJson(response);
-      if (!response.ok) throw new Error(getErrorMessage(payload, response.status));
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload, response.status));
+      }
       refresh();
     } catch (actionError: unknown) {
       setError(
-        actionError instanceof Error
-          ? actionError.message
-          : "Unable to update this account.",
+        getUserFacingError(actionError, "Unable to update this account."),
       );
     } finally {
       setBusyId(null);
@@ -198,13 +191,13 @@ export function AdminUsersPanel() {
         body: JSON.stringify({ userId: id }),
       });
       const payload = await readJson(response);
-      if (!response.ok) throw new Error(getErrorMessage(payload, response.status));
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload, response.status));
+      }
       refresh();
     } catch (grantError: unknown) {
       setError(
-        grantError instanceof Error
-          ? grantError.message
-          : "Unable to grant this trial.",
+        getUserFacingError(grantError, "Unable to grant this trial."),
       );
     } finally {
       setBusyId(null);
@@ -224,13 +217,13 @@ export function AdminUsersPanel() {
         body: JSON.stringify({ userId: id }),
       });
       const payload = await readJson(response);
-      if (!response.ok) throw new Error(getErrorMessage(payload, response.status));
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload, response.status));
+      }
       refresh();
     } catch (revokeError: unknown) {
       setError(
-        revokeError instanceof Error
-          ? revokeError.message
-          : "Unable to revoke this trial.",
+        getUserFacingError(revokeError, "Unable to revoke this trial."),
       );
     } finally {
       setBusyId(null);
@@ -249,15 +242,13 @@ export function AdminUsersPanel() {
         body: JSON.stringify({ confirmEmail: confirmation }),
       });
       const payload = await readJson(response);
-      if (!response.ok) throw new Error(getErrorMessage(payload, response.status));
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload, response.status));
+      }
       setDeleteCandidate(null);
       refresh();
     } catch (deleteError: unknown) {
-      setError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : "Unable to delete this account.",
-      );
+      setError(getUserFacingError(deleteError, "Unable to delete this account."));
     } finally {
       setBusyId(null);
     }

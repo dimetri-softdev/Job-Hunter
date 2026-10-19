@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
+import {
+  getApiErrorMessage,
+  getUserFacingError,
+} from "@/lib/user-facing-errors";
 
 interface BillingConfiguration {
   enabled: boolean;
@@ -14,15 +18,6 @@ interface BillingSettingsResponse {
   checkoutEnabled: false;
   currency: string | null;
   pricesConfigured: boolean;
-}
-
-function responseError(payload: unknown, status: number) {
-  return payload &&
-    typeof payload === "object" &&
-    "error" in payload &&
-    typeof payload.error === "string"
-    ? payload.error
-    : `Request failed (${status}).`;
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -50,7 +45,9 @@ export function AdminBillingPanel() {
           signal: controller.signal,
         });
         const payload = await readJson(response);
-        if (!response.ok) throw new Error(responseError(payload, response.status));
+        if (!response.ok) {
+          throw new Error(getApiErrorMessage(payload, response.status));
+        }
         if (
           !payload ||
           typeof payload !== "object" ||
@@ -66,9 +63,7 @@ export function AdminBillingPanel() {
       } catch (loadError: unknown) {
         if (controller.signal.aborted) return;
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Unable to load billing settings.",
+          getUserFacingError(loadError, "Unable to load billing settings."),
         );
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -99,7 +94,9 @@ export function AdminBillingPanel() {
         body: JSON.stringify({ enabled }),
       });
       const payload = await readJson(response);
-      if (!response.ok) throw new Error(responseError(payload, response.status));
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload, response.status));
+      }
       if (
         !payload ||
         typeof payload !== "object" ||
@@ -114,9 +111,7 @@ export function AdminBillingPanel() {
       setSettings(payload as BillingSettingsResponse);
     } catch (saveError: unknown) {
       setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Unable to update billing settings.",
+        getUserFacingError(saveError, "Unable to update billing settings."),
       );
     } finally {
       setSaving(false);
