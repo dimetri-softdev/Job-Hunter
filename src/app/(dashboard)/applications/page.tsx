@@ -33,6 +33,7 @@ import { JobProofSprint } from "@/components/dashboard/job-proof-sprint";
 import { ApplicationAssistant } from "@/components/dashboard/application-assistant";
 import { ApplicationActivity } from "@/components/dashboard/application-activity";
 import { InterviewPrep } from "@/components/dashboard/interview-prep";
+import { ApplicationFollowUp } from "@/components/dashboard/application-follow-up";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { fetcher } from "@/lib/api";
 import { ExternalLink } from "lucide-react";
@@ -1029,6 +1030,13 @@ export default function ApplicationsPage() {
                         questionsToConfirm={
                           app.fitAssessment?.questionsToConfirm
                         }
+                      />
+                      <ApplicationFollowUp
+                        applicationId={app.id}
+                        company={app.company}
+                        position={app.position}
+                        status={app.status}
+                        contactEmail={app.contactEmail}
                       />
                     </td>
                     <td className="p-4">
