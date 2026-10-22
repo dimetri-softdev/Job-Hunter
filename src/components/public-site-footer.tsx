@@ -32,6 +32,18 @@ export function PublicSiteFooter() {
           >
             About
           </Link>
+          <Link
+            href="/terms"
+            className="text-slate-400 transition-colors hover:text-white"
+          >
+            Terms (draft)
+          </Link>
+          <Link
+            href="/refunds"
+            className="text-slate-400 transition-colors hover:text-white"
+          >
+            Refunds (draft)
+          </Link>
           <SupportContactLink
             className="text-slate-400 transition-colors hover:text-white"
           >

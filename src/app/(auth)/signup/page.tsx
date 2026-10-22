@@ -15,6 +15,7 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -29,6 +30,10 @@ export default function SignupPage() {
     const normalizedEmail = email.trim();
     if (!normalizedName) {
       setErrorMsg("Enter your name.");
+      return;
+    }
+    if (!ageConfirmed) {
+      setErrorMsg("Confirm that you are at least 18 years old to continue.");
       return;
     }
     if (normalizedName.length > 100) {
@@ -50,6 +55,7 @@ export default function SignupPage() {
         options: {
           data: {
             full_name: normalizedName,
+            age_confirmed: true,
           },
         },
       });
@@ -209,6 +215,19 @@ export default function SignupPage() {
                 symbol (for example, ! or #).
               </p>
             </div>
+
+            <label className="flex items-start gap-3 text-xs leading-5 text-slate-400">
+              <input
+                type="checkbox"
+                required
+                checked={ageConfirmed}
+                onChange={(event) => setAgeConfirmed(event.target.checked)}
+                className="mt-1 size-4 shrink-0 accent-blue-500"
+              />
+              <span>
+                I confirm that I am at least 18 years old.
+              </span>
+            </label>
 
             <button
               type="submit"

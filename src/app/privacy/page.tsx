@@ -17,7 +17,7 @@ const dataWeStore = [
   {
     title: "Account and career profile",
     description:
-      "Your sign-in email, name, and any career details you choose to add, such as skills, work history, education, target roles, and preferences.",
+      "Your sign-in email, name, age-eligibility confirmation, and any career details you choose to add, such as skills, work history, education, target roles, and preferences.",
   },
   {
     title: "Your job search",
