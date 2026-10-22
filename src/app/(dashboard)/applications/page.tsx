@@ -32,6 +32,7 @@ import { JobGapRoadmap } from "@/components/dashboard/job-gap-roadmap";
 import { JobProofSprint } from "@/components/dashboard/job-proof-sprint";
 import { ApplicationAssistant } from "@/components/dashboard/application-assistant";
 import { ApplicationActivity } from "@/components/dashboard/application-activity";
+import { InterviewPrep } from "@/components/dashboard/interview-prep";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { fetcher } from "@/lib/api";
 import { ExternalLink } from "lucide-react";
@@ -1019,6 +1020,16 @@ export default function ApplicationsPage() {
                           )}
                         />
                       )}
+                      <InterviewPrep
+                        applicationId={app.id}
+                        company={app.company}
+                        position={app.position}
+                        strengths={app.fitAssessment?.strengths}
+                        gaps={app.fitAssessment?.gaps}
+                        questionsToConfirm={
+                          app.fitAssessment?.questionsToConfirm
+                        }
+                      />
                     </td>
                     <td className="p-4">
                       <div className="flex justify-end gap-1">
