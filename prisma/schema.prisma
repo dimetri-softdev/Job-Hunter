@@ -160,11 +160,12 @@ model AdminAccess {
 }
 
 model BillingConfiguration {
-  id           String   @id
-  enabled      Boolean  @default(false)
-  supportEmail String   @default("jobhunter408@gmail.com")
-  updatedBy    String?
-  updatedAt    DateTime @updatedAt
+  id                     String   @id
+  enabled                Boolean  @default(false)
+  reminderEmailsEnabled  Boolean  @default(false)
+  supportEmail           String   @default("jobhunter408@gmail.com")
+  updatedBy              String?
+  updatedAt              DateTime @updatedAt
 }
 
 model UserSubscription {

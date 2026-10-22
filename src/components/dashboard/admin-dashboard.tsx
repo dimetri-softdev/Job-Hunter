@@ -5,14 +5,20 @@ import { AdminFeedbackPanel } from "@/components/dashboard/admin-feedback-panel"
 import { AdminBillingPanel } from "@/components/dashboard/admin-billing-panel";
 import { AdminSupportPanel } from "@/components/dashboard/admin-support-panel";
 import { AdminUsersPanel } from "@/components/dashboard/admin-users-panel";
+import { AdminRemindersPanel } from "@/components/dashboard/admin-reminders-panel";
 
-type AdminSection = "feedback" | "users" | "billing";
-type AdminSectionWithSupport = AdminSection | "support";
+type AdminSectionWithSupport =
+  | "feedback"
+  | "users"
+  | "billing"
+  | "reminders"
+  | "support";
 
 const ADMIN_SECTIONS: { value: AdminSectionWithSupport; label: string }[] = [
   { value: "feedback", label: "Feedback" },
   { value: "users", label: "Users & admins" },
   { value: "billing", label: "Billing" },
+  { value: "reminders", label: "Reminders" },
   { value: "support", label: "Support" },
 ];
 
@@ -78,6 +84,8 @@ export function AdminDashboard() {
           <AdminUsersPanel />
         ) : section === "billing" ? (
           <AdminBillingPanel />
+        ) : section === "reminders" ? (
+          <AdminRemindersPanel />
         ) : (
           <AdminSupportPanel />
         )}

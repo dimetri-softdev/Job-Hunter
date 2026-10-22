@@ -124,7 +124,7 @@ The migration adds review metadata to feedback and the database-managed administ
 
 ### Application reminder delivery
 
-Email reminders are opt-in in dashboard Settings. Configure these private environment variables on the FastAPI service:
+Email reminders are globally disabled by default. Configure these private environment variables on the FastAPI service before enabling **Admin → Reminders**:
 
 ```env
 RESEND_API_KEY=your_resend_api_key
@@ -139,7 +139,7 @@ curl --fail --silent --show-error -X POST "$JOBHUNTER_API_URL/internal/reminders
   -H "X-Reminder-Cron-Secret: $REMINDER_CRON_SECRET"
 ```
 
-The endpoint sends reminders only for opted-in accounts and due follow-up dates. Successful sends are recorded so repeated job runs do not resend for the same application and date. Failed sends are retried at most three times, no sooner than six hours apart, while Resend's idempotency key protects retries within its 24-hour window. Browser notifications require permission and the signed-in dashboard to remain open in that browser.
+The endpoint sends reminders only while the admin feature switch is enabled, for opted-in accounts and due follow-up dates. Successful sends are recorded so repeated job runs do not resend for the same application and date. Failed sends are retried at most three times, no sooner than six hours apart, while Resend's idempotency key protects retries within its 24-hour window. Browser notifications require permission and the signed-in dashboard to remain open in that browser; they are not controlled by the email feature switch.
 
 ### Password requirements
 

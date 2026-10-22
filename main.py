@@ -2215,17 +2215,42 @@ async def get_applications(user_id: str = Depends(get_current_user)):
 
 @app.get("/api/v1/reminders/preferences")
 async def get_reminder_preferences(user_id: str = Depends(get_current_user)):
-    rows = await db.query_raw(
+    preference_rows = await db.query_raw(
         'SELECT "emailEnabled" FROM "UserReminderPreference" WHERE "userId" = $1',
         user_id,
     )
-    return {"emailEnabled": bool(rows[0]["emailEnabled"]) if rows else False}
+    feature_rows = await db.query_raw(
+        'SELECT "reminderEmailsEnabled" FROM "BillingConfiguration" WHERE "id" = $1',
+        "global",
+    )
+    email_available = bool(
+        feature_rows and feature_rows[0]["reminderEmailsEnabled"]
+    )
+    return {
+        "emailEnabled": (
+            bool(preference_rows[0]["emailEnabled"]) if preference_rows else False
+        ) and email_available,
+        "emailAvailable": email_available,
+    }
 
 @app.put("/api/v1/reminders/preferences")
 async def update_reminder_preferences(
     payload: ReminderPreferenceUpdate,
     user_id: str = Depends(get_current_user),
 ):
+    feature_rows = await db.query_raw(
+        'SELECT "reminderEmailsEnabled" FROM "BillingConfiguration" WHERE "id" = $1',
+        "global",
+    )
+    email_available = bool(
+        feature_rows and feature_rows[0]["reminderEmailsEnabled"]
+    )
+    if payload.emailEnabled and not email_available:
+        raise HTTPException(
+            status_code=409,
+            detail="Email reminders are currently disabled. An administrator can enable them in Admin after email setup is complete.",
+        )
+
     rows = await db.query_raw(
         'INSERT INTO "UserReminderPreference" ("userId", "emailEnabled", "updatedAt") '
         'VALUES ($1, $2, NOW()) '
@@ -2236,7 +2261,10 @@ async def update_reminder_preferences(
     )
     if not rows:
         raise HTTPException(status_code=500, detail="Unable to save reminder preferences.")
-    return {"emailEnabled": bool(rows[0]["emailEnabled"])}
+    return {
+        "emailEnabled": bool(rows[0]["emailEnabled"]) and email_available,
+        "emailAvailable": email_available,
+    }
 
 @app.post("/api/v1/internal/reminders/send")
 async def send_due_reminder_emails(
@@ -2255,6 +2283,12 @@ async def send_due_reminder_emails(
         configured_secret,
     ):
         raise HTTPException(status_code=401, detail="Invalid reminder job credentials.")
+    feature_rows = await db.query_raw(
+        'SELECT "reminderEmailsEnabled" FROM "BillingConfiguration" WHERE "id" = $1',
+        "global",
+    )
+    if not feature_rows or not feature_rows[0]["reminderEmailsEnabled"]:
+        return {"enabled": False, "sent": 0, "failed": 0, "skipped": 0}
     if not resend_api_key or not resend_from_email:
         raise HTTPException(status_code=503, detail="Reminder email delivery is not configured.")
 

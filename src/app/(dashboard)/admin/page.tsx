@@ -22,7 +22,7 @@ export default async function AdminPage() {
     <div className="w-full space-y-6">
       <DashboardPageHeader
         title="Admin dashboard"
-        description="Review feedback, manage accounts and trials, control paid access, and update the public support email. Administrative actions are protected by server-side authorization."
+        description="Review feedback, manage accounts and trials, control paid access and email reminders, and update the public support email. Administrative actions are protected by server-side authorization."
       />
       <AdminDashboard />
     </div>

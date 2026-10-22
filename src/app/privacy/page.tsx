@@ -32,7 +32,7 @@ const dataWeStore = [
   {
     title: "Reminder preferences and delivery",
     description:
-      "If you opt in to email reminders, JobHunter stores that preference and whether a reminder was sent for each application follow-up date. Browser reminder history is stored locally in your browser. You can turn off email reminders in Settings.",
+      "Email reminders are off until enabled by an administrator after delivery setup is complete. Once enabled, users can opt in from Settings. JobHunter stores the preference and whether a reminder was sent for each application follow-up date. Browser reminder history is stored locally in your browser.",
   },
 ];
 
@@ -181,12 +181,14 @@ export default function PrivacyPage() {
               Follow-up reminders
             </h2>
             <p className="mt-3 text-sm leading-6 text-slate-400">
-              Email reminders are sent only after you opt in in Settings. To
-              deliver them, JobHunter sends your account email address and the
-              application company, role, and follow-up date to Resend. Delivery
-              status and attempt time are recorded to prevent duplicate emails
-              and permit retries after a failure. You can opt out at any time;
-              deleting an application removes its reminder delivery record.
+              Email reminders are disabled until an administrator enables the
+              feature after delivery setup is complete; users must then opt in
+              from Settings. To deliver them, JobHunter sends your account
+              email address and the application company, role, and follow-up
+              date to Resend. Delivery status and attempt time are recorded to
+              prevent duplicate emails and permit retries after a failure. You
+              can opt out at any time; deleting an application removes its
+              reminder delivery record.
               Browser notifications are handled by your browser while the
               signed-in dashboard is open, and JobHunter stores their
               once-per-date display marker on that device.

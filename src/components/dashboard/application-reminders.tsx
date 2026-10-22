@@ -14,6 +14,7 @@ interface ReminderApplication {
 
 interface ReminderPreferences {
   emailEnabled: boolean;
+  emailAvailable: boolean;
 }
 
 const ACTIVE_STATUSES = new Set([
@@ -186,14 +187,18 @@ export function ApplicationReminderSettings() {
             <p className="text-sm font-medium text-slate-200">Email reminders</p>
             <p className="mt-1 text-xs leading-5 text-slate-400">
               Receive one email for each due application at your account email.
-              Email reminders can arrive when you are away from JobHunter.
+              {preferences?.emailAvailable
+                ? "Email reminders can arrive when you are away from JobHunter."
+                : "Email reminders are currently turned off. An administrator can enable them in Admin after email setup is complete."}
             </p>
           </div>
           <button
             type="button"
             role="switch"
             aria-checked={preferences?.emailEnabled ?? false}
-            disabled={loading || saving || !preferences}
+            disabled={
+              loading || saving || !preferences || !preferences.emailAvailable
+            }
             onClick={() =>
               void updateEmailPreference(!preferences?.emailEnabled)
             }
@@ -203,7 +208,13 @@ export function ApplicationReminderSettings() {
                 : "border-[#303342] bg-[#0d0e14] text-slate-300"
             }`}
           >
-            {saving ? "Saving…" : preferences?.emailEnabled ? "Enabled" : "Enable email"}
+            {saving
+              ? "Saving…"
+              : !preferences?.emailAvailable
+                ? "Currently unavailable"
+                : preferences.emailEnabled
+                  ? "Enabled"
+                  : "Enable email"}
           </button>
         </div>
 
