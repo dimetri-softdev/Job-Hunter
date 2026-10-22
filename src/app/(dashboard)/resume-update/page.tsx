@@ -6,6 +6,11 @@ import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { fetcher } from "@/lib/api";
+import {
+  downloadResumeDocx,
+  downloadResumePdf,
+  isResumeSectionHeading,
+} from "@/lib/resume-document";
 
 interface RoadmapProject {
   id: string;
@@ -22,11 +27,8 @@ interface Roadmap {
 }
 
 interface ResumeDraft {
-  professionalSummary: string;
-  projectEntries: { projectId: string; bullets: string[] }[];
-  skillsToConsider: string[];
+  updatedResume: string;
   revisionNotes: string[];
-  projectTitles: Record<string, string>;
 }
 
 export default function ResumeUpdatePage() {
@@ -38,14 +40,11 @@ export default function ResumeUpdatePage() {
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [consent, setConsent] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [downloading, setDownloading] = useState<"docx" | "pdf" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [draft, setDraft] = useState<ResumeDraft | null>(null);
-  const [summary, setSummary] = useState("");
-  const [projectBullets, setProjectBullets] = useState<Record<string, string>>(
-    {},
-  );
-  const [skills, setSkills] = useState("");
-  const [revisionNotes, setRevisionNotes] = useState("");
+  const [updatedResume, setUpdatedResume] = useState("");
 
   useEffect(() => {
     async function loadRoadmaps() {
@@ -93,6 +92,7 @@ export default function ResumeUpdatePage() {
     });
     setDraft(null);
     setError(null);
+    setDownloadError(null);
   }
 
   async function generateDraft(event: React.FormEvent<HTMLFormElement>) {
@@ -101,7 +101,7 @@ export default function ResumeUpdatePage() {
     setDraft(null);
 
     if (!resumeFile) {
-      setError("Choose a text-based PDF or UTF-8 .txt resume first.");
+      setError("Choose a text-based PDF or Word (.docx) resume first.");
       return;
     }
     if (!targetRole.trim()) {
@@ -130,17 +130,7 @@ export default function ResumeUpdatePage() {
         body: formData,
       });
       setDraft(response);
-      setSummary(response.professionalSummary);
-      setProjectBullets(
-        Object.fromEntries(
-          response.projectEntries.map((entry) => [
-            entry.projectId,
-            entry.bullets.join("\n"),
-          ]),
-        ),
-      );
-      setSkills(response.skillsToConsider.join("\n"));
-      setRevisionNotes(response.revisionNotes.join("\n"));
+      setUpdatedResume(response.updatedResume);
     } catch (generationError: unknown) {
       setError(
         generationError instanceof Error
@@ -152,53 +142,27 @@ export default function ResumeUpdatePage() {
     }
   }
 
-  function downloadDraft() {
-    if (!draft) return;
-    const projectSection = draft.projectEntries
-      .map((entry) => {
-        const title = draft.projectTitles[entry.projectId] ?? "Project";
-        const bullets = (projectBullets[entry.projectId] ?? "")
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .map((line) => `- ${line}`)
-          .join("\n");
-        return bullets ? `${title}\n${bullets}` : "";
-      })
-      .filter(Boolean)
-      .join("\n\n");
-    const sections = [
-      `Resume update draft for: ${targetRole.trim()}`,
-      "Review every statement for accuracy before adding it to your resume.",
-      summary.trim() ? `PROFESSIONAL SUMMARY\n${summary.trim()}` : "",
-      projectSection ? `PROJECT EXPERIENCE\n${projectSection}` : "",
-      skills.trim()
-        ? `SKILLS TO CONSIDER\n${skills
-            .split("\n")
-            .map((skill) => skill.trim())
-            .filter(Boolean)
-            .join(", ")}`
-        : "",
-      revisionNotes.trim()
-        ? `VERIFY BEFORE USING\n${revisionNotes.trim()}`
-        : "",
-    ].filter(Boolean);
-    const blob = new Blob([sections.join("\n\n")], {
-      type: "text/plain;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    const safeRole =
-      targetRole.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") ||
-      "resume";
-    link.href = url;
-    link.download = `resume-update-${safeRole}.txt`;
-    document.body.appendChild(link);
+  async function downloadUpdatedResume(format: "docx" | "pdf") {
+    if (!draft || !updatedResume.trim()) {
+      setDownloadError("Add the updated resume text before downloading.");
+      return;
+    }
+    setDownloading(format);
+    setDownloadError(null);
     try {
-      link.click();
+      if (format === "docx") {
+        await downloadResumeDocx(updatedResume, targetRole);
+      } else {
+        await downloadResumePdf(targetRole);
+      }
+    } catch (downloadFailure: unknown) {
+      setDownloadError(
+        downloadFailure instanceof Error
+          ? downloadFailure.message
+          : `Unable to create the ${format.toUpperCase()} copy. Try again.`,
+      );
     } finally {
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setDownloading(null);
     }
   }
 
@@ -206,7 +170,7 @@ export default function ResumeUpdatePage() {
     <div className="w-full space-y-6">
       <DashboardPageHeader
         title="Resume update"
-        description="Turn completed roadmap work into truthful, editable resume suggestions for your target role."
+        description="Use completed roadmap work to create a complete, editable resume copy tailored to your target role."
       />
 
       <section className="mx-auto max-w-4xl rounded-xl border border-blue-400/15 bg-blue-500/[0.04] p-4 sm:p-5">
@@ -214,14 +178,15 @@ export default function ResumeUpdatePage() {
           <FileText className="mt-0.5 size-5 shrink-0 text-blue-300" aria-hidden="true" />
           <div>
             <h2 className="text-sm font-semibold text-white">
-              Your resume stays in your hands
+              Your original resume stays unchanged
             </h2>
             <p className="mt-1 text-xs leading-5 text-slate-400">
-              Upload a text-based PDF or .txt resume each time. With your
-              explicit consent, Gemini receives the resume text, target role,
-              and completed task/proof notes for the selected projects. The
-              upload is not saved by JobHunter. You can edit the suggestions
-              and download a text draft; your original file is never replaced.
+              Upload a text-based PDF or Word (.docx) resume. After you
+              explicitly consent, Gemini receives its extracted text, your
+              target role, and completed task/proof notes for selected
+              projects. JobHunter does not save the upload. Review the complete
+              updated copy, make edits, then download it as Word or PDF. The
+              original file is never replaced.
             </p>
           </div>
         </div>
@@ -307,15 +272,17 @@ export default function ResumeUpdatePage() {
             htmlFor="resume-file"
             className="block text-xs font-medium text-slate-300"
           >
-            Text-based PDF or UTF-8 .txt file · maximum 5 MB
+            Text-based PDF or Word (.docx) · maximum 5 MB
             <input
               id="resume-file"
               type="file"
-              accept=".pdf,.txt,application/pdf,text/plain"
+              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={(event) => {
                 setResumeFile(event.target.files?.[0] ?? null);
                 setDraft(null);
+                setUpdatedResume("");
                 setError(null);
+                setDownloadError(null);
               }}
               className="mt-2 block min-h-11 w-full rounded-lg border border-[#2b2e3b] bg-[#0b0c12] px-3 py-2 text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600/15 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-blue-200 hover:file:bg-blue-600/25"
             />
@@ -351,9 +318,11 @@ export default function ResumeUpdatePage() {
               className="mt-1 size-4 shrink-0 accent-blue-500"
             />
             <span>
-              I consent to sending the resume text, target role, and selected
-              completed project evidence to Google Gemini to draft resume
-              suggestions. I will review every claim before using it.
+              I consent to sending the text extracted from my resume, my target
+              role, and selected completed project evidence to Google Gemini to
+              create a complete updated resume. The uploaded file is not saved.
+              I will review every claim before downloading or using the new
+              copy.
             </span>
           </label>
           {error && (
@@ -376,7 +345,7 @@ export default function ResumeUpdatePage() {
             ) : (
               <Sparkles className="size-4" aria-hidden="true" />
             )}
-            {generating ? "Preparing suggestions..." : "Draft resume updates"}
+            {generating ? "Updating your resume..." : "Create updated resume"}
           </Button>
         </section>
       </form>
@@ -386,100 +355,114 @@ export default function ResumeUpdatePage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-white">
-                Review your resume suggestions
+                Review your updated resume
               </h2>
               <p className="mt-1 text-xs leading-5 text-slate-400">
-                These are editable suggestions, not a finished or verified
-                resume. Check every statement and add any dates or measurable
-                results yourself.
+                This is a complete new copy based on your resume and selected
+                completed work. The original is unchanged. Review the content
+                and every claim before downloading.
               </p>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={downloadDraft}
-              className="h-9 shrink-0 border-[#2b2e3b] text-xs text-slate-200 hover:bg-[#1f212d]"
-            >
-              <Download className="size-4" aria-hidden="true" />
-              Download draft
-            </Button>
           </div>
 
           <label
-            htmlFor="draft-summary"
+            htmlFor="updated-resume"
             className="block text-xs font-medium text-slate-300"
           >
-            Professional summary
+            Edit your complete resume
             <Textarea
-              id="draft-summary"
-              maxLength={1200}
-              rows={4}
-              value={summary}
-              onChange={(event) => setSummary(event.target.value)}
+              id="updated-resume"
+              maxLength={18000}
+              rows={18}
+              value={updatedResume}
+              onChange={(event) => setUpdatedResume(event.target.value)}
               className="mt-2 resize-y border-[#2b2e3b] bg-[#0b0c12] text-sm text-white focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
             />
           </label>
 
-          {draft.projectEntries.map((entry) => (
-            <label
-              key={entry.projectId}
-              htmlFor={`draft-project-${entry.projectId}`}
-              className="block text-xs font-medium text-slate-300"
+          <div className="overflow-x-auto rounded-xl border border-[#252836] bg-white p-3">
+            <article
+              id="resume-output-preview"
+              className="mx-auto min-h-[1123px] w-[794px] space-y-2 bg-white px-[64px] py-[56px] font-sans text-[14px] leading-6 text-slate-800"
             >
-              {draft.projectTitles[entry.projectId] ?? "Project"} · resume
-              bullets (one per line)
-              <Textarea
-                id={`draft-project-${entry.projectId}`}
-                maxLength={2500}
-                rows={4}
-                value={projectBullets[entry.projectId] ?? ""}
-                onChange={(event) =>
-                  setProjectBullets((current) => ({
-                    ...current,
-                    [entry.projectId]: event.target.value,
-                  }))
+              {updatedResume.split(/\r?\n/).map((rawLine, index) => {
+                const line = rawLine.trim();
+                if (!line) return <div key={`space-${index}`} className="h-2" />;
+                if (index === updatedResume.split(/\r?\n/).findIndex((item) => item.trim())) {
+                  return (
+                    <h1 key={`title-${index}`} className="mb-4 text-2xl font-bold leading-8 text-slate-950">
+                      {line}
+                    </h1>
+                  );
                 }
-                className="mt-2 resize-y border-[#2b2e3b] bg-[#0b0c12] text-sm text-white focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
-              />
-            </label>
-          ))}
+                if (isResumeSectionHeading(line)) {
+                  return (
+                    <h2 key={`heading-${index}`} className="mb-1 mt-5 border-b border-slate-300 pb-1 text-sm font-bold tracking-wide text-blue-900">
+                      {line}
+                    </h2>
+                  );
+                }
+                const bullet = line.match(/^[-•]\s+(.+)$/);
+                return bullet ? (
+                  <p key={`bullet-${index}`} className="pl-4">
+                    <span aria-hidden="true">• </span>
+                    {bullet[1]}
+                  </p>
+                ) : (
+                  <p key={`line-${index}`}>{line}</p>
+                );
+              })}
+            </article>
+          </div>
 
-          {draft.projectEntries.length === 0 && (
-            <p className="text-xs leading-5 text-slate-400">
-              No project bullets were supported strongly enough by the evidence.
-              You can still use any supported summary or skills below.
-            </p>
+          {draft.revisionNotes.length > 0 && (
+            <div className="rounded-lg border border-amber-300/15 bg-amber-300/[0.04] p-3">
+              <h3 className="text-xs font-semibold text-amber-100">
+                Review these details before using your resume
+              </h3>
+              <ul className="mt-2 list-inside list-disc space-y-1 text-xs leading-5 text-slate-300">
+                {draft.revisionNotes.map((note, index) => (
+                  <li key={`${index}-${note}`}>{note}</li>
+                ))}
+              </ul>
+            </div>
           )}
 
-          <label
-            htmlFor="draft-skills"
-            className="block text-xs font-medium text-slate-300"
-          >
-            Skills to consider adding (one per line)
-            <Textarea
-              id="draft-skills"
-              maxLength={1200}
-              rows={3}
-              value={skills}
-              onChange={(event) => setSkills(event.target.value)}
-              className="mt-2 resize-y border-[#2b2e3b] bg-[#0b0c12] text-sm text-white focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
-            />
-          </label>
-
-          <label
-            htmlFor="draft-revision-notes"
-            className="block text-xs font-medium text-slate-300"
-          >
-            Details to verify before using (one per line)
-            <Textarea
-              id="draft-revision-notes"
-              maxLength={1200}
-              rows={3}
-              value={revisionNotes}
-              onChange={(event) => setRevisionNotes(event.target.value)}
-              className="mt-2 resize-y border-[#2b2e3b] bg-[#0b0c12] text-sm text-white focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
-            />
-          </label>
+          {downloadError && (
+            <p role="alert" className="text-sm text-rose-400">
+              {downloadError}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={Boolean(downloading) || !updatedResume.trim()}
+              onClick={() => void downloadUpdatedResume("docx")}
+              className="h-9 border-[#2b2e3b] text-xs text-slate-200 hover:bg-[#1f212d]"
+            >
+              {downloading === "docx" ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Download className="size-4" aria-hidden="true" />
+              )}
+              Download Word copy
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={Boolean(downloading) || !updatedResume.trim()}
+              onClick={() => void downloadUpdatedResume("pdf")}
+              className="h-9 border-[#2b2e3b] text-xs text-slate-200 hover:bg-[#1f212d]"
+            >
+              {downloading === "pdf" ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <FileText className="size-4" aria-hidden="true" />
+              )}
+              Download PDF copy
+            </Button>
+          </div>
         </section>
       )}
     </div>

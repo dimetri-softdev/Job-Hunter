@@ -18,10 +18,12 @@ import type {
   FitVerdict,
   OfferDetails,
 } from "@/lib/application-types";
+import { APPLICATION_SOURCES, type ApplicationSource } from "@/lib/application-types";
 
 interface ImportedApplication {
   company: string;
   position: string;
+  source: ApplicationSource | null;
   contactName: string | null;
   contactEmail: string | null;
   status: string;
@@ -166,6 +168,13 @@ function parseApplicationsCsv(input: string): ImportedApplication[] {
     const position = get("position").trim();
     const contactName = get("contact name").trim();
     const contactEmail = get("contact email").trim();
+    const rawSource = get("source").trim();
+    const source = APPLICATION_SOURCES.find(
+      (item) => item.toLocaleLowerCase() === rawSource.toLocaleLowerCase(),
+    ) ?? null;
+    if (rawSource && !source) {
+      throw new Error(`CSV record ${recordIndex + 2} has an unsupported application source.`);
+    }
     const status = get("status").trim();
     if (!company || !position) {
       throw new Error(`CSV record ${recordIndex + 2} needs a company and position.`);
@@ -293,6 +302,7 @@ function parseApplicationsCsv(input: string): ImportedApplication[] {
     return {
       company,
       position,
+      source,
       contactName: contactName || null,
       contactEmail: contactEmail || null,
       status,
@@ -430,8 +440,13 @@ export function ApplicationCsvImport({
                     key={`${application.company}-${application.position}-${index}`}
                     className="flex items-center justify-between gap-3 px-3 py-2 text-xs"
                   >
-                    <span className="truncate text-slate-200">
+                    <span className="min-w-0 truncate text-slate-200">
                       {application.company} · {application.position}
+                      {application.source && (
+                        <span className="ml-2 text-slate-500">
+                          via {application.source}
+                        </span>
+                      )}
                     </span>
                     <span className="shrink-0 font-mono text-[10px] text-slate-500">
                       {application.status}

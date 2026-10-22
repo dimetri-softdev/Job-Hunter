@@ -49,6 +49,7 @@ const guides = [
     steps: [
       "Open Applications and choose Add application.",
       "Enter the company and job title. Add a link or a reminder if you have one.",
+      "Optionally record where you found each role. Analytics groups recorded sources to show your search mix; it does not claim that one source causes better hiring outcomes.",
       "Update the status as you move through the process. Use Import CSV or Export CSV to move a list in or out.",
       "Choose Draft follow-up to edit a stage-aware message, then copy it or open it in your email app. JobHunter never sends it for you; choose Save to history if you want to keep a copy.",
       "Choose Interview prep to record interview details, practice role-specific examples, plan questions, and save your notes to that job’s history. The prompts use saved fit notes on your device and are not sent to an AI provider.",

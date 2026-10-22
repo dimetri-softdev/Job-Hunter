@@ -68,6 +68,7 @@ model Application {
   position       String
   status         String   @default("APPLIED")
   notes          String?
+  source         String?
   jobUrl         String?
   jobDescription String?
   jobSummary     String?

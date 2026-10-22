@@ -11,6 +11,7 @@ Job Hunter is a web application designed to streamline the job search process. I
 *   **Application Tracking**: Keep a detailed record of all your job applications with status updates and notes.
 *   **Secure Authentication**: User accounts are securely managed with Clerk, ensuring your data is protected.
 *   **Resume Optimization**: Tools to help you craft and refine your resume for different positions.
+*   **Cover Letter Studio**: Generate a tailored cover letter from your resume and completed roadmap proof.
 *   **Portfolio Management**: Manage and showcase your GitHub portfolio and professional projects.
 *   **Profile Enhancement**: Resources to optimize your LinkedIn and other professional profiles.
 *   **Organized Workflow**: Stay on top of your job hunt with an intuitive and responsive interface.

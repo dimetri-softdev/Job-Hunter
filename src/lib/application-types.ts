@@ -5,6 +5,18 @@ export type FitVerdict =
   | "LOW_MATCH"
   | "INSUFFICIENT_INFO";
 
+export const APPLICATION_SOURCES = [
+  "Company website",
+  "LinkedIn",
+  "Job board",
+  "Recruiter",
+  "Referral",
+  "Networking",
+  "Other",
+] as const;
+
+export type ApplicationSource = (typeof APPLICATION_SOURCES)[number];
+
 export interface FitAssessment {
   verdict: FitVerdict;
   roleTitle: string;

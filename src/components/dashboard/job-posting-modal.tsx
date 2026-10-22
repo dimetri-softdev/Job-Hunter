@@ -22,7 +22,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { fetcher } from "@/lib/api";
-import type { FitAssessment } from "@/lib/application-types";
+import {
+  APPLICATION_SOURCES,
+  type ApplicationSource,
+  type FitAssessment,
+} from "@/lib/application-types";
 
 interface JobAnalysis {
   company: string;
@@ -43,6 +47,7 @@ export interface CreatedApplication {
   jobUrl: string | null;
   jobSummary: string | null;
   fitAssessment?: FitAssessment | null;
+  source?: ApplicationSource | null;
   nextAction?: string | null;
   followUpAt?: string | null;
 }
@@ -55,6 +60,7 @@ export function JobPostingModal({
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [jobUrl, setJobUrl] = useState("");
+  const [source, setSource] = useState<ApplicationSource | "">("");
   const [nextAction, setNextAction] = useState("");
   const [followUpAt, setFollowUpAt] = useState("");
   const [analysis, setAnalysis] = useState<JobAnalysis | null>(null);
@@ -67,6 +73,7 @@ export function JobPostingModal({
   function resetForm() {
     setDescription("");
     setJobUrl("");
+    setSource("");
     setNextAction("");
     setFollowUpAt("");
     setAnalysis(null);
@@ -108,6 +115,7 @@ export function JobPostingModal({
           company,
           position,
           status: "SAVED",
+          source: source || null,
           jobUrl: jobUrl.trim() || null,
           jobDescription: description,
           jobSummary: analysis.summary,
@@ -181,7 +189,28 @@ export function JobPostingModal({
               </h3>
             </div>
             <div className="space-y-2">
-            <label htmlFor="job-url" className="text-xs text-slate-300">
+              <label htmlFor="job-source" className="text-xs text-slate-300">
+                Where did you find this role?{" "}
+                <span className="text-slate-500">(optional)</span>
+              </label>
+              <select
+                id="job-source"
+                value={source}
+                onChange={(event) =>
+                  setSource(event.target.value as ApplicationSource | "")
+                }
+                className="h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#090a0f] px-3 text-sm text-white outline-none focus-visible:border-blue-400"
+              >
+                <option value="">Not recorded</option>
+                {APPLICATION_SOURCES.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="job-url" className="text-xs text-slate-300">
               Job link <span className="text-slate-500">(optional)</span>
             </label>
             <Input

@@ -39,16 +39,19 @@ import { fetcher } from "@/lib/api";
 import { ExternalLink } from "lucide-react";
 import { ActionHint } from "@/components/action-hint";
 import type {
+  ApplicationSource,
   ApplicationRoadmap,
   FitAssessment,
   OfferDetails,
 } from "@/lib/application-types";
+import { APPLICATION_SOURCES } from "@/lib/application-types";
 
 interface Application {
   id: string;
   company: string;
   position: string;
   status: string;
+  source?: ApplicationSource | null;
   createdAt: string;
   notes?: string | null;
   jobUrl?: string | null;
@@ -133,6 +136,7 @@ export default function ApplicationsPage() {
         application.nextAction,
         application.contactName,
         application.contactEmail,
+        application.source,
       ]
         .some((value) => value?.toLocaleLowerCase().includes(normalizedSearch));
     const matchesStatus =
@@ -175,6 +179,7 @@ export default function ApplicationsPage() {
           followUpAt: app.followUpAt?.slice(0, 10) ?? null,
           contactName: app.contactName ?? null,
           contactEmail: app.contactEmail ?? null,
+          source: app.source ?? null,
         }),
       });
       replaceApplication(updated);
@@ -207,6 +212,7 @@ export default function ApplicationsPage() {
             followUpAt: formData.get("followUpAt") || null,
             contactName: formData.get("contactName") || null,
             contactEmail: formData.get("contactEmail") || null,
+            source: formData.get("source") || null,
           }),
         },
       );
@@ -280,6 +286,7 @@ export default function ApplicationsPage() {
       "Company",
       "Contact Name",
       "Contact Email",
+      "Source",
       "Position",
       "Status",
       "Created At",
@@ -306,6 +313,7 @@ export default function ApplicationsPage() {
       application.company,
       application.contactName,
       application.contactEmail,
+      application.source,
       application.position,
       application.status,
       application.createdAt,
@@ -398,6 +406,7 @@ export default function ApplicationsPage() {
           followUpAt: formData.get("followUpAt") || null,
           contactName: formData.get("contactName") || null,
           contactEmail: formData.get("contactEmail") || null,
+          source: formData.get("source") || null,
         }),
       });
       setApplications((current) => [application, ...current]);
@@ -633,6 +642,25 @@ export default function ApplicationsPage() {
                       className={fieldClass}
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="source" className="text-xs font-medium text-slate-300">
+                    Where did you find this role?{" "}
+                    <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <select
+                    id="source"
+                    name="source"
+                    defaultValue=""
+                    className="h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#090a0f] px-3 text-sm text-white outline-none focus-visible:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400/30"
+                  >
+                    <option value="">Not recorded</option>
+                    {APPLICATION_SOURCES.map((source) => (
+                      <option key={source} value={source}>
+                        {source}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </section>
 
@@ -893,6 +921,11 @@ export default function ApplicationsPage() {
                                 >
                                   {app.contactEmail}
                                 </a>
+                              )}
+                              {app.source && (
+                                <div className="mt-1 text-[10px] text-slate-500">
+                                  Found via {app.source}
+                                </div>
                               )}
                             </div>
                           )}
@@ -1165,6 +1198,25 @@ export default function ApplicationsPage() {
                   placeholder="https://"
                   className={fieldClass}
                 />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="edit-source" className="text-xs text-slate-300">
+                  Where did you find this role?{" "}
+                  <span className="text-slate-500">(optional)</span>
+                </label>
+                <select
+                  id="edit-source"
+                  name="source"
+                  defaultValue={editing.source ?? ""}
+                  className="h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#090a0f] px-3 text-sm text-white outline-none focus-visible:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400/30"
+                >
+                  <option value="">Not recorded</option>
+                  {APPLICATION_SOURCES.map((source) => (
+                    <option key={source} value={source}>
+                      {source}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

@@ -57,6 +57,12 @@ const navItems = [
     icon: FileText,
   },
   {
+    name: "Cover letter",
+    description: "Generate a tailored cover letter",
+    href: "/cover-letter",
+    icon: FileText,
+  },
+  {
     name: "Plans & usage",
     description: "Your access, plan limits, and billing status",
     href: "/billing",

@@ -16,10 +16,12 @@ import { fetcher } from "@/lib/api";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { OfferTradeoffSimulator } from "@/components/dashboard/offer-tradeoff-simulator";
 import type {
+  ApplicationSource,
   FitAssessment,
   FitVerdict,
   OfferDetails,
 } from "@/lib/application-types";
+import { APPLICATION_SOURCES } from "@/lib/application-types";
 
 interface Roadmap {
   id: string;
@@ -38,6 +40,7 @@ interface ApplicationOutcome {
   position: string;
   status: string;
   createdAt: string;
+  source?: ApplicationSource | null;
   followUpAt?: string | null;
   fitAssessment?: FitAssessment | null;
   offerDetails?: OfferDetails | null;
@@ -181,6 +184,20 @@ export default function AnalyticsPage() {
     ).length,
   }));
   const maximumStageCount = Math.max(1, ...stageCounts.map((stage) => stage.count));
+  const sourceCounts = APPLICATION_SOURCES.map((source) => ({
+    source,
+    count: applications.filter((application) => application.source === source)
+      .length,
+  }))
+    .filter((item) => item.count > 0)
+    .sort((left, right) => right.count - left.count);
+  const maximumSourceCount = Math.max(
+    1,
+    ...sourceCounts.map((item) => item.count),
+  );
+  const applicationsWithoutSource = applications.filter(
+    (application) => !application.source,
+  ).length;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const followUpsNeedingAttention = applications
@@ -449,6 +466,56 @@ export default function AnalyticsPage() {
                   </Link>
                 )}
               </div>
+            </div>
+
+            <div className="border-t border-[#1f212d] pt-5">
+              <div className="mb-4">
+                <h3 className="text-xs font-semibold text-slate-200">
+                  Where roles came from
+                </h3>
+                <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                  A count of the sources you chose to record, not a measure of
+                  hiring success.
+                </p>
+              </div>
+              {sourceCounts.length === 0 ? (
+                <p className="text-xs text-slate-500">
+                  Record a source on an application to start seeing your search
+                  mix here.
+                </p>
+              ) : (
+                <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                  {sourceCounts.map((item) => (
+                    <div key={item.source} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-300">{item.source}</span>
+                        <span className="font-mono text-slate-400">
+                          {item.count}
+                        </span>
+                      </div>
+                      <div
+                        className="h-1.5 overflow-hidden rounded-full bg-[#1f212d]"
+                        role="img"
+                        aria-label={`${item.source}: ${item.count} applications`}
+                      >
+                        <div
+                          className="h-full rounded-full bg-violet-500"
+                          style={{
+                            width: `${(item.count / maximumSourceCount) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {applicationsWithoutSource > 0 && (
+                <p className="mt-3 text-[10px] text-slate-500">
+                  {applicationsWithoutSource}{" "}
+                  {applicationsWithoutSource === 1 ? "role has" : "roles have"}{" "}
+                  no source recorded.
+                </p>
+              )}
             </div>
           </>
         )}

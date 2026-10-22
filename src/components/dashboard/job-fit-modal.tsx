@@ -29,6 +29,7 @@ import {
 import { fetcher } from "@/lib/api";
 import type { CreatedApplication } from "@/components/dashboard/job-posting-modal";
 import type { FitAssessment, FitVerdict } from "@/lib/application-types";
+import { APPLICATION_SOURCES, type ApplicationSource } from "@/lib/application-types";
 
 const verdictDetails: Record<FitVerdict, { label: string; className: string }> = {
   STRONG_MATCH: {
@@ -65,6 +66,7 @@ export function JobFitModal({
   const [company, setCompany] = useState("");
   const [position, setPosition] = useState("");
   const [jobUrl, setJobUrl] = useState("");
+  const [source, setSource] = useState<ApplicationSource | "">("");
   const [nextAction, setNextAction] = useState("");
   const [followUpAt, setFollowUpAt] = useState("");
   const [consent, setConsent] = useState(false);
@@ -83,6 +85,7 @@ export function JobFitModal({
     setCompany("");
     setPosition("");
     setJobUrl("");
+    setSource("");
     setNextAction("");
     setFollowUpAt("");
     setConsent(false);
@@ -138,6 +141,7 @@ export function JobFitModal({
           company,
           position,
           status: "SAVED",
+          source: source || null,
           jobUrl: jobUrl.trim() || null,
           jobDescription: jobDescription.trim() || null,
           fitAssessment: assessment,
@@ -456,7 +460,28 @@ export function JobFitModal({
                     Add a few details to keep the assessment in your tracker.
                   </p>
                 </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label htmlFor="fit-source" className="text-xs text-slate-300">
+                    Where did you find this role?{" "}
+                    <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <select
+                    id="fit-source"
+                    value={source}
+                    onChange={(event) =>
+                      setSource(event.target.value as ApplicationSource | "")
+                    }
+                    className="h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#090a0f] px-3 text-sm text-white outline-none focus-visible:border-blue-400"
+                  >
+                    <option value="">Not recorded</option>
+                    {APPLICATION_SOURCES.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <label htmlFor="fit-company" className="text-xs text-slate-300">
                       Company

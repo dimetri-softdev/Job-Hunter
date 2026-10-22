@@ -22,7 +22,7 @@ const dataWeStore = [
   {
     title: "Your job search",
     description:
-      "Applications and details you save, such as company, role, job description, recruiter or contact name and email, notes, activity history, follow-up dates, offers, and fit-review results. AI-generated application drafts are saved only if you choose to add them to an application’s history; deleting that application also deletes its history.",
+      "Applications and details you save, such as company, role, where you found the role, job description, recruiter or contact name and email, notes, activity history, follow-up dates, offers, and fit-review results. AI-generated application drafts are saved only if you choose to add them to an application’s history; deleting that application also deletes its history.",
   },
   {
     title: "Plans and progress",
