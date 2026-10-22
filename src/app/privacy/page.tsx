@@ -112,7 +112,11 @@ export default function PrivacyPage() {
               provider for that feature. Some results, such as a roadmap, can
               then be saved to your account. Job descriptions and any results
               you choose to save with an application remain part of that saved
-              application until you delete them.
+              application until you delete them. In the signed-in career
+              assistant, you can attach a PDF, DOCX, or TXT file up to 5 MB.
+              JobHunter processes the document temporarily, extracts its text,
+              and does not retain the uploaded file. Scanned or image-only PDFs
+              are not supported.
             </p>
           </section>
 
@@ -121,11 +125,16 @@ export default function PrivacyPage() {
               When you use AI features
             </h2>
             <p className="mt-3 text-sm leading-6 text-slate-400">
-              AI features require your consent before processing. Only the
-              information needed for the selected feature is intended to be
-              sent. Depending on the feature, this may include a resume,
-              job-post content, selected career-profile details, project
-              evidence, or your assistant messages and recent chat history.
+              When you send an assistant message, the message and recent chat
+              history are processed by Groq; there is no separate agreement
+              checkbox. The chat displays this before you send. JobHunter does
+              not fetch saved career or application information unless you
+              enable saved-data sharing and select the information to include.
+              That choice is remembered on your device until you turn it off.
+              Attached documents are sent only after you confirm sharing that
+              specific file. Other AI features request consent before
+              processing. Only information needed for the feature you choose
+              is intended to be sent.
             </p>
             <ul className="mt-5 space-y-3">
               {aiFeatures.map((item) => (
@@ -148,7 +157,9 @@ export default function PrivacyPage() {
               you clear it or close the chat. AI providers process information
               under their own terms and policies. Their retention practices are
               separate from JobHunter, and this draft does not promise that
-              they immediately delete submitted information.
+              they immediately delete submitted information. Confirming an
+              attachment sends its extracted text—not a stored copy of the
+              uploaded file—to Groq with your message.
             </p>
             <p className="mt-3 text-sm leading-6 text-slate-400">
               AI responses can be inaccurate. Review suggestions yourself;

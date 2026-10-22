@@ -1,22 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Bot,
   BriefcaseBusiness,
   CircleHelp,
+  FileText,
   Loader2,
+  Paperclip,
   RotateCcw,
   Send,
   ShieldCheck,
   Sparkles,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { fetcher } from "@/lib/api";
 import {
-  setAssistantConsent,
-  useAssistantConsent,
+  setAssistantContextConsent,
+  useAssistantContextConsent,
 } from "@/lib/assistant-consent";
 
 type AssistantMode = "product" | "career";
@@ -71,7 +74,14 @@ export function AssistantChat({
   const [applicationsError, setApplicationsError] = useState<string | null>(
     null,
   );
-  const consent = useAssistantConsent();
+  const savedContextConsent = useAssistantContextConsent(user?.id);
+  const [pendingContextPermission, setPendingContextPermission] = useState<
+    "profile" | "application" | null
+  >(null);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [confirmDocument, setConfirmDocument] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const activeMode: AssistantMode = user ? mode : "product";
@@ -89,7 +99,14 @@ export function AssistantChat({
         ];
 
   useEffect(() => {
-    if (!user || !includeApplication || applications !== null) return;
+    if (
+      !user ||
+      !savedContextConsent ||
+      !includeApplication ||
+      applications !== null
+    ) {
+      return;
+    }
     let active = true;
     fetcher<ApplicationContext[]>("/applications")
       .then((result) => {
@@ -107,25 +124,101 @@ export function AssistantChat({
     return () => {
       active = false;
     };
-  }, [applications, includeApplication, user]);
+  }, [applications, includeApplication, savedContextConsent, user]);
 
-  async function sendMessage(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const message = input.trim();
-    if (!message || !consent || sending) return;
+  function requestSavedContextPermission(
+    kind: "profile" | "application",
+    enabled: boolean,
+  ) {
+    if (!enabled) {
+      if (kind === "profile") setIncludeProfile(false);
+      else {
+        setIncludeApplication(false);
+        setApplications(null);
+        setApplicationsError(null);
+        setSelectedApplicationId("");
+      }
+      return;
+    }
+    if (!savedContextConsent) {
+      setPendingContextPermission(kind);
+      return;
+    }
+    if (kind === "profile") setIncludeProfile(true);
+    else setIncludeApplication(true);
+  }
 
-    const submittedMessages = [...messages, { role: "user" as const, content: message }];
+  function allowSavedContext() {
+    if (!user || !pendingContextPermission) return;
+    setAssistantContextConsent(user.id, true);
+    if (pendingContextPermission === "profile") setIncludeProfile(true);
+    else setIncludeApplication(true);
+    setPendingContextPermission(null);
+  }
+
+  function revokeSavedContextConsent() {
+    setAssistantContextConsent(user?.id, false);
+    setIncludeProfile(false);
+    setIncludeApplication(false);
+    setApplications(null);
+    setApplicationsError(null);
+    setSelectedApplicationId("");
+    setPendingContextPermission(null);
+  }
+
+  function selectDocument(file: File | undefined) {
+    setFileError(null);
+    if (!file) return;
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!extension || !["pdf", "docx", "txt"].includes(extension)) {
+      setAttachedFile(null);
+      setFileError("Choose a PDF, DOCX, or TXT document.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAttachedFile(null);
+      setFileError("Documents must be 5 MB or smaller.");
+      return;
+    }
+    setAttachedFile(file);
+    setConfirmDocument(false);
+  }
+
+  async function submitMessage(documentApproved = false) {
+    const message =
+      input.trim() ||
+      (attachedFile
+        ? "Please review this document and help me understand the information relevant to my career."
+        : "");
+    if (!message || sending) return;
+    if (attachedFile && !documentApproved) {
+      setConfirmDocument(true);
+      return;
+    }
+    if (attachedFile && (!user || activeMode !== "career")) {
+      setFileError("Sign in and switch to Career mode to send a document.");
+      return;
+    }
+
+    const visibleMessage = attachedFile
+      ? `${message}\n[Document attached: ${attachedFile.name}]`
+      : message;
+    const submittedMessages = [
+      ...messages,
+      { role: "user" as const, content: visibleMessage },
+    ];
     const history = messages.slice(-8);
     setMessages(submittedMessages);
     setInput("");
     setError(null);
+    setFileError(null);
     setSending(true);
 
     try {
-      const contextParts: string[] = [];
+      const savedContextParts: string[] = [];
       if (activeMode === "career" && user && includeProfile) {
         const profile = await fetcher<CareerProfileContext>("/career-profile");
-        contextParts.push(`Selected career profile:\n${JSON.stringify(profile)}`);
+        savedContextParts.push(`Selected career profile:\n${JSON.stringify(profile)}`);
       }
       if (
         activeMode === "career" &&
@@ -139,7 +232,7 @@ export function AssistantChat({
           (item) => item.id === selectedApplicationId,
         );
         if (application) {
-          contextParts.push(
+          savedContextParts.push(
             `Selected application:\n${JSON.stringify({
               company: application.company,
               position: application.position,
@@ -153,28 +246,50 @@ export function AssistantChat({
           );
         }
       }
-      if (activeMode === "career" && typedContext.trim()) {
-        contextParts.push(`Additional context typed for this message:\n${typedContext.trim()}`);
-      }
-
-      const payload = user
-        ? {
+      const context =
+        activeMode === "career" ? typedContext.trim() || null : null;
+      const savedContext = savedContextParts.length
+        ? savedContextParts.join("\n\n").slice(0, 15000)
+        : null;
+      let result: { reply: string };
+      if (attachedFile && user) {
+        const formData = new FormData();
+        formData.append("message", message);
+        formData.append("history", JSON.stringify(history));
+        formData.append("mode", activeMode);
+        formData.append("documentProcessingConsent", "true");
+        if (context) formData.append("context", context);
+        if (savedContext) {
+          formData.append("savedContext", savedContext);
+          formData.append("savedContextConsent", "true");
+        }
+        formData.append("file", attachedFile);
+        result = await fetcher<{ reply: string }>("/assistant/chat/document", {
+          method: "POST",
+          body: formData,
+        });
+      } else if (user) {
+        result = await fetcher<{ reply: string }>("/assistant/chat", {
+          method: "POST",
+          body: JSON.stringify({
             message,
             history,
             mode: activeMode,
-            context: contextParts.length
-              ? contextParts.join("\n\n").slice(0, 16000)
-              : null,
-            aiProcessingConsent: true,
-          }
-        : { message, history, aiProcessingConsent: true };
-      const endpoint = user ? "/assistant/chat" : "/assistant/public";
-      const result = await fetcher<{ reply: string }>(endpoint, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+            context,
+            savedContext,
+            savedContextConsent: Boolean(savedContext),
+          }),
+        });
+      } else {
+        result = await fetcher<{ reply: string }>("/assistant/public", {
+          method: "POST",
+          body: JSON.stringify({ message, history }),
+        });
+      }
       setMessages([...submittedMessages, { role: "assistant", content: result.reply }]);
       setTypedContext("");
+      setAttachedFile(null);
+      setConfirmDocument(false);
       setIncludeProfile(false);
       setIncludeApplication(false);
       setSelectedApplicationId("");
@@ -182,7 +297,7 @@ export function AssistantChat({
       setApplicationsError(null);
     } catch (sendError: unknown) {
       setMessages(messages);
-      setInput(message);
+      setInput(input);
       setError(
         sendError instanceof Error
           ? sendError.message
@@ -191,6 +306,11 @@ export function AssistantChat({
     } finally {
       setSending(false);
     }
+  }
+
+  function sendMessage(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submitMessage();
   }
 
   function clearConversation() {
@@ -202,6 +322,10 @@ export function AssistantChat({
     setSelectedApplicationId("");
     setApplications(null);
     setApplicationsError(null);
+    setAttachedFile(null);
+    setFileError(null);
+    setConfirmDocument(false);
+    setPendingContextPermission(null);
     setError(null);
   }
 
@@ -273,6 +397,12 @@ export function AssistantChat({
             <button
               type="button"
               aria-pressed={activeMode === "product"}
+              disabled={Boolean(attachedFile)}
+              title={
+                attachedFile
+                  ? "Remove the attached document before switching to product help"
+                  : undefined
+              }
               onClick={() => setMode("product")}
               className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-medium transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-300 ${
                 activeMode === "product"
@@ -376,7 +506,9 @@ export function AssistantChat({
                   <input
                     type="checkbox"
                     checked={includeProfile}
-                    onChange={(event) => setIncludeProfile(event.target.checked)}
+                    onChange={(event) =>
+                      requestSavedContextPermission("profile", event.target.checked)
+                    }
                     className="accent-blue-500"
                   />
                   Include my saved career profile in this message
@@ -385,18 +517,59 @@ export function AssistantChat({
                   <input
                     type="checkbox"
                     checked={includeApplication}
-                    onChange={(event) => {
-                      setIncludeApplication(event.target.checked);
-                      setApplicationsError(null);
-                      if (!event.target.checked) {
-                        setApplications(null);
-                        setSelectedApplicationId("");
-                      }
-                    }}
+                    onChange={(event) =>
+                      requestSavedContextPermission(
+                        "application",
+                        event.target.checked,
+                      )
+                    }
                     className="accent-blue-500"
                   />
                   Include one saved application
                 </label>
+                {pendingContextPermission && (
+                  <div className="rounded-lg border border-amber-200/20 bg-amber-300/[0.06] p-3 text-xs leading-5 text-slate-200">
+                    <p className="font-semibold text-amber-100">
+                      Allow saved information for the assistant?
+                    </p>
+                    <p className="mt-1">
+                      {pendingContextPermission === "profile"
+                        ? "Your saved career profile"
+                        : "The application you select"}{" "}
+                      will be read only when you choose it and sent with your
+                      message to our AI provider. We’ll remember this choice on
+                      this device until you turn it off.
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={allowSavedContext}
+                        className="rounded-lg bg-blue-500 px-3 py-1.5 font-semibold text-white hover:bg-blue-400"
+                      >
+                        Allow and continue
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPendingContextPermission(null)}
+                        className="rounded-lg border border-white/15 px-3 py-1.5 text-slate-200 hover:bg-white/[0.06]"
+                      >
+                        Not now
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {savedContextConsent && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] leading-4 text-emerald-200">
+                    <span>Saved-data sharing is enabled on this device.</span>
+                    <button
+                      type="button"
+                      onClick={revokeSavedContextConsent}
+                      className="underline underline-offset-2 hover:text-white"
+                    >
+                      Turn off
+                    </button>
+                  </div>
+                )}
                 {includeApplication && (
                   <div className="space-y-1">
                     <label
@@ -451,6 +624,44 @@ export function AssistantChat({
         )}
 
         <div className="rounded-2xl border border-white/15 bg-slate-950/85 p-2 shadow-inner shadow-black/30 transition focus-within:border-blue-300/40 focus-within:ring-2 focus-within:ring-blue-400/10">
+          {user && (
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              className="sr-only"
+              aria-label="Attach a PDF, DOCX, or TXT file"
+              onChange={(event) => {
+                selectDocument(event.target.files?.[0]);
+                event.currentTarget.value = "";
+              }}
+            />
+          )}
+          {attachedFile && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg border border-blue-200/15 bg-blue-400/[0.07] px-3 py-2 text-xs text-slate-200">
+              <FileText
+                className="size-4 shrink-0 text-blue-200"
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1 truncate">{attachedFile.name}</span>
+              <span className="shrink-0 text-slate-400">
+                {(attachedFile.size / (1024 * 1024)).toFixed(1)} MB
+              </span>
+              <button
+                type="button"
+                aria-label="Remove attached document"
+                onClick={() => {
+                  setAttachedFile(null);
+                  setConfirmDocument(false);
+                  setFileError(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white"
+              >
+                <X className="size-3.5" aria-hidden="true" />
+              </button>
+            </div>
+          )}
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
@@ -465,14 +676,26 @@ export function AssistantChat({
             className="w-full resize-y border-0 bg-transparent px-2 py-1.5 text-sm leading-6 text-white outline-none placeholder:text-slate-400 focus-visible:ring-0"
           />
           <div className="flex items-center justify-between gap-2 px-2 pb-1 pt-1">
-            <span className="text-[10px] text-slate-500">
-              {input.length.toLocaleString()} / 2,000
-            </span>
+            <div className="flex items-center gap-2">
+              {user && activeMode === "career" && (
+                <button
+                  type="button"
+                  aria-label="Attach a document"
+                  title="Attach a PDF, DOCX, or TXT document (max 5 MB)"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex size-8 items-center justify-center rounded-lg border border-white/10 text-slate-300 hover:border-blue-300/30 hover:bg-blue-400/[0.08] hover:text-white"
+                >
+                  <Paperclip className="size-4" aria-hidden="true" />
+                </button>
+              )}
+              <span className="text-[10px] text-slate-500">
+                {input.length.toLocaleString()} / 2,000
+              </span>
+            </div>
             <button
               type="submit"
               disabled={
-                !input.trim() ||
-                !consent ||
+                (!input.trim() && !attachedFile) ||
                 sending ||
                 authLoading ||
                 (activeMode === "career" &&
@@ -491,42 +714,58 @@ export function AssistantChat({
             </button>
           </div>
         </div>
-        {!consent ? (
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200/20 bg-amber-300/[0.06] p-3 text-[11px] leading-5 text-slate-200">
-            <input
-              type="checkbox"
-              checked={false}
-              onChange={(event) => setAssistantConsent(event.target.checked)}
-              className="mt-1 size-4 shrink-0 accent-blue-500"
-            />
-            <span>
-              <span className="mb-0.5 block font-semibold text-amber-100">
-                One-time agreement
-              </span>
-              I agree to send my messages and recent chat history to the AI
-              provider. This choice is remembered on this device. Saved career
-              or application details are sent only when I select them.
-              <span className="mt-1 block text-slate-400">
-                JobHunter doesn’t save this chat. The AI provider’s privacy
-                terms apply.
-              </span>
-            </span>
-          </label>
-        ) : (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.05] px-3 py-2 text-[11px] leading-4 text-emerald-100">
-            <p>
-              <ShieldCheck className="mr-1 inline size-3.5 align-text-bottom" aria-hidden="true" />
-              Agreement saved on this device. Saved details are shared only
-              when selected.
+        {attachedFile && (
+          <p className="text-[11px] leading-4 text-slate-400">
+            PDF, DOCX, or TXT · 5 MB max · not stored by JobHunter. Scanned
+            image-only PDFs are not supported.
+          </p>
+        )}
+        {confirmDocument && attachedFile && (
+          <div
+            role="group"
+            aria-label="Confirm document sharing"
+            className="rounded-xl border border-amber-200/20 bg-amber-300/[0.06] p-3 text-xs leading-5 text-slate-200"
+          >
+            <p className="font-semibold text-amber-100">
+              Send “{attachedFile.name}” to the AI provider for analysis?
             </p>
-            <button
-              type="button"
-              onClick={() => setAssistantConsent(false)}
-              className="font-medium text-slate-300 underline underline-offset-2 hover:text-white"
-            >
-              Revoke agreement
-            </button>
+            <p className="mt-1">
+              JobHunter extracts the document text, sends it with your message,
+              and does not save the uploaded file. The AI provider’s data
+              practices also apply.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void submitMessage(true)}
+                className="rounded-lg bg-blue-500 px-3 py-1.5 font-semibold text-white hover:bg-blue-400"
+              >
+                Yes, send this document
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDocument(false)}
+                className="rounded-lg border border-white/15 px-3 py-1.5 text-slate-200 hover:bg-white/[0.06]"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
+        )}
+        <p className="text-[11px] leading-4 text-slate-400">
+          Messages you send are processed by our AI provider. Don’t include
+          passwords, verification codes, or financial account details.{" "}
+          <Link
+            href="/privacy"
+            className="text-blue-300 underline decoration-blue-300/40 underline-offset-2 hover:text-blue-200"
+          >
+            Privacy details
+          </Link>
+        </p>
+        {fileError && (
+          <p role="alert" className="text-xs text-rose-300">
+            {fileError}
+          </p>
         )}
         {error && (
           <p role="alert" className="text-xs text-rose-300">

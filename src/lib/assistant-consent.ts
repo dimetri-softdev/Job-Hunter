@@ -1,14 +1,17 @@
-"use client";
-
 import { useSyncExternalStore } from "react";
 
-const CONSENT_STORAGE_KEY = "jobhunter-assistant-consent";
-const CONSENT_CHANGE_EVENT = "jobhunter:assistant-consent-change";
+const CONSENT_CHANGE_EVENT = "jobhunter:assistant-context-consent-change";
 
-function getConsentSnapshot() {
+function storageKey(userId: string | undefined) {
+  return userId ? `jobhunter-assistant-context-consent:${userId}` : null;
+}
+
+function getConsentSnapshot(userId: string | undefined) {
+  const key = storageKey(userId);
   return (
     typeof window !== "undefined" &&
-    window.localStorage.getItem(CONSENT_STORAGE_KEY) === "granted"
+    key !== null &&
+    window.localStorage.getItem(key) === "granted"
   );
 }
 
@@ -22,16 +25,24 @@ function subscribeToConsent(onChange: () => void) {
   };
 }
 
-export function useAssistantConsent() {
-  return useSyncExternalStore(subscribeToConsent, getConsentSnapshot, () => false);
+export function useAssistantContextConsent(userId: string | undefined) {
+  return useSyncExternalStore(
+    subscribeToConsent,
+    () => getConsentSnapshot(userId),
+    () => false,
+  );
 }
 
-export function setAssistantConsent(granted: boolean) {
-  if (typeof window === "undefined") return;
+export function setAssistantContextConsent(
+  userId: string | undefined,
+  granted: boolean,
+) {
+  const key = storageKey(userId);
+  if (typeof window === "undefined" || !key) return;
   if (granted) {
-    window.localStorage.setItem(CONSENT_STORAGE_KEY, "granted");
+    window.localStorage.setItem(key, "granted");
   } else {
-    window.localStorage.removeItem(CONSENT_STORAGE_KEY);
+    window.localStorage.removeItem(key);
   }
   window.dispatchEvent(new Event(CONSENT_CHANGE_EVENT));
 }
