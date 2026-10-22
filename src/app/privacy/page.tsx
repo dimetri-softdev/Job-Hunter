@@ -6,7 +6,7 @@ import { SupportContactLink } from "@/components/support-contact-link";
 export const metadata = {
   title: "Privacy",
   description:
-    "A plain-language draft explaining how JobHunter handles account information and AI features.",
+    "How JobHunter handles account information, applications, documents, and AI features.",
   robots: {
     index: false,
     follow: false,
@@ -56,17 +56,12 @@ export default function PrivacyPage() {
       <main>
         <section className="border-b border-white/10 bg-[#12131a]">
           <div className="mx-auto max-w-4xl px-6 py-14 sm:px-10 sm:py-16 lg:px-16">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">
-              Draft for review · October 2026
-            </p>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-5xl">
               Privacy at JobHunter
             </h1>
             <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
-              This plain-language draft describes the data flows currently
-              visible in the product code. It is not legal advice or a complete
-              privacy policy. The product owner should review it before treating
-              it as final.
+              This notice explains what information JobHunter handles, how it
+              is used to provide the service, and the choices available to you.
             </p>
           </div>
         </section>
@@ -161,8 +156,8 @@ export default function PrivacyPage() {
               The conversation is kept in the open chat in your browser until
               you clear it or close the chat. AI providers process information
               under their own terms and policies. Their retention practices are
-              separate from JobHunter, and this draft does not promise that
-              they immediately delete submitted information. Confirming an
+              separate from JobHunter, and they may retain submitted
+              information according to their terms. Confirming an
               attachment sends its extracted text—not a stored copy of the
               uploaded file—to Groq with your message.
             </p>
@@ -225,32 +220,6 @@ export default function PrivacyPage() {
               </SupportContactLink>
               .
             </p>
-          </section>
-
-          <section
-            aria-labelledby="review-heading"
-            className="rounded-xl border border-amber-300/20 bg-amber-300/[0.05] p-5 sm:p-6"
-          >
-            <h2
-              id="review-heading"
-              className="text-sm font-semibold text-amber-100"
-            >
-              Before this draft is treated as final
-            </h2>
-            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-amber-100/75">
-              <li>
-                Review current Google Gemini and Groq policies and confirm
-                provider-side retention and data-use settings.
-              </li>
-              <li>
-                Confirm hosting, database, authentication, and any future
-                payment-provider disclosures.
-              </li>
-              <li>
-                Have the final notice reviewed for the laws and regions where
-                JobHunter will be offered.
-              </li>
-            </ul>
           </section>
 
           <p className="text-sm text-slate-400">
