@@ -21,6 +21,7 @@ const activityLabels: Record<string, string> = {
   INTERVIEW: "Interview",
   EMAIL: "Email or message",
   OFFER: "Offer update",
+  APPLICATION_DRAFT: "Saved application drafts",
   OTHER: "Update",
 };
 

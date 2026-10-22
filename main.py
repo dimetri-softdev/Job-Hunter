@@ -200,8 +200,16 @@ class ApplicationUpdate(BaseModel):
     contactEmail: Optional[str] = Field(default=None, max_length=254)
 
 class ApplicationActivityCreate(BaseModel):
-    kind: Literal["NOTE", "FOLLOW_UP", "INTERVIEW", "EMAIL", "OFFER", "OTHER"]
-    detail: str = Field(min_length=1, max_length=2000)
+    kind: Literal[
+        "NOTE",
+        "FOLLOW_UP",
+        "INTERVIEW",
+        "EMAIL",
+        "OFFER",
+        "APPLICATION_DRAFT",
+        "OTHER",
+    ]
+    detail: str = Field(min_length=1, max_length=6000)
 
 class JobPostingAnalyzeRequest(BaseModel):
     description: str = Field(min_length=80, max_length=20000)

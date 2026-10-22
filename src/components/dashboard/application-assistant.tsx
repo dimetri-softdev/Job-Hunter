@@ -46,6 +46,8 @@ export function ApplicationAssistant({
   const [jobDescription, setJobDescription] = useState("");
   const [pack, setPack] = useState<ApplicationPack | null>(null);
   const [loading, setLoading] = useState(false);
+  const [savingDrafts, setSavingDrafts] = useState(false);
+  const [draftsSaved, setDraftsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -53,6 +55,7 @@ export function ApplicationAssistant({
     setConsent(false);
     setJobDescription("");
     setPack(null);
+    setDraftsSaved(false);
     setError(null);
     setCopied(null);
   }
@@ -92,6 +95,50 @@ export function ApplicationAssistant({
       setError(
         "Clipboard access failed. Select and copy the draft text instead.",
       );
+    }
+  }
+
+  async function saveDraftsToHistory() {
+    if (!pack || draftsSaved) return;
+    const sections = [
+      pack.coverLetter ? `COVER LETTER\n${pack.coverLetter}` : "",
+      pack.roleSummary ? `ROLE SUMMARY\n${pack.roleSummary}` : "",
+      pack.evidenceToEmphasize.length > 0
+        ? `EVIDENCE TO EMPHASIZE\n${pack.evidenceToEmphasize
+            .map((item) => `- ${item}`)
+            .join("\n")}`
+        : "",
+    ].filter(Boolean);
+    const detail = sections.join("\n\n");
+    if (!detail || detail.length > 6000) {
+      setError(
+        "These drafts are too long to save to history. Copy them before closing this dialog.",
+      );
+      return;
+    }
+
+    setSavingDrafts(true);
+    setError(null);
+    try {
+      await fetcher(
+        `/applications/${encodeURIComponent(applicationId)}/activities`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            kind: "APPLICATION_DRAFT",
+            detail,
+          }),
+        },
+      );
+      setDraftsSaved(true);
+    } catch (saveError: unknown) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to save these drafts to the application history.",
+      );
+    } finally {
+      setSavingDrafts(false);
     }
   }
 
@@ -143,6 +190,11 @@ export function ApplicationAssistant({
                   </p>
                 </div>
               </div>
+              {error && (
+                <p role="alert" className="text-xs text-rose-400">
+                  {error}
+                </p>
+              )}
             </div>
 
             {!hasJobDetails && (
@@ -185,8 +237,9 @@ export function ApplicationAssistant({
               />
               <span>
                 Send my saved career profile and this job&apos;s details to
-                Groq to prepare draft materials. The generated drafts are not
-                saved.
+                Groq to prepare draft materials. They are not saved to your
+                account unless you choose to save them to this job&apos;s
+                history.
               </span>
             </label>
             {error && (
@@ -297,6 +350,11 @@ export function ApplicationAssistant({
                 Draft copied. You can paste it into the employer&apos;s form.
               </p>
             )}
+            {draftsSaved && (
+              <p role="status" className="text-xs text-violet-200">
+                Drafts are saved in this application&apos;s History &amp; updates.
+              </p>
+            )}
           </div>
         )}
         </div>
@@ -321,6 +379,26 @@ export function ApplicationAssistant({
             >
               Back to details
               <ArrowRight className="size-4 rotate-180" />
+            </Button>
+          )}
+          {pack && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void saveDraftsToHistory()}
+              disabled={savingDrafts || draftsSaved}
+              className="border-violet-500/30 text-violet-200 hover:bg-violet-500/10 hover:text-white"
+            >
+              {savingDrafts ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <FileText className="size-4" aria-hidden="true" />
+              )}
+              {savingDrafts
+                ? "Saving drafts..."
+                : draftsSaved
+                  ? "Drafts saved to history"
+                  : "Save drafts to this job"}
             </Button>
           )}
         </div>
