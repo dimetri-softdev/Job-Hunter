@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  ArrowUpRight,
+  BriefcaseBusiness,
+  CalendarDays,
   CheckCircle2,
   ClipboardList,
   Loader2,
@@ -34,9 +37,21 @@ interface ApplicationOutcome {
   company: string;
   position: string;
   status: string;
+  createdAt: string;
+  followUpAt?: string | null;
   fitAssessment?: FitAssessment | null;
   offerDetails?: OfferDetails | null;
 }
+
+const APPLICATION_STAGES = [
+  { value: "SAVED", label: "Saved" },
+  { value: "APPLIED", label: "Applied" },
+  { value: "PHONE_SCREEN", label: "Phone screen" },
+  { value: "INTERVIEWING", label: "Interviewing" },
+  { value: "OFFERED", label: "Offered" },
+  { value: "REJECTED", label: "Rejected" },
+  { value: "WITHDRAWN", label: "Withdrawn" },
+];
 
 const SUBMITTED_STATUSES = new Set([
   "APPLIED",
@@ -138,6 +153,53 @@ export default function AnalyticsPage() {
     (row) => row.submitted >= 3,
   );
 
+  const activeApplications = applications.filter((application) =>
+    ["SAVED", "APPLIED", "PHONE_SCREEN", "INTERVIEWING"].includes(
+      application.status,
+    ),
+  );
+  const interviewStageApplications = applications.filter((application) =>
+    ["PHONE_SCREEN", "INTERVIEWING"].includes(application.status),
+  );
+  const offeredApplications = applications.filter(
+    (application) => application.status === "OFFERED",
+  );
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const recentlyAddedApplications = applications.filter((application) => {
+    const createdAt = new Date(application.createdAt);
+    return (
+      !Number.isNaN(createdAt.getTime()) &&
+      createdAt >= thirtyDaysAgo &&
+      createdAt <= new Date()
+    );
+  }).length;
+  const stageCounts = APPLICATION_STAGES.map((stage) => ({
+    ...stage,
+    count: applications.filter(
+      (application) => application.status === stage.value,
+    ).length,
+  }));
+  const maximumStageCount = Math.max(1, ...stageCounts.map((stage) => stage.count));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const followUpsNeedingAttention = applications
+    .flatMap((application) => {
+      if (!application.followUpAt) return [];
+      const followUpDate = new Date(
+        `${application.followUpAt.slice(0, 10)}T00:00:00`,
+      );
+      if (Number.isNaN(followUpDate.getTime())) return [];
+      const daysUntil = Math.round(
+        (followUpDate.getTime() - today.getTime()) / 86_400_000,
+      );
+      return daysUntil <= 7
+        ? [{ ...application, followUpDate, daysUntil }]
+        : [];
+    })
+    .sort((left, right) => left.followUpDate.getTime() - right.followUpDate.getTime())
+    .slice(0, 5);
+
   const projects = roadmaps.flatMap((roadmap) =>
     roadmap.projects.map((project) => ({
       ...project,
@@ -195,8 +257,202 @@ export default function AnalyticsPage() {
     <div className="w-full space-y-6">
       <DashboardPageHeader
         title="Analytics & Insights"
-        description="See your roadmap progress and learn from your own application outcomes."
+        description="Spot patterns in your application pipeline, follow-ups, and roadmap progress."
       />
+
+      <section className="space-y-5 rounded-xl border border-[#1f212d] bg-[#12131a] p-6">
+        <div className="border-b border-[#1f212d] pb-3">
+          <h2 className="text-sm font-semibold text-white">
+            Job-search pulse
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            A snapshot of your current tracker stages and upcoming follow-ups.
+          </p>
+        </div>
+        {applicationsLoading ? (
+          <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading your job-search pulse...
+          </div>
+        ) : applicationsError ? (
+          <p role="alert" className="text-xs text-rose-400">
+            {applicationsError}
+          </p>
+        ) : applications.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-[#2b2e3b] px-4 py-6 text-center">
+            <BriefcaseBusiness className="mx-auto h-5 w-5 text-slate-500" />
+            <p className="mt-2 text-xs text-slate-300">
+              Add or import applications to see your pipeline and follow-up
+              insights here.
+            </p>
+            <Link
+              href="/applications"
+              className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-300 hover:text-blue-200"
+            >
+              Open applications <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                {
+                  label: "Active pipeline",
+                  value: activeApplications.length,
+                  detail: "Saved, applied, and interview stages",
+                  icon: BriefcaseBusiness,
+                },
+                {
+                  label: "At interview stage",
+                  value: interviewStageApplications.length,
+                  detail: "Phone screens and interviews",
+                  icon: CalendarDays,
+                },
+                {
+                  label: "Offers",
+                  value: offeredApplications.length,
+                  detail: "Currently marked as offered",
+                  icon: CheckCircle2,
+                },
+                {
+                  label: "Added in 30 days",
+                  value: recentlyAddedApplications,
+                  detail: "Roles added to your tracker",
+                  icon: ClipboardList,
+                },
+              ].map((metric) => {
+                const Icon = metric.icon;
+                return (
+                  <div
+                    key={metric.label}
+                    className="rounded-lg border border-[#1f212d] bg-[#0d0e14] p-4"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        {metric.label}
+                      </span>
+                      <Icon className="h-4 w-4 text-blue-300" />
+                    </div>
+                    <p className="mt-2 text-2xl font-semibold text-white">
+                      {metric.value}
+                    </p>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      {metric.detail}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-200">
+                    Current pipeline
+                  </h3>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                    Each application is counted once at its current tracker
+                    stage; these are not historical conversion rates.
+                  </p>
+                </div>
+                {stageCounts.some((stage) => stage.count > 0) ? (
+                  <div className="space-y-3">
+                    {stageCounts
+                      .filter((stage) => stage.count > 0)
+                      .map((stage) => (
+                        <div key={stage.value} className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-300">{stage.label}</span>
+                            <span className="font-mono text-slate-400">
+                              {stage.count}
+                            </span>
+                          </div>
+                          <div
+                            className="h-1.5 overflow-hidden rounded-full bg-[#1f212d]"
+                            role="img"
+                            aria-label={`${stage.label}: ${stage.count} applications`}
+                          >
+                            <div
+                              className="h-full rounded-full bg-blue-500"
+                              style={{
+                                width: `${(stage.count / maximumStageCount) * 100}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    No applications have a recognized tracker status yet.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-200">
+                    Follow-ups to review
+                  </h3>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                    Overdue reminders and follow-ups due in the next 7 days.
+                  </p>
+                </div>
+                {followUpsNeedingAttention.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-[#2b2e3b] px-3 py-4 text-xs text-slate-500">
+                    No overdue or upcoming follow-ups. Add a follow-up date to
+                    an application to see it here.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {followUpsNeedingAttention.map((application) => (
+                      <li key={application.id}>
+                        <Link
+                          href={`/applications#${encodeURIComponent(application.id)}`}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-[#1f212d] bg-[#0d0e14] px-3 py-2.5 transition hover:border-blue-500/30"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-xs font-medium text-slate-200">
+                              {application.position} · {application.company}
+                            </span>
+                            <span className="mt-1 block text-[10px] text-slate-500">
+                              {application.followUpDate.toLocaleDateString()}
+                            </span>
+                          </span>
+                          <span
+                            className={`shrink-0 text-[10px] font-medium ${
+                              application.daysUntil < 0
+                                ? "text-rose-300"
+                                : application.daysUntil === 0
+                                  ? "text-amber-300"
+                                  : "text-slate-400"
+                            }`}
+                          >
+                            {application.daysUntil < 0
+                              ? `${Math.abs(application.daysUntil)}d overdue`
+                              : application.daysUntil === 0
+                                ? "Due today"
+                                : `In ${application.daysUntil}d`}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {followUpsNeedingAttention.length > 0 && (
+                  <Link
+                    href="/applications"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-300 hover:text-blue-200"
+                  >
+                    Review all applications{" "}
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </section>
 
       {loading ? (
         <div className="flex h-48 items-center justify-center gap-2 text-slate-400">

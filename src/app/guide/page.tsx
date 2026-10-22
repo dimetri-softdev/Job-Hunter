@@ -130,7 +130,7 @@ const guides = [
       "Start with Your first steps on the Career Dashboard; completed items are recognized from your saved profile, applications, roadmaps, and tasks.",
       "Use Career Momentum to recognize milestones as you make progress.",
       "Choose Hide or Show on a section, or use Show all and Hide all to adjust the dashboard layout. Your selection is stored in this browser.",
-      "Open Analytics to review search patterns. If you have offers, compare factors like pay, commute, learning, and work-life balance—the scores do not make the choice for you.",
+      "Open Analytics to see your current application pipeline, follow-ups due soon, and patterns in your saved fit assessments. If you have offers, compare factors like pay, commute, learning, and work-life balance—the scores do not make the choice for you.",
     ],
     href: "/login",
     linkLabel: "Explore your dashboard",
