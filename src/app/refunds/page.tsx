@@ -52,6 +52,20 @@ const sections = [
     ),
   },
   {
+    id: "feature-top-ups",
+    title: "One-time feature top-ups",
+    content: (
+      <p>
+        If offered, a feature top-up is a non-recurring purchase for the
+        specific additional feature use shown before payment. Top-ups do not
+        expire and are made available only after payment is confirmed. As a
+        general rule, top-ups are not eligible for discretionary refunds;
+        nothing in this policy limits a refund or other remedy required by
+        applicable law.
+      </p>
+    ),
+  },
+  {
     id: "refund-requests",
     title: "Future refund requests",
     content: (

@@ -78,13 +78,19 @@ const sections = [
           purchase.
         </p>
         <p>
+          We may also offer non-expiring, one-time feature top-ups after an
+          account reaches its included quota. A top-up will identify the
+          feature and the additional use it buys, and will not run until payment
+          is confirmed. Top-ups will not renew automatically. The price shown
+          before purchase may depend on the user’s plan.
+        </p>
+        <p>
           Cancelling a paid subscription will stop future renewals. Unless the
           purchase screen says otherwise or applicable law requires otherwise,
           paid access will remain available until the end of the period already
           paid for. A cancellation does not itself incur a penalty. One-time
-          purchases will not renew; their access period will be stated before
-          purchase. Any refund and usage-based deduction rules will be
-          published in the{" "}
+          purchases and top-ups will not renew. Any refund and usage-based
+          deduction rules will be published in the{" "}
           <Link
             href="/refunds"
             className="text-blue-300 underline decoration-blue-300/40 underline-offset-4 hover:text-blue-200"
