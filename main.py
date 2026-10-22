@@ -143,6 +143,8 @@ class ApplicationCreate(BaseModel):
     offerDetails: Optional[OfferDetailsRequest] = None
     nextAction: Optional[str] = Field(default=None, max_length=280)
     followUpAt: Optional[date] = None
+    contactName: Optional[str] = Field(default=None, max_length=120)
+    contactEmail: Optional[str] = Field(default=None, max_length=254)
 
 class ApplicationImportRequest(BaseModel):
     applications: list[ApplicationCreate] = Field(min_length=1)
@@ -194,6 +196,12 @@ class ApplicationUpdate(BaseModel):
     jobUrl: Optional[str] = Field(default=None, max_length=2000)
     nextAction: Optional[str] = Field(default=None, max_length=280)
     followUpAt: Optional[date] = None
+    contactName: Optional[str] = Field(default=None, max_length=120)
+    contactEmail: Optional[str] = Field(default=None, max_length=254)
+
+class ApplicationActivityCreate(BaseModel):
+    kind: Literal["NOTE", "FOLLOW_UP", "INTERVIEW", "EMAIL", "OFFER", "OTHER"]
+    detail: str = Field(min_length=1, max_length=2000)
 
 class JobPostingAnalyzeRequest(BaseModel):
     description: str = Field(min_length=80, max_length=20000)
@@ -1905,12 +1913,54 @@ async def get_applications(user_id: str = Depends(get_current_user)):
         'a."jobUrl", a."jobSummary", '
         '(a."jobDescription" IS NOT NULL AND BTRIM(a."jobDescription") <> \'\') AS "hasJobDescription", '
         'a."fitAssessment", a."offerDetails", a."nextAction", a."followUpAt", '
+        'a."contactName", a."contactEmail", '
         '(SELECT COALESCE(json_agg(json_build_object(\'id\', r."id", \'title\', r."title") '
         'ORDER BY r."createdAt" DESC), \'[]\'::json) FROM "Roadmap" r '
         'WHERE r."applicationId" = a."id") AS "roadmaps" '
         'FROM "Application" a WHERE a."userId" = $1 ORDER BY a."createdAt" DESC',
         user_id,
     )
+
+@app.get("/api/v1/applications/{application_id}/activities")
+async def get_application_activities(
+    application_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    return await db.query_raw(
+        'SELECT activity."id", activity."kind", activity."detail", activity."createdAt" '
+        'FROM "ApplicationActivity" activity '
+        'JOIN "Application" application ON application."id" = activity."applicationId" '
+        'WHERE activity."applicationId" = $1 AND application."userId" = $2 '
+        'ORDER BY activity."createdAt" DESC, activity."id" DESC',
+        application_id,
+        user_id,
+    )
+
+@app.post("/api/v1/applications/{application_id}/activities")
+async def create_application_activity(
+    application_id: str,
+    payload: ApplicationActivityCreate,
+    user_id: str = Depends(get_current_user),
+):
+    detail = payload.detail.strip()
+    if not detail:
+        raise HTTPException(status_code=400, detail="Activity details cannot be empty.")
+
+    rows = await db.query_raw(
+        'INSERT INTO "ApplicationActivity" ("id", "applicationId", "userId", "kind", "detail") '
+        'SELECT $1, application."id", application."userId", $4, $5 '
+        'FROM "Application" application '
+        'WHERE application."id" = $2 AND application."userId" = $3 '
+        'RETURNING "id", "kind", "detail", "createdAt"',
+        str(uuid.uuid4()),
+        application_id,
+        user_id,
+        payload.kind,
+        detail,
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    return rows[0]
 
 @app.get("/api/v1/offer-priorities")
 async def get_offer_priorities(user_id: str = Depends(get_current_user)):
@@ -1980,24 +2030,47 @@ async def update_application(
         if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
             raise HTTPException(status_code=400, detail="Job URL must be a valid HTTP or HTTPS link.")
 
-    updated = await db.query_raw(
-        'UPDATE "Application" SET "company" = $1, "position" = $2, "status" = $3, "notes" = $4, '
-        '"jobUrl" = $5, "nextAction" = $6, "followUpAt" = CAST($7 AS DATE), "updatedAt" = NOW() '
-        'WHERE "id" = $8 AND "userId" = $9 '
-        'RETURNING "id", "company", "position", "status", "notes", "createdAt", "jobUrl", "jobSummary", "fitAssessment", "offerDetails", "nextAction", "followUpAt"',
-        payload.company.strip(),
-        payload.position.strip(),
-        payload.status,
-        payload.notes or None,
-        job_url,
-        payload.nextAction.strip() if payload.nextAction else None,
-        payload.followUpAt.isoformat() if payload.followUpAt else None,
-        application_id,
-        user_id,
-    )
-    if not updated:
-        raise HTTPException(status_code=404, detail="Application not found.")
-    return updated[0]
+    async with db.tx() as transaction:
+        previous = await transaction.query_raw(
+            'SELECT "status" FROM "Application" WHERE "id" = $1 AND "userId" = $2',
+            application_id,
+            user_id,
+        )
+        if not previous:
+            raise HTTPException(status_code=404, detail="Application not found.")
+        updated = await transaction.query_raw(
+            'UPDATE "Application" SET "company" = $1, "position" = $2, "status" = $3, "notes" = $4, '
+            '"jobUrl" = $5, "nextAction" = $6, "followUpAt" = CAST($7 AS DATE), '
+            '"contactName" = $8, "contactEmail" = $9, "updatedAt" = NOW() '
+            'WHERE "id" = $10 AND "userId" = $11 '
+            'RETURNING "id", "company", "position", "status", "notes", "createdAt", "jobUrl", '
+            '"jobSummary", "fitAssessment", "offerDetails", "nextAction", "followUpAt", '
+            '"contactName", "contactEmail"',
+            payload.company.strip(),
+            payload.position.strip(),
+            payload.status,
+            payload.notes or None,
+            job_url,
+            payload.nextAction.strip() if payload.nextAction else None,
+            payload.followUpAt.isoformat() if payload.followUpAt else None,
+            payload.contactName.strip() if payload.contactName else None,
+            payload.contactEmail.strip() if payload.contactEmail else None,
+            application_id,
+            user_id,
+        )
+        if not updated:
+            raise HTTPException(status_code=404, detail="Application not found.")
+        old_status = previous[0]["status"]
+        if old_status != payload.status:
+            await transaction.execute_raw(
+                'INSERT INTO "ApplicationActivity" ("id", "applicationId", "userId", "kind", "detail") '
+                'VALUES ($1, $2, $3, \'STATUS_CHANGED\', $4)',
+                str(uuid.uuid4()),
+                application_id,
+                user_id,
+                f"Status changed from {old_status.replace('_', ' ').title()} to {payload.status.replace('_', ' ').title()}.",
+            )
+        return updated[0]
 
 @app.delete("/api/v1/applications/{application_id}")
 async def delete_application(
@@ -2061,7 +2134,8 @@ async def create_application(
         await transaction.execute_raw(
             'UPDATE "Application" SET "jobUrl" = $1, "jobDescription" = $2, "jobSummary" = $3, '
             '"fitAssessment" = $4::jsonb, "offerDetails" = $5::jsonb, "nextAction" = $6, '
-            '"followUpAt" = CAST($7 AS DATE) WHERE "id" = $8 AND "userId" = $9',
+            '"followUpAt" = CAST($7 AS DATE), "contactName" = $8, "contactEmail" = $9 '
+            'WHERE "id" = $10 AND "userId" = $11',
             job_url,
             payload.jobDescription,
             payload.jobSummary,
@@ -2069,11 +2143,23 @@ async def create_application(
             serialized_offer_details,
             payload.nextAction.strip() if payload.nextAction else None,
             payload.followUpAt.isoformat() if payload.followUpAt else None,
+            payload.contactName.strip() if payload.contactName else None,
+            payload.contactEmail.strip() if payload.contactEmail else None,
             new_app.id,
             user_id,
         )
+        await transaction.execute_raw(
+            'INSERT INTO "ApplicationActivity" ("id", "applicationId", "userId", "kind", "detail") '
+            'VALUES ($1, $2, $3, \'APPLICATION_SAVED\', $4)',
+            str(uuid.uuid4()),
+            new_app.id,
+            user_id,
+            f"Application saved with status {status.replace('_', ' ').title()}.",
+        )
         applications = await transaction.query_raw(
-            'SELECT "id", "company", "position", "status", "notes", "createdAt", "jobUrl", "jobSummary", "fitAssessment", "offerDetails", "nextAction", "followUpAt" '
+            'SELECT "id", "company", "position", "status", "notes", "createdAt", "jobUrl", '
+            '"jobSummary", "fitAssessment", "offerDetails", "nextAction", "followUpAt", '
+            '"contactName", "contactEmail" '
             'FROM "Application" WHERE "id" = $1 AND "userId" = $2',
             new_app.id,
             user_id,
@@ -2116,7 +2202,8 @@ async def import_applications(
             await transaction.execute_raw(
                 'UPDATE "Application" SET "jobUrl" = $1, "jobDescription" = $2, "jobSummary" = $3, '
                 '"fitAssessment" = $4::jsonb, "offerDetails" = $5::jsonb, "nextAction" = $6, '
-                '"followUpAt" = CAST($7 AS DATE) WHERE "id" = $8 AND "userId" = $9',
+                '"followUpAt" = CAST($7 AS DATE), "contactName" = $8, "contactEmail" = $9 '
+                'WHERE "id" = $10 AND "userId" = $11',
                 job_url,
                 application.jobDescription,
                 application.jobSummary,
@@ -2126,8 +2213,18 @@ async def import_applications(
                 serialize_offer_details(application.offerDetails),
                 application.nextAction.strip() if application.nextAction else None,
                 application.followUpAt.isoformat() if application.followUpAt else None,
+                application.contactName.strip() if application.contactName else None,
+                application.contactEmail.strip() if application.contactEmail else None,
                 new_app.id,
                 user_id,
+            )
+            await transaction.execute_raw(
+                'INSERT INTO "ApplicationActivity" ("id", "applicationId", "userId", "kind", "detail") '
+                'VALUES ($1, $2, $3, \'APPLICATION_SAVED\', $4)',
+                str(uuid.uuid4()),
+                new_app.id,
+                user_id,
+                f"Application imported with status {status.replace('_', ' ').title()}.",
             )
 
     return {"created": len(payload.applications)}

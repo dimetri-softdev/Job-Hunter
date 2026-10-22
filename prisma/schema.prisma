@@ -22,6 +22,7 @@ model User {
   offerPriorities   Json?
   roadmaps          Roadmap[]
   applications      Application[]
+  applicationActivities ApplicationActivity[]
   subscription      UserSubscription?
   billingUsage      BillingUsageEvent[]
   createdAt         DateTime       @default(now())
@@ -74,11 +75,28 @@ model Application {
   offerDetails   Json?
   nextAction     String?
   followUpAt     DateTime? @db.Date
+  contactName    String?
+  contactEmail   String?
   roadmaps       Roadmap[]
+  activities     ApplicationActivity[]
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model ApplicationActivity {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind          String
+  detail        String
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model FeedbackResponse {
