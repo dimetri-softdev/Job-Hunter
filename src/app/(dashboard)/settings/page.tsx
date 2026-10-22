@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { fetcher } from "@/lib/api";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
+import { ApplicationReminderSettings } from "@/components/dashboard/application-reminders";
 
 interface UserProfile {
   id: string;
@@ -218,6 +219,7 @@ export default function SettingsPage() {
         </div>
       ) : profile ? (
         <div className="space-y-6">
+          <ApplicationReminderSettings />
           <section className="overflow-hidden rounded-2xl border border-[#252836] bg-[#12131a]">
             <div className="flex flex-wrap items-center gap-4 bg-gradient-to-r from-blue-500/[0.09] via-transparent to-violet-500/[0.06] p-5 sm:p-6">
               <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10 text-xl font-semibold text-blue-200">

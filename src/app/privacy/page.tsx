@@ -29,6 +29,11 @@ const dataWeStore = [
     description:
       "Roadmaps, project notes or links, completed tasks, and account usage needed to provide the product.",
   },
+  {
+    title: "Reminder preferences and delivery",
+    description:
+      "If you opt in to email reminders, JobHunter stores that preference and whether a reminder was sent for each application follow-up date. Browser reminder history is stored locally in your browser. You can turn off email reminders in Settings.",
+  },
 ];
 
 const aiFeatures = [
@@ -165,6 +170,26 @@ export default function PrivacyPage() {
               AI responses can be inaccurate. Review suggestions yourself;
               JobHunter does not make hiring decisions or submit job
               applications for you.
+            </p>
+          </section>
+
+          <section aria-labelledby="reminders-heading">
+            <h2
+              id="reminders-heading"
+              className="text-xl font-semibold text-white"
+            >
+              Follow-up reminders
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              Email reminders are sent only after you opt in in Settings. To
+              deliver them, JobHunter sends your account email address and the
+              application company, role, and follow-up date to Resend. Delivery
+              status and attempt time are recorded to prevent duplicate emails
+              and permit retries after a failure. You can opt out at any time;
+              deleting an application removes its reminder delivery record.
+              Browser notifications are handled by your browser while the
+              signed-in dashboard is open, and JobHunter stores their
+              once-per-date display marker on that device.
             </p>
           </section>
 

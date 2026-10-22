@@ -5,6 +5,7 @@ import httpx
 import logging
 import uuid
 import time
+import hmac
 from zipfile import BadZipFile, ZipFile
 from xml.etree import ElementTree
 from contextlib import asynccontextmanager
@@ -228,6 +229,9 @@ class ApplicationActivityCreate(BaseModel):
         "OTHER",
     ]
     detail: str = Field(min_length=1, max_length=6000)
+
+class ReminderPreferenceUpdate(BaseModel):
+    emailEnabled: bool
 
 class JobPostingAnalyzeRequest(BaseModel):
     description: str = Field(min_length=80, max_length=20000)
@@ -2208,6 +2212,151 @@ async def get_applications(user_id: str = Depends(get_current_user)):
         'FROM "Application" a WHERE a."userId" = $1 ORDER BY a."createdAt" DESC',
         user_id,
     )
+
+@app.get("/api/v1/reminders/preferences")
+async def get_reminder_preferences(user_id: str = Depends(get_current_user)):
+    rows = await db.query_raw(
+        'SELECT "emailEnabled" FROM "UserReminderPreference" WHERE "userId" = $1',
+        user_id,
+    )
+    return {"emailEnabled": bool(rows[0]["emailEnabled"]) if rows else False}
+
+@app.put("/api/v1/reminders/preferences")
+async def update_reminder_preferences(
+    payload: ReminderPreferenceUpdate,
+    user_id: str = Depends(get_current_user),
+):
+    rows = await db.query_raw(
+        'INSERT INTO "UserReminderPreference" ("userId", "emailEnabled", "updatedAt") '
+        'VALUES ($1, $2, NOW()) '
+        'ON CONFLICT ("userId") DO UPDATE SET "emailEnabled" = EXCLUDED."emailEnabled", '
+        '"updatedAt" = NOW() RETURNING "emailEnabled"',
+        user_id,
+        payload.emailEnabled,
+    )
+    if not rows:
+        raise HTTPException(status_code=500, detail="Unable to save reminder preferences.")
+    return {"emailEnabled": bool(rows[0]["emailEnabled"])}
+
+@app.post("/api/v1/internal/reminders/send")
+async def send_due_reminder_emails(
+    reminder_cron_secret: Optional[str] = Header(
+        None,
+        alias="X-Reminder-Cron-Secret",
+    ),
+):
+    configured_secret = os.getenv("REMINDER_CRON_SECRET")
+    resend_api_key = os.getenv("RESEND_API_KEY")
+    resend_from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not configured_secret:
+        raise HTTPException(status_code=503, detail="Reminder job authentication is not configured.")
+    if not reminder_cron_secret or not hmac.compare_digest(
+        reminder_cron_secret,
+        configured_secret,
+    ):
+        raise HTTPException(status_code=401, detail="Invalid reminder job credentials.")
+    if not resend_api_key or not resend_from_email:
+        raise HTTPException(status_code=503, detail="Reminder email delivery is not configured.")
+
+    due_reminders = await db.query_raw(
+        'SELECT application."id" AS "applicationId", application."userId", '
+        'application."company", application."position", application."followUpAt", '
+        'user_record."email" '
+        'FROM "Application" application '
+        'JOIN "User" user_record ON user_record."id" = application."userId" '
+        'JOIN "UserReminderPreference" preference ON preference."userId" = application."userId" '
+        'WHERE preference."emailEnabled" = TRUE '
+        'AND application."followUpAt" <= CURRENT_DATE '
+        'AND application."followUpAt" IS NOT NULL '
+        'AND application."status" IN (\'SAVED\', \'APPLIED\', \'PHONE_SCREEN\', \'INTERVIEWING\') '
+        'ORDER BY application."followUpAt" ASC, application."id" ASC LIMIT 500',
+    )
+    sent = 0
+    failed = 0
+    skipped = 0
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        for reminder in due_reminders:
+            follow_up_date = reminder["followUpAt"]
+            if isinstance(follow_up_date, datetime):
+                follow_up_date = follow_up_date.date()
+            if isinstance(follow_up_date, date):
+                follow_up_date = follow_up_date.isoformat()
+            if not follow_up_date:
+                skipped += 1
+                continue
+
+            delivery_id = str(uuid.uuid4())
+            claimed = await db.query_raw(
+                'INSERT INTO "ApplicationReminderDelivery" '
+                '("id", "applicationId", "userId", "followUpAt", "status", "attempts", "attemptedAt") '
+                'VALUES ($1, $2, $3, CAST($4 AS DATE), \'PROCESSING\', 1, NOW()) '
+                'ON CONFLICT ("applicationId", "followUpAt") DO UPDATE SET '
+                '"status" = \'PROCESSING\', "attempts" = "ApplicationReminderDelivery"."attempts" + 1, '
+                '"attemptedAt" = NOW() '
+                'WHERE "ApplicationReminderDelivery"."status" <> \'SENT\' '
+                'AND "ApplicationReminderDelivery"."attempts" < 4 '
+                'AND (("ApplicationReminderDelivery"."status" = \'PROCESSING\' '
+                'AND "ApplicationReminderDelivery"."attemptedAt" < NOW() - INTERVAL \'30 minutes\') '
+                'OR ("ApplicationReminderDelivery"."status" = \'FAILED\' '
+                'AND "ApplicationReminderDelivery"."attemptedAt" < NOW() - INTERVAL \'6 hours\')) '
+                'RETURNING "id"',
+                delivery_id,
+                reminder["applicationId"],
+                reminder["userId"],
+                follow_up_date,
+            )
+            if not claimed:
+                skipped += 1
+                continue
+
+            response = None
+            try:
+                response = await client.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {resend_api_key}",
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": (
+                            f"application-reminder-{reminder['applicationId']}-{follow_up_date}"
+                        ),
+                    },
+                    json={
+                        "from": resend_from_email,
+                        "to": [reminder["email"]],
+                        "subject": f"Follow-up reminder: {reminder['position']} at {reminder['company']}",
+                        "text": (
+                            f"Your follow-up reminder for {reminder['position']} at "
+                            f"{reminder['company']} is due ({follow_up_date}). "
+                            "Open JobHunter to review the application and your next step. "
+                            "You can turn off email reminders in Settings."
+                        ),
+                    },
+                )
+            except httpx.HTTPError:
+                logger.error("Reminder email delivery request failed.")
+
+            if response is not None and response.is_success:
+                await db.execute_raw(
+                    'UPDATE "ApplicationReminderDelivery" SET "status" = \'SENT\', "sentAt" = NOW() '
+                    'WHERE "id" = $1',
+                    claimed[0]["id"],
+                )
+                sent += 1
+            else:
+                if response is not None:
+                    logger.error(
+                        "Reminder email provider returned HTTP %s.",
+                        response.status_code,
+                    )
+                await db.execute_raw(
+                    'UPDATE "ApplicationReminderDelivery" SET "status" = \'FAILED\' '
+                    'WHERE "id" = $1',
+                    claimed[0]["id"],
+                )
+                failed += 1
+
+    return {"sent": sent, "failed": failed, "skipped": skipped}
 
 @app.get("/api/v1/applications/status-history")
 async def get_application_status_history(

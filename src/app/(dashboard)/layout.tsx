@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
+import { ApplicationReminderWatcher } from "@/components/dashboard/application-reminders";
 
 export const metadata = {
   robots: {
@@ -15,6 +16,7 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="flex h-dvh overflow-hidden bg-[#090a0f] text-slate-100">
+      <ApplicationReminderWatcher />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         <Header />

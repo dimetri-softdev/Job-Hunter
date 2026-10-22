@@ -24,6 +24,8 @@ model User {
   applications      Application[]
   applicationActivities ApplicationActivity[]
   applicationStatusHistory ApplicationStatusHistory[]
+  reminderPreference UserReminderPreference?
+  reminderDeliveries ApplicationReminderDelivery[]
   subscription      UserSubscription?
   billingUsage      BillingUsageEvent[]
   createdAt         DateTime       @default(now())
@@ -82,6 +84,7 @@ model Application {
   roadmaps       Roadmap[]
   activities     ApplicationActivity[]
   statusHistory  ApplicationStatusHistory[]
+  reminderDeliveries ApplicationReminderDelivery[]
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
@@ -115,6 +118,30 @@ model ApplicationStatusHistory {
 
   @@index([applicationId, changedAt])
   @@index([userId, changedAt])
+}
+
+model UserReminderPreference {
+  userId       String   @id
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailEnabled Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ApplicationReminderDelivery {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  followUpAt    DateTime    @db.Date
+  status        String      @default("PROCESSING")
+  attempts      Int         @default(1)
+  attemptedAt   DateTime    @default(now())
+  sentAt        DateTime?
+
+  @@unique([applicationId, followUpAt])
+  @@index([userId, attemptedAt])
 }
 
 model FeedbackResponse {

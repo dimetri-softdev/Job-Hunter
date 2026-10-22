@@ -14,7 +14,7 @@ Job Hunter is a web application designed to streamline the job search process. I
 *   **Resume Optimization**: Tools to help you craft and refine your resume for different positions.
 *   **Cover Letter Studio**: Generate a tailored cover letter from your resume and completed roadmap proof.
 *   **Interview Practice**: Generate role-focused mock questions and get optional, consent-based coaching on your answers.
-*   **Follow-up Sequences**: Prepare editable, stage-aware email sequences without automatically scheduling or sending messages.
+*   **Follow-up Sequences**: Prepare editable, stage-aware email drafts, with optional opt-in application reminders by email or browser notification.
 *   **Portfolio Management**: Manage and showcase your GitHub portfolio and professional projects.
 *   **Profile Enhancement**: Resources to optimize your LinkedIn and other professional profiles.
 *   **Organized Workflow**: Stay on top of your job hunt with an intuitive and responsive interface.
@@ -121,6 +121,25 @@ npx prisma generate
 ```
 
 The migration adds review metadata to feedback and the database-managed administrator table. Ensure the Node service uses the same PostgreSQL `DATABASE_URL` as the Prisma migration setup. Deleting an account permanently removes its Supabase identity and associated application data; the dashboard requires typing the account email to confirm.
+
+### Application reminder delivery
+
+Email reminders are opt-in in dashboard Settings. Configure these private environment variables on the FastAPI service:
+
+```env
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM_EMAIL=verified-sender@example.com
+REMINDER_CRON_SECRET=long-random-secret
+```
+
+Verify the sender domain with Resend before enabling delivery. Add an hourly cron job (for example, a Render Cron Job) that can reach the deployed API, with `JOBHUNTER_API_URL` set to the API base URL ending in `/api/v1` and `REMINDER_CRON_SECRET` set to the same secret as the API service. Hourly runs allow transient failures to be retried within Resend's 24-hour idempotency window. Use this command for the job:
+
+```sh
+curl --fail --silent --show-error -X POST "$JOBHUNTER_API_URL/internal/reminders/send" \
+  -H "X-Reminder-Cron-Secret: $REMINDER_CRON_SECRET"
+```
+
+The endpoint sends reminders only for opted-in accounts and due follow-up dates. Successful sends are recorded so repeated job runs do not resend for the same application and date. Failed sends are retried at most three times, no sooner than six hours apart, while Resend's idempotency key protects retries within its 24-hour window. Browser notifications require permission and the signed-in dashboard to remain open in that browser.
 
 ### Password requirements
 
