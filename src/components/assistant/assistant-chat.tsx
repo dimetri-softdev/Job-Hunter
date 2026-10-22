@@ -408,7 +408,7 @@ export function AssistantChat({
                 activeMode === "product"
                   ? "bg-blue-500/25 text-blue-100 shadow-sm ring-1 ring-blue-300/25"
                   : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
-              }`}
+              } disabled:cursor-not-allowed disabled:opacity-45`}
             >
               <CircleHelp className="size-3.5" aria-hidden="true" />
               Product help
@@ -753,8 +753,9 @@ export function AssistantChat({
           </div>
         )}
         <p className="text-[11px] leading-4 text-slate-400">
-          Messages you send are processed by our AI provider. Don’t include
-          passwords, verification codes, or financial account details.{" "}
+          Your message and recent chat history are processed by our AI provider.
+          Don’t include passwords, verification codes, or financial account
+          details.{" "}
           <Link
             href="/privacy"
             className="text-blue-300 underline decoration-blue-300/40 underline-offset-2 hover:text-blue-200"
