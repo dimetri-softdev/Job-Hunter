@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
+import { SupportContactLink } from "@/components/support-contact-link";
 
 export function PublicSiteFooter() {
   return (
@@ -31,12 +32,11 @@ export function PublicSiteFooter() {
           >
             About
           </Link>
-          <a
-            href="mailto:jobhunter408@gmail.com"
+          <SupportContactLink
             className="text-slate-400 transition-colors hover:text-white"
           >
             Contact support
-          </a>
+          </SupportContactLink>
           <Link
             href="/login"
             className="text-slate-400 transition-colors hover:text-white"

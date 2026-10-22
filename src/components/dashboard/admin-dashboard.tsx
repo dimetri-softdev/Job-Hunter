@@ -3,12 +3,21 @@
 import { useState } from "react";
 import { AdminFeedbackPanel } from "@/components/dashboard/admin-feedback-panel";
 import { AdminBillingPanel } from "@/components/dashboard/admin-billing-panel";
+import { AdminSupportPanel } from "@/components/dashboard/admin-support-panel";
 import { AdminUsersPanel } from "@/components/dashboard/admin-users-panel";
 
 type AdminSection = "feedback" | "users" | "billing";
+type AdminSectionWithSupport = AdminSection | "support";
+
+const ADMIN_SECTIONS: { value: AdminSectionWithSupport; label: string }[] = [
+  { value: "feedback", label: "Feedback" },
+  { value: "users", label: "Users & admins" },
+  { value: "billing", label: "Billing" },
+  { value: "support", label: "Support" },
+];
 
 export function AdminDashboard() {
-  const [section, setSection] = useState<AdminSection>("feedback");
+  const [section, setSection] = useState<AdminSectionWithSupport>("feedback");
 
   return (
     <div className="space-y-5">
@@ -17,13 +26,7 @@ export function AdminDashboard() {
         aria-label="Admin dashboard sections"
         className="flex gap-2 border-b border-[#1f212d]"
       >
-        {(
-          [
-            ["feedback", "Feedback"],
-            ["users", "Users & admins"],
-            ["billing", "Billing"],
-          ] as const
-        ).map(([value, label]) => (
+        {ADMIN_SECTIONS.map(({ value, label }) => (
           <button
             key={value}
             id={`admin-tab-${value}`}
@@ -34,22 +37,21 @@ export function AdminDashboard() {
             tabIndex={section === value ? 0 : -1}
             onClick={() => setSection(value)}
             onKeyDown={(event) => {
-              const next =
+              const direction =
                 event.key === "ArrowRight"
-                  ? value === "feedback"
-                    ? "users"
-                    : value === "users"
-                      ? "billing"
-                      : "feedback"
+                  ? 1
                   : event.key === "ArrowLeft"
-                    ? value === "users"
-                      ? "feedback"
-                      : value === "billing"
-                        ? "users"
-                        : "billing"
-                    : null;
-              if (next) {
+                    ? -1
+                    : 0;
+              if (direction) {
                 event.preventDefault();
+                const currentIndex = ADMIN_SECTIONS.findIndex(
+                  (sectionItem) => sectionItem.value === value,
+                );
+                const nextIndex =
+                  (currentIndex + direction + ADMIN_SECTIONS.length) %
+                  ADMIN_SECTIONS.length;
+                const next = ADMIN_SECTIONS[nextIndex].value;
                 setSection(next);
                 document.getElementById(`admin-tab-${next}`)?.focus();
               }
@@ -74,8 +76,10 @@ export function AdminDashboard() {
           <AdminFeedbackPanel />
         ) : section === "users" ? (
           <AdminUsersPanel />
-        ) : (
+        ) : section === "billing" ? (
           <AdminBillingPanel />
+        ) : (
+          <AdminSupportPanel />
         )}
       </div>
     </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PublicSiteFooter } from "@/components/public-site-footer";
 import { PublicSiteHeader } from "@/components/public-site-header";
+import { SupportContactLink } from "@/components/support-contact-link";
 
 export const metadata = {
   title: "Privacy",
@@ -59,8 +60,8 @@ export default function PrivacyPage() {
             <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
               This plain-language draft describes the data flows currently
               visible in the product code. It is not legal advice or a complete
-              privacy policy. The product owner should verify it and add a
-              working privacy contact before publishing it as final.
+              privacy policy. The product owner should review it before treating
+              it as final.
             </p>
           </div>
         </section>
@@ -180,12 +181,10 @@ export default function PrivacyPage() {
             </h2>
             <p className="mt-3 text-sm leading-6 text-slate-400">
               Contact JobHunter at{" "}
-              <a
-                href="mailto:jobhunter408@gmail.com"
+              <SupportContactLink
                 className="font-medium text-blue-300 underline decoration-blue-300/40 underline-offset-4 hover:text-blue-200"
               >
-                jobhunter408@gmail.com
-              </a>
+              </SupportContactLink>
               .
             </p>
           </section>
@@ -198,7 +197,7 @@ export default function PrivacyPage() {
               id="review-heading"
               className="text-sm font-semibold text-amber-100"
             >
-              Before this draft is published as final
+              Before this draft is treated as final
             </h2>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-amber-100/75">
               <li>
