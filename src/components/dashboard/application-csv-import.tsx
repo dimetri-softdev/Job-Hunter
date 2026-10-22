@@ -22,6 +22,8 @@ import type {
 interface ImportedApplication {
   company: string;
   position: string;
+  contactName: string | null;
+  contactEmail: string | null;
   status: string;
   notes: string | null;
   jobUrl: string | null;
@@ -162,6 +164,8 @@ function parseApplicationsCsv(input: string): ImportedApplication[] {
 
     const company = get("company").trim();
     const position = get("position").trim();
+    const contactName = get("contact name").trim();
+    const contactEmail = get("contact email").trim();
     const status = get("status").trim();
     if (!company || !position) {
       throw new Error(`CSV record ${recordIndex + 2} needs a company and position.`);
@@ -289,6 +293,8 @@ function parseApplicationsCsv(input: string): ImportedApplication[] {
     return {
       company,
       position,
+      contactName: contactName || null,
+      contactEmail: contactEmail || null,
       status,
       jobUrl: jobUrl || null,
       jobSummary: get("job summary").trim() ? get("job summary") : null,

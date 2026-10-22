@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Building2,
+  CalendarDays,
   Download,
   Loader2,
   Pencil,
@@ -30,6 +31,7 @@ import { JobFitModal } from "@/components/dashboard/job-fit-modal";
 import { JobGapRoadmap } from "@/components/dashboard/job-gap-roadmap";
 import { JobProofSprint } from "@/components/dashboard/job-proof-sprint";
 import { ApplicationAssistant } from "@/components/dashboard/application-assistant";
+import { ApplicationActivity } from "@/components/dashboard/application-activity";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { fetcher } from "@/lib/api";
 import { ExternalLink } from "lucide-react";
@@ -55,6 +57,8 @@ interface Application {
   roadmaps?: ApplicationRoadmap[];
   nextAction?: string | null;
   followUpAt?: string | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
 }
 
 const STATUSES = [
@@ -121,7 +125,13 @@ export default function ApplicationsPage() {
   const filteredApplications = applications.filter((application) => {
     const matchesSearch =
       !normalizedSearch ||
-      [application.company, application.position, application.nextAction]
+      [
+        application.company,
+        application.position,
+        application.nextAction,
+        application.contactName,
+        application.contactEmail,
+      ]
         .some((value) => value?.toLocaleLowerCase().includes(normalizedSearch));
     const matchesStatus =
       statusFilter === "ALL" || application.status === statusFilter;
@@ -161,6 +171,8 @@ export default function ApplicationsPage() {
           jobUrl: app.jobUrl ?? null,
           nextAction: app.nextAction ?? null,
           followUpAt: app.followUpAt?.slice(0, 10) ?? null,
+          contactName: app.contactName ?? null,
+          contactEmail: app.contactEmail ?? null,
         }),
       });
       replaceApplication(updated);
@@ -191,6 +203,8 @@ export default function ApplicationsPage() {
             jobUrl: formData.get("jobUrl") || null,
             nextAction: formData.get("nextAction") || null,
             followUpAt: formData.get("followUpAt") || null,
+            contactName: formData.get("contactName") || null,
+            contactEmail: formData.get("contactEmail") || null,
           }),
         },
       );
@@ -262,6 +276,8 @@ export default function ApplicationsPage() {
   function handleExportCsv() {
     const columns = [
       "Company",
+      "Contact Name",
+      "Contact Email",
       "Position",
       "Status",
       "Created At",
@@ -286,6 +302,8 @@ export default function ApplicationsPage() {
     ];
     const rows = applications.map((application) => [
       application.company,
+      application.contactName,
+      application.contactEmail,
       application.position,
       application.status,
       application.createdAt,
@@ -376,6 +394,8 @@ export default function ApplicationsPage() {
           notes: formData.get("notes") || null,
           nextAction: formData.get("nextAction") || null,
           followUpAt: formData.get("followUpAt") || null,
+          contactName: formData.get("contactName") || null,
+          contactEmail: formData.get("contactEmail") || null,
         }),
       });
       setApplications((current) => [application, ...current]);
@@ -433,6 +453,25 @@ export default function ApplicationsPage() {
       </div>
     );
   }
+
+  const activeApplications = applications.filter(
+    (application) =>
+      !["OFFERED", "REJECTED", "WITHDRAWN"].includes(application.status),
+  );
+  const interviews = applications.filter((application) =>
+    ["PHONE_SCREEN", "INTERVIEWING"].includes(application.status),
+  );
+  const dueReminders = applications.filter((application) => {
+    const reminder = getReminderStatus(application.followUpAt);
+    return (
+      reminder?.label === "Due today" ||
+      reminder?.label.startsWith("Due in ")
+    );
+  });
+  const overdueReminders = applications.filter(
+    (application) =>
+      getReminderStatus(application.followUpAt)?.label === "Overdue",
+  );
 
   return (
     <div className="w-full space-y-6">
@@ -558,6 +597,41 @@ export default function ApplicationsPage() {
                     )}
                   </div>
                 </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="contactName"
+                      className="text-xs font-medium text-slate-300"
+                    >
+                      Recruiter or contact{" "}
+                      <span className="text-slate-500">(optional)</span>
+                    </label>
+                    <Input
+                      id="contactName"
+                      name="contactName"
+                      maxLength={120}
+                      placeholder="e.g. Alex Morgan"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="contactEmail"
+                      className="text-xs font-medium text-slate-300"
+                    >
+                      Contact email{" "}
+                      <span className="text-slate-500">(optional)</span>
+                    </label>
+                    <Input
+                      id="contactEmail"
+                      name="contactEmail"
+                      type="email"
+                      maxLength={254}
+                      placeholder="alex@example.com"
+                      className={fieldClass}
+                    />
+                  </div>
+                </div>
               </section>
 
               <section className="space-y-3">
@@ -667,6 +741,55 @@ export default function ApplicationsPage() {
 
       {applications.length > 0 && (
         <section
+          aria-label="Job search overview"
+          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        >
+          {[
+            {
+              label: "Active applications",
+              value: activeApplications.length,
+              detail: "Still moving through the pipeline",
+            },
+            {
+              label: "Interviews",
+              value: interviews.length,
+              detail: "Phone screens and interview stages",
+            },
+            {
+              label: "Due soon",
+              value: dueReminders.length,
+              detail: "Reminders due today or within 7 days",
+            },
+            {
+              label: "Overdue",
+              value: overdueReminders.length,
+              detail: "Follow-ups that need attention",
+            },
+          ].map((metric) => (
+            <div
+              key={metric.label}
+              className="rounded-xl border border-[#1f212d] bg-[#12131a] p-4"
+            >
+              <div className="flex items-center gap-2 text-slate-400">
+                <CalendarDays
+                  className="size-4 text-blue-300"
+                  aria-hidden="true"
+                />
+                <span className="text-[11px] font-medium">{metric.label}</span>
+              </div>
+              <p className="mt-3 text-2xl font-semibold text-white">
+                {metric.value}
+              </p>
+              <p className="mt-1 text-[10px] text-slate-500">
+                {metric.detail}
+              </p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {applications.length > 0 && (
+        <section
           aria-label="Filter applications"
           className="grid gap-3 rounded-xl border border-[#1f212d] bg-[#12131a] p-4 sm:grid-cols-3"
         >
@@ -758,6 +881,19 @@ export default function ApplicationsPage() {
                           <div className="text-slate-400 text-[11px]">
                             {app.company}
                           </div>
+                          {(app.contactName || app.contactEmail) && (
+                            <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] text-slate-500">
+                              {app.contactName && <span>{app.contactName}</span>}
+                              {app.contactEmail && (
+                                <a
+                                  href={`mailto:${app.contactEmail}`}
+                                  className="text-blue-300 hover:text-blue-200"
+                                >
+                                  {app.contactEmail}
+                                </a>
+                              )}
+                            </div>
+                          )}
                           {app.jobSummary && (
                             <div className="mt-1 max-w-xl line-clamp-2 text-[11px] leading-4 text-slate-500">
                               {app.jobSummary}
@@ -915,6 +1051,10 @@ export default function ApplicationsPage() {
                           Delete
                         </Button>
                       </div>
+                      <ApplicationActivity
+                        key={`${app.id}-${app.status}`}
+                        applicationId={app.id}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -1006,6 +1146,43 @@ export default function ApplicationsPage() {
                   placeholder="https://"
                   className={fieldClass}
                 />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-contactName"
+                    className="text-xs text-slate-300"
+                  >
+                    Recruiter or contact{" "}
+                    <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <Input
+                    id="edit-contactName"
+                    name="contactName"
+                    maxLength={120}
+                    defaultValue={editing.contactName ?? ""}
+                    placeholder="e.g. Alex Morgan"
+                    className={fieldClass}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-contactEmail"
+                    className="text-xs text-slate-300"
+                  >
+                    Contact email{" "}
+                    <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <Input
+                    id="edit-contactEmail"
+                    name="contactEmail"
+                    type="email"
+                    maxLength={254}
+                    defaultValue={editing.contactEmail ?? ""}
+                    placeholder="alex@example.com"
+                    className={fieldClass}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <label htmlFor="edit-notes" className="text-xs text-slate-300">

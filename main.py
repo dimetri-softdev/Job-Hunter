@@ -2032,7 +2032,7 @@ async def update_application(
 
     async with db.tx() as transaction:
         previous = await transaction.query_raw(
-            'SELECT "status" FROM "Application" WHERE "id" = $1 AND "userId" = $2',
+            'SELECT "status" FROM "Application" WHERE "id" = $1 AND "userId" = $2 FOR UPDATE',
             application_id,
             user_id,
         )
