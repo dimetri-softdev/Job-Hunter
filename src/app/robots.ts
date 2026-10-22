@@ -24,6 +24,11 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
+        userAgent: "Google-InspectionTool",
+        allow: "/",
+        disallow: privatePaths,
+      },
+      {
         userAgent: "Googlebot",
         allow: "/",
         disallow: privatePaths,
