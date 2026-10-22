@@ -7,10 +7,6 @@ export const metadata = {
   title: "Privacy",
   description:
     "How JobHunter handles account information, applications, documents, and AI features.",
-  robots: {
-    index: false,
-    follow: false,
-  },
 };
 
 const dataWeStore = [
