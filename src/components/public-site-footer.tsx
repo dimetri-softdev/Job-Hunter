@@ -39,6 +39,12 @@ export function PublicSiteFooter() {
             Terms
           </Link>
           <Link
+            href="/privacy"
+            className="text-slate-400 transition-colors hover:text-white"
+          >
+            Privacy
+          </Link>
+          <Link
             href="/refunds"
             className="text-slate-400 transition-colors hover:text-white"
           >
