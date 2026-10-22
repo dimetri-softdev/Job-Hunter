@@ -191,6 +191,29 @@ export default function AnalyticsPage() {
   }))
     .filter((item) => item.count > 0)
     .sort((left, right) => right.count - left.count);
+  const sourceProgressRows = APPLICATION_SOURCES.map((source) => {
+    const submitted = applications.filter(
+      (application) =>
+        application.source === source &&
+        SUBMITTED_STATUSES.has(application.status),
+    );
+    const progressed = submitted.filter((application) =>
+      PROGRESSED_STATUSES.has(application.status),
+    ).length;
+    return {
+      source,
+      submitted: submitted.length,
+      progressed,
+      rate: submitted.length
+        ? Math.round((progressed / submitted.length) * 100)
+        : 0,
+    };
+  })
+    .filter((item) => item.submitted > 0)
+    .sort(
+      (left, right) =>
+        right.rate - left.rate || right.submitted - left.submitted,
+    );
   const maximumSourceCount = Math.max(
     1,
     ...sourceCounts.map((item) => item.count),
@@ -516,6 +539,47 @@ export default function AnalyticsPage() {
                   no source recorded.
                 </p>
               )}
+              <div className="mt-6 border-t border-[#1f212d] pt-5">
+                <h3 className="text-xs font-semibold text-slate-200">
+                  Source progression signals
+                </h3>
+                <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                  Of submitted applications, how many are currently at phone
+                  screen, interview, or offer stage. This is a small-sample
+                  snapshot, not proof that a source caused an outcome.
+                </p>
+                {sourceProgressRows.length === 0 ? (
+                  <p className="mt-3 text-xs text-slate-500">
+                    Add a source to submitted applications to compare these
+                    early signals.
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {sourceProgressRows.map((row) => (
+                      <div key={row.source} className="space-y-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                          <span className="text-slate-300">{row.source}</span>
+                          <span className="font-mono text-slate-400">
+                            {row.progressed}/{row.submitted} progressed ·{" "}
+                            {row.rate}%
+                            {row.submitted < 3 ? " · early signal" : ""}
+                          </span>
+                        </div>
+                        <div
+                          className="h-1.5 overflow-hidden rounded-full bg-[#1f212d]"
+                          role="img"
+                          aria-label={`${row.source}: ${row.progressed} of ${row.submitted} submitted applications progressed`}
+                        >
+                          <div
+                            className="h-full rounded-full bg-emerald-500"
+                            style={{ width: `${row.rate}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
