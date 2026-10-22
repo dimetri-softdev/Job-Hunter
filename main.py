@@ -2209,6 +2209,17 @@ async def get_applications(user_id: str = Depends(get_current_user)):
         user_id,
     )
 
+@app.get("/api/v1/applications/status-history")
+async def get_application_status_history(
+    user_id: str = Depends(get_current_user),
+):
+    return await db.query_raw(
+        'SELECT "applicationId", "fromStatus", "toStatus", "changedAt", "isBaseline" '
+        'FROM "ApplicationStatusHistory" WHERE "userId" = $1 '
+        'ORDER BY "changedAt" ASC, "id" ASC',
+        user_id,
+    )
+
 @app.get("/api/v1/applications/{application_id}/activities")
 async def get_application_activities(
     application_id: str,

@@ -46,6 +46,14 @@ interface ApplicationOutcome {
   offerDetails?: OfferDetails | null;
 }
 
+interface ApplicationStatusEvent {
+  applicationId: string;
+  fromStatus: string | null;
+  toStatus: string;
+  changedAt: string;
+  isBaseline: boolean;
+}
+
 const APPLICATION_STAGES = [
   { value: "SAVED", label: "Saved" },
   { value: "APPLIED", label: "Applied" },
@@ -56,19 +64,19 @@ const APPLICATION_STAGES = [
   { value: "WITHDRAWN", label: "Withdrawn" },
 ];
 
-const SUBMITTED_STATUSES = new Set([
-  "APPLIED",
-  "PHONE_SCREEN",
-  "INTERVIEWING",
-  "OFFERED",
-  "REJECTED",
-]);
+const CONVERSION_STAGES = [
+  { value: "APPLIED", next: "PHONE_SCREEN", label: "Applied → Phone screen" },
+  { value: "PHONE_SCREEN", next: "INTERVIEWING", label: "Phone screen → Interview" },
+  { value: "INTERVIEWING", next: "OFFERED", label: "Interview → Offer" },
+] as const;
 
-const PROGRESSED_STATUSES = new Set([
-  "PHONE_SCREEN",
-  "INTERVIEWING",
-  "OFFERED",
-]);
+const STAGE_RANK: Record<string, number> = {
+  SAVED: 0,
+  APPLIED: 1,
+  PHONE_SCREEN: 2,
+  INTERVIEWING: 3,
+  OFFERED: 4,
+};
 
 const FIT_VERDICTS: { value: FitVerdict; label: string }[] = [
   { value: "STRONG_MATCH", label: "Strong match" },
@@ -83,6 +91,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [applications, setApplications] = useState<ApplicationOutcome[]>([]);
+  const [statusHistory, setStatusHistory] = useState<ApplicationStatusEvent[]>([]);
   const [applicationsLoading, setApplicationsLoading] = useState(true);
   const [applicationsError, setApplicationsError] = useState<string | null>(
     null,
@@ -110,11 +119,15 @@ export default function AnalyticsPage() {
   useEffect(() => {
     async function loadApplications() {
       try {
-        const data = await fetcher<ApplicationOutcome[]>("/applications");
-        if (!Array.isArray(data)) {
-          throw new Error("Unexpected applications response.");
+        const [applicationData, historyData] = await Promise.all([
+          fetcher<ApplicationOutcome[]>("/applications"),
+          fetcher<ApplicationStatusEvent[]>("/applications/status-history"),
+        ]);
+        if (!Array.isArray(applicationData) || !Array.isArray(historyData)) {
+          throw new Error("Unexpected application analytics response.");
         }
-        setApplications(data);
+        setApplications(applicationData);
+        setStatusHistory(historyData);
       } catch (loadError) {
         setApplicationsError(
           loadError instanceof Error
@@ -129,17 +142,54 @@ export default function AnalyticsPage() {
     loadApplications();
   }, []);
 
+  const statusEventsByApplication = new Map<string, ApplicationStatusEvent[]>();
+  for (const event of statusHistory) {
+    const events = statusEventsByApplication.get(event.applicationId) ?? [];
+    events.push(event);
+    statusEventsByApplication.set(event.applicationId, events);
+  }
+  for (const events of statusEventsByApplication.values()) {
+    events.sort(
+      (left, right) =>
+        new Date(left.changedAt).getTime() - new Date(right.changedAt).getTime(),
+    );
+  }
+  function hasProgressedFrom(applicationId: string, stage: string) {
+    const events = statusEventsByApplication.get(applicationId) ?? [];
+    return events.some(
+      (event) =>
+        !event.isBaseline &&
+        event.fromStatus === stage &&
+        (STAGE_RANK[event.toStatus] ?? -1) > (STAGE_RANK[stage] ?? -1),
+    );
+  }
+  function hasTransitionedTo(
+    applicationId: string,
+    fromStatus: string,
+    toStatus: string,
+  ) {
+    const events = statusEventsByApplication.get(applicationId) ?? [];
+    return events.some(
+      (event) =>
+        !event.isBaseline &&
+        event.fromStatus === fromStatus &&
+        event.toStatus === toStatus,
+    );
+  }
+
   const submittedAssessments = applications.filter(
     (application) =>
       application.fitAssessment &&
-      SUBMITTED_STATUSES.has(application.status),
+      (statusEventsByApplication.get(application.id) ?? []).some(
+        (event) => event.toStatus === "APPLIED",
+      ),
   );
   const fitOutcomeRows = FIT_VERDICTS.map((verdict) => {
     const matchingApplications = submittedAssessments.filter(
       (application) => application.fitAssessment?.verdict === verdict.value,
     );
     const progressed = matchingApplications.filter((application) =>
-      PROGRESSED_STATUSES.has(application.status),
+      hasProgressedFrom(application.id, "APPLIED"),
     ).length;
     return {
       ...verdict,
@@ -195,10 +245,12 @@ export default function AnalyticsPage() {
     const submitted = applications.filter(
       (application) =>
         application.source === source &&
-        SUBMITTED_STATUSES.has(application.status),
+        (statusEventsByApplication.get(application.id) ?? []).some(
+          (event) => event.toStatus === "APPLIED",
+        ),
     );
     const progressed = submitted.filter((application) =>
-      PROGRESSED_STATUSES.has(application.status),
+      hasProgressedFrom(application.id, "APPLIED"),
     ).length;
     return {
       source,
@@ -214,6 +266,24 @@ export default function AnalyticsPage() {
       (left, right) =>
         right.rate - left.rate || right.submitted - left.submitted,
     );
+  const conversionRows = CONVERSION_STAGES.map((stage) => {
+    const entered = applications.filter((application) =>
+      (statusEventsByApplication.get(application.id) ?? []).some(
+        (event) => event.toStatus === stage.value,
+      ),
+    );
+    const progressed = entered.filter((application) =>
+      hasTransitionedTo(application.id, stage.value, stage.next),
+    ).length;
+    return {
+      ...stage,
+      entered: entered.length,
+      progressed,
+      rate: entered.length
+        ? Math.round((progressed / entered.length) * 100)
+        : 0,
+    };
+  });
   const maximumSourceCount = Math.max(
     1,
     ...sourceCounts.map((item) => item.count),
@@ -544,9 +614,10 @@ export default function AnalyticsPage() {
                   Source progression signals
                 </h3>
                 <p className="mt-1 text-[10px] leading-4 text-slate-500">
-                  Of submitted applications, how many are currently at phone
-                  screen, interview, or offer stage. This is a small-sample
-                  snapshot, not proof that a source caused an outcome.
+                  Of applications with an observed Applied stage, how many
+                  later made a recorded move to a later stage. This is a
+                  small-sample pattern, not proof that a source caused an
+                  outcome.
                 </p>
                 {sourceProgressRows.length === 0 ? (
                   <p className="mt-3 text-xs text-slate-500">
@@ -581,6 +652,61 @@ export default function AnalyticsPage() {
                 )}
               </div>
             </div>
+          </>
+        )}
+      </section>
+
+      <section className="space-y-5 rounded-xl border border-[#1f212d] bg-[#12131a] p-6">
+        <div className="border-b border-[#1f212d] pb-3">
+          <h2 className="text-sm font-semibold text-white">
+            Observed stage transitions
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            These counts use recorded status changes, not today&apos;s pipeline
+            to guess past movement. Each percentage is the share of tracked
+            applications that entered a stage and later made the specific next
+            transition.
+          </p>
+        </div>
+        {applicationsLoading ? (
+          <div className="flex items-center gap-2 py-2 text-xs text-slate-400">
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            Loading recorded stage changes...
+          </div>
+        ) : applicationsError ? (
+          <p role="alert" className="text-xs text-rose-400">
+            {applicationsError}
+          </p>
+        ) : (
+          <>
+            <div className="grid gap-3 md:grid-cols-3">
+              {conversionRows.map((row) => (
+                <article
+                  key={row.value}
+                  className="rounded-lg border border-[#1f212d] bg-[#0d0e14] p-4"
+                >
+                  <h3 className="text-xs font-semibold text-slate-200">
+                    {row.label}
+                  </h3>
+                  <p className="mt-3 text-2xl font-semibold text-white">
+                    {row.progressed}
+                    <span className="text-sm font-normal text-slate-500">
+                      {" "}
+                      / {row.entered}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    {row.rate}% made this recorded transition
+                  </p>
+                </article>
+              ))}
+            </div>
+            <p className="text-[10px] leading-4 text-slate-500">
+              Tracking starts when this feature is deployed. Existing
+              applications are recorded as a starting snapshot; their earlier
+              transitions are not reconstructed. Newly recorded transitions
+              reflect status changes saved in JobHunter.
+            </p>
           </>
         )}
       </section>
@@ -625,8 +751,8 @@ export default function AnalyticsPage() {
                   Your job-search playbook
                 </h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  How your saved fit assessments relate to your application
-                  progress.
+                  How saved fit assessments relate to later status changes
+                  recorded in your application history.
                 </p>
               </div>
               <Link
@@ -648,16 +774,17 @@ export default function AnalyticsPage() {
               </p>
             ) : fitOutcomeRows.length === 0 ? (
               <p className="py-3 text-xs leading-5 text-slate-400">
-                As you save fit assessments and move applications beyond Saved,
-                this will show which fit categories have reached a phone screen,
-                interview, or offer in your own history.
+                As applications with saved fit assessments move from Applied to
+                later stages, this will summarize the transitions recorded
+                after status tracking begins.
               </p>
             ) : (
               <>
                 <p className="text-[11px] leading-5 text-slate-500">
-                  Progress means reaching phone screen, interviewing, or offered.
-                  Saved and withdrawn roles are excluded. These are patterns in
-                  your tracker, not proof that a fit score caused an outcome.
+                  Progress means a recorded transition out of Applied to a
+                  later stage. These are personal patterns, not proof that a
+                  fit score caused an outcome. Status history begins with this
+                  feature; older transitions are not reconstructed.
                 </p>
                 {establishedFitPatterns.length > 0 && (
                   <p className="rounded-lg border border-blue-500/20 bg-blue-500/[0.04] px-3 py-2 text-xs leading-5 text-blue-100">

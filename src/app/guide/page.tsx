@@ -131,7 +131,7 @@ const guides = [
       "Start with Your first steps on the Career Dashboard; completed items are recognized from your saved profile, applications, roadmaps, and tasks.",
       "Use Career Momentum to recognize milestones as you make progress.",
       "Choose Hide or Show on a section, or use Show all and Hide all to adjust the dashboard layout. Your selection is stored in this browser.",
-      "Open Analytics to see your current application pipeline, follow-ups due soon, the mix of sources you record, and early source-progression signals based on current tracker stages. These small personal samples are not proof that a source caused an outcome. If you have offers, compare factors like pay, commute, learning, and work-life balance—the scores do not make the choice for you.",
+      "Open Analytics to see your current application pipeline, follow-ups due soon, the mix of sources you record, and stage-to-stage conversion based on saved status changes. Existing applications start from a snapshot when tracking is deployed; older transitions are not reconstructed. These personal samples are not proof that a source or fit assessment caused an outcome. If you have offers, compare factors like pay, commute, learning, and work-life balance—the scores do not make the choice for you.",
     ],
     href: "/login",
     linkLabel: "Explore your dashboard",

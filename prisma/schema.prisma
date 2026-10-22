@@ -23,6 +23,7 @@ model User {
   roadmaps          Roadmap[]
   applications      Application[]
   applicationActivities ApplicationActivity[]
+  applicationStatusHistory ApplicationStatusHistory[]
   subscription      UserSubscription?
   billingUsage      BillingUsageEvent[]
   createdAt         DateTime       @default(now())
@@ -80,6 +81,7 @@ model Application {
   contactEmail   String?
   roadmaps       Roadmap[]
   activities     ApplicationActivity[]
+  statusHistory  ApplicationStatusHistory[]
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
@@ -98,6 +100,21 @@ model ApplicationActivity {
 
   @@index([applicationId, createdAt])
   @@index([userId, createdAt])
+}
+
+model ApplicationStatusHistory {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromStatus    String?
+  toStatus      String
+  changedAt     DateTime    @default(now())
+  isBaseline    Boolean     @default(false)
+
+  @@index([applicationId, changedAt])
+  @@index([userId, changedAt])
 }
 
 model FeedbackResponse {
@@ -125,7 +142,7 @@ model BillingConfiguration {
 
 model UserSubscription {
   id                     String   @id @default(uuid())
-  userId                 String   @unique
+  userId                 String    @unique
   user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan                   String
   status                 String
