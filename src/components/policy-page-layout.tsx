@@ -23,9 +23,9 @@ export function PolicyPageLayout({
       <main>
         <section className="border-b border-white/10 bg-gradient-to-br from-[#151725] via-[#11121a] to-[#0d0e14]">
           <div className="mx-auto max-w-7xl px-6 py-12 sm:px-10 sm:py-16 lg:px-16">
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/[0.07] px-3 py-1.5 text-xs font-semibold text-amber-100">
-              <span className="size-1.5 rounded-full bg-amber-300" />
-              Draft for review · 22 October 2026
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-400/[0.07] px-3 py-1.5 text-xs font-semibold text-blue-100">
+              <span className="size-1.5 rounded-full bg-blue-300" />
+              Policy · Updated 22 October 2026
             </div>
             <h1 className="mt-5 text-3xl font-semibold tracking-tight text-white sm:text-5xl">
               {title}
@@ -62,15 +62,6 @@ export function PolicyPageLayout({
               </ol>
             </nav>
 
-            <div className="rounded-2xl border border-amber-300/20 bg-amber-400/[0.05] p-4">
-              <p className="text-sm font-semibold text-amber-100">
-                Draft, not final
-              </p>
-              <p className="mt-2 text-xs leading-5 text-amber-100/75">
-                Review the policy and confirm all service and legal details
-                before relying on or distributing it as final.
-              </p>
-            </div>
           </aside>
 
           <article className="min-w-0 space-y-4">

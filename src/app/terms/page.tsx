@@ -4,11 +4,8 @@ import { SupportContactLink } from "@/components/support-contact-link";
 
 export const metadata = {
   title: "Terms of Service",
-  description: "Draft terms for using JobHunter.",
-  robots: {
-    index: false,
-    follow: false,
-  },
+  description:
+    "Terms for using JobHunter, including current pilot access and future paid plans.",
 };
 
 const sections = [
@@ -85,7 +82,8 @@ const sections = [
           purchase screen says otherwise or applicable law requires otherwise,
           paid access will remain available until the end of the period already
           paid for. Further details will be published before checkout is
-          enabled.
+          enabled. One-time purchases will not renew; their access period will
+          be stated before purchase.
         </p>
       </>
     ),
@@ -136,7 +134,7 @@ export default function TermsPage() {
   return (
     <PolicyPageLayout
       title="Terms of Service"
-      description="A plain-language draft covering the JobHunter pilot and proposed future plans. It is not a final legal agreement until the operator details are confirmed and the terms are reviewed."
+      description="The rules for using JobHunter, including the current free pilot and how any future paid plans are intended to work."
       sections={sections}
     />
   );

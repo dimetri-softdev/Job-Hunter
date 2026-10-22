@@ -3,11 +3,8 @@ import { SupportContactLink } from "@/components/support-contact-link";
 
 export const metadata = {
   title: "Refunds and Cancellation",
-  description: "Draft refund and cancellation policy for JobHunter.",
-  robots: {
-    index: false,
-    follow: false,
-  },
+  description:
+    "JobHunter refund and cancellation information for the current pilot and future paid plans.",
 };
 
 const sections = [
@@ -38,6 +35,7 @@ const sections = [
           Cancelling will stop future renewals. Paid access will normally
           continue until the end of the period already paid for, unless
           applicable law or the purchase terms require a different outcome.
+          The final checkout flow will explain how to submit a cancellation.
         </p>
       </>
     ),
@@ -71,7 +69,8 @@ const sections = [
           To ask for help with a payment, contact support and provide the email
           address associated with your account, transaction date, and payment
           reference or receipt. Do not send full card numbers, passwords, or
-          banking login details.
+          banking login details. Requests will be reviewed fairly under the
+          circumstances and applicable law.
         </p>
       </>
     ),
@@ -94,7 +93,7 @@ export default function RefundsPage() {
   return (
     <PolicyPageLayout
       title="Refunds and Cancellation"
-      description="A draft explaining the current free pilot and the intended approach for future paid plans. It is not a final refund policy until reviewed and approved."
+      description="How cancellation and refund requests are handled during the current pilot and how they are intended to work if paid plans launch."
       sections={sections}
     />
   );
