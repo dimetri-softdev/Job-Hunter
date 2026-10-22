@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,10 @@ interface ApplicationPack {
   coverLetter: string;
   roleSummary: string;
   evidenceToEmphasize: string[];
+  resumeSummary: string;
+  resumeBullets: string[];
+  supportedKeywords: string[];
+  verifyBeforeUsing: string[];
   jobUrl: string;
 }
 
@@ -45,6 +50,8 @@ export function ApplicationAssistant({
   const [consent, setConsent] = useState(false);
   const [jobDescription, setJobDescription] = useState("");
   const [pack, setPack] = useState<ApplicationPack | null>(null);
+  const [resumeSummary, setResumeSummary] = useState("");
+  const [resumeBullets, setResumeBullets] = useState("");
   const [loading, setLoading] = useState(false);
   const [savingDrafts, setSavingDrafts] = useState(false);
   const [draftsSaved, setDraftsSaved] = useState(false);
@@ -55,6 +62,8 @@ export function ApplicationAssistant({
     setConsent(false);
     setJobDescription("");
     setPack(null);
+    setResumeSummary("");
+    setResumeBullets("");
     setDraftsSaved(false);
     setError(null);
     setCopied(null);
@@ -76,6 +85,8 @@ export function ApplicationAssistant({
         },
       );
       setPack(result);
+      setResumeSummary(result.resumeSummary);
+      setResumeBullets(result.resumeBullets.join("\n"));
     } catch (generationError: unknown) {
       setError(
         generationError instanceof Error
@@ -105,6 +116,25 @@ export function ApplicationAssistant({
       pack.roleSummary ? `ROLE SUMMARY\n${pack.roleSummary}` : "",
       pack.evidenceToEmphasize.length > 0
         ? `EVIDENCE TO EMPHASIZE\n${pack.evidenceToEmphasize
+            .map((item) => `- ${item}`)
+            .join("\n")}`
+        : "",
+      resumeSummary.trim()
+        ? `TAILORED RESUME SUMMARY\n${resumeSummary.trim()}`
+        : "",
+      resumeBullets.trim()
+        ? `TAILORED RESUME BULLETS\n${resumeBullets
+            .split("\n")
+            .map((bullet) => bullet.trim())
+            .filter(Boolean)
+            .map((bullet) => `- ${bullet}`)
+            .join("\n")}`
+        : "",
+      pack.supportedKeywords.length > 0
+        ? `PROFILE-SUPPORTED JOB KEYWORDS\n${pack.supportedKeywords.join(", ")}`
+        : "",
+      pack.verifyBeforeUsing.length > 0
+        ? `VERIFY BEFORE CLAIMING\n${pack.verifyBeforeUsing
             .map((item) => `- ${item}`)
             .join("\n")}`
         : "",
@@ -239,7 +269,9 @@ export function ApplicationAssistant({
                 Send my saved career profile and this job&apos;s details to
                 Groq to prepare draft materials. They are not saved to your
                 account unless you choose to save them to this job&apos;s
-                history.
+                history. JobHunter will use only saved profile details, not a
+                resume file, and will distinguish supported terms from
+                requirements you should verify.
               </span>
             </label>
             {error && (
@@ -344,6 +376,111 @@ export function ApplicationAssistant({
                 </ul>
               </section>
             )}
+
+            <section className="space-y-4 rounded-xl border border-blue-500/20 bg-blue-500/[0.04] p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-100">
+                  Resume tailoring brief
+                </h3>
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                  Suggestions are based only on your saved profile. Check every
+                  claim and edit these drafts before using them.
+                </p>
+              </div>
+              {resumeSummary && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <label
+                      htmlFor={`resume-summary-${applicationId}`}
+                      className="text-xs font-medium text-slate-300"
+                    >
+                      Tailored summary
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        void copyText("resume-summary", resumeSummary)
+                      }
+                      className="h-8 border-[#2b2e3b] text-slate-200 hover:bg-[#1f212d]"
+                    >
+                      {copied === "resume-summary" ? <Check /> : <Copy />}
+                      {copied === "resume-summary" ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                  <Textarea
+                    id={`resume-summary-${applicationId}`}
+                    value={resumeSummary}
+                    onChange={(event) => setResumeSummary(event.target.value)}
+                    maxLength={1200}
+                    rows={3}
+                    className="resize-y border-[#2b2e3b] bg-[#101119] text-sm leading-6 text-slate-200"
+                  />
+                </div>
+              )}
+              {resumeBullets && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <label
+                      htmlFor={`resume-bullets-${applicationId}`}
+                      className="text-xs font-medium text-slate-300"
+                    >
+                      Resume bullet suggestions
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        void copyText("resume-bullets", resumeBullets)
+                      }
+                      className="h-8 border-[#2b2e3b] text-slate-200 hover:bg-[#1f212d]"
+                    >
+                      {copied === "resume-bullets" ? <Check /> : <Copy />}
+                      {copied === "resume-bullets" ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                  <Textarea
+                    id={`resume-bullets-${applicationId}`}
+                    value={resumeBullets}
+                    onChange={(event) => setResumeBullets(event.target.value)}
+                    maxLength={1800}
+                    rows={5}
+                    className="resize-y border-[#2b2e3b] bg-[#101119] text-sm leading-6 text-slate-200"
+                  />
+                </div>
+              )}
+              {pack.supportedKeywords.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-medium text-slate-300">
+                    Job terms supported by your profile
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {pack.supportedKeywords.map((keyword) => (
+                      <span
+                        key={keyword}
+                        className="rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-2.5 py-1 text-[10px] text-emerald-200"
+                      >
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {pack.verifyBeforeUsing.length > 0 && (
+                <div className="space-y-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.04] p-3">
+                  <h4 className="text-xs font-medium text-amber-100">
+                    Verify before claiming
+                  </h4>
+                  <ul className="list-inside list-disc space-y-1.5 text-[11px] leading-4 text-amber-100/70">
+                    {pack.verifyBeforeUsing.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
 
             {copied && (
               <p role="status" className="text-xs text-emerald-300">

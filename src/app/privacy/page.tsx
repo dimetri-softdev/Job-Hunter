@@ -40,7 +40,7 @@ const aiFeatures = [
   {
     title: "Groq",
     description:
-      "Used for the assistant, job-post analysis, career-role suggestions, learning roadmaps, Proof Sprints, and application drafts. The information needed for the feature you choose is sent for processing.",
+      "Used for the assistant, job-post analysis, career-role suggestions, learning roadmaps, Proof Sprints, and application drafts. When you explicitly request application drafts, the saved career profile and relevant job details are sent to Groq to prepare a cover letter, resume-tailoring suggestions, and profile-supported job terms.",
   },
 ];
 
