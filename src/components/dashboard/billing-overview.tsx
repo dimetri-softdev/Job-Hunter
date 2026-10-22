@@ -35,6 +35,7 @@ const FEATURE_ORDER = [
   "roadmap_generation",
   "role_suggestions",
   "application_drafts",
+  "interview_prep",
   "resume_updates",
   "assistant_chat",
 ];
@@ -270,7 +271,7 @@ export function BillingOverview() {
                 {plan === "basic"
                   ? "Job-fit checks, roadmap generation, and AI assistant"
                   : plan === "standard"
-                    ? "Adds role suggestions and application drafts"
+                    ? "Adds role suggestions, application drafts, and AI interview practice"
                     : "Adds resume updates and the highest allowances"}
               </p>
             </article>

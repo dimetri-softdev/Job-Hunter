@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, Loader2, MessageSquareText } from "lucide-react";
+import {
+  CalendarClock,
+  Loader2,
+  MessageSquareText,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +19,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { fetcher } from "@/lib/api";
+
+interface PracticeQuestion {
+  category: "behavioral" | "role-specific" | "situational" | "fit";
+  question: string;
+  focus: string;
+}
+
+interface AnswerFeedback {
+  strengths: string[];
+  improvements: string[];
+  answerStructure: string;
+  followUpQuestion: string;
+}
 
 function buildPracticePrompts(
   position: string,
@@ -54,12 +72,94 @@ export function InterviewPrep({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const prompts = buildPracticePrompts(
+  const [aiConsent, setAiConsent] = useState(false);
+  const [generatingQuestions, setGeneratingQuestions] = useState(false);
+  const [feedbackFor, setFeedbackFor] = useState<string | null>(null);
+  const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
+  const [practiceAnswers, setPracticeAnswers] = useState<Record<string, string>>({});
+  const [practiceFeedback, setPracticeFeedback] = useState<
+    Record<string, AnswerFeedback>
+  >({});
+  const prompts = practiceQuestions.length
+    ? practiceQuestions.map((item) => item.question)
+    : buildPracticePrompts(
     position,
     strengths,
     gaps,
     questionsToConfirm,
   );
+
+  async function generatePracticeQuestions() {
+    if (!aiConsent) {
+      setError("Confirm consent before sending saved job details for AI practice.");
+      return;
+    }
+    setGeneratingQuestions(true);
+    setError(null);
+    try {
+      const result = await fetcher<{ questions: PracticeQuestion[] }>(
+        `/applications/${encodeURIComponent(applicationId)}/interview-practice`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            aiProcessingConsent: aiConsent,
+            action: "questions",
+          }),
+        },
+      );
+      if (!Array.isArray(result.questions) || result.questions.length < 4) {
+        throw new Error("The interview practice response was incomplete. Try again.");
+      }
+      setPracticeQuestions(result.questions);
+      setPracticeAnswers({});
+      setPracticeFeedback({});
+    } catch (practiceError: unknown) {
+      setError(
+        practiceError instanceof Error
+          ? practiceError.message
+          : "Unable to generate interview questions.",
+      );
+    } finally {
+      setGeneratingQuestions(false);
+    }
+  }
+
+  async function coachAnswer(question: string) {
+    const answer = practiceAnswers[question]?.trim();
+    if (!answer) {
+      setError("Write an answer before requesting feedback.");
+      return;
+    }
+    if (!aiConsent) {
+      setError("Confirm consent before sending your answer for AI feedback.");
+      return;
+    }
+    setFeedbackFor(question);
+    setError(null);
+    try {
+      const result = await fetcher<AnswerFeedback>(
+        `/applications/${encodeURIComponent(applicationId)}/interview-practice`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            aiProcessingConsent: aiConsent,
+            action: "feedback",
+            question,
+            answer,
+          }),
+        },
+      );
+      setPracticeFeedback((current) => ({ ...current, [question]: result }));
+    } catch (feedbackError: unknown) {
+      setError(
+        feedbackError instanceof Error
+          ? feedbackError.message
+          : "Unable to review this answer.",
+      );
+    } finally {
+      setFeedbackFor(null);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,12 +172,32 @@ export function InterviewPrep({
       data.get("questionsForEmployer") ?? "",
     ).trim();
     const additionalNotes = String(data.get("additionalNotes") ?? "").trim();
-    const practiceAnswers = prompts
-      .map((prompt, index) => ({
+    const savedAnswers = prompts
+      .map((prompt) => ({
         prompt,
-        answer: String(data.get(`answer-${index}`) ?? "").trim(),
+        answer: practiceAnswers[prompt]?.trim() ?? "",
       }))
       .filter((item) => item.answer);
+
+    const aiPracticeNotes = practiceQuestions.map((item) => {
+      const answer = practiceAnswers[item.question]?.trim();
+      const feedback = practiceFeedback[item.question];
+      return [
+        `${item.category.toLocaleUpperCase()} QUESTION: ${item.question}`,
+        `Interviewer focus: ${item.focus}`,
+        answer ? `My answer: ${answer}` : "",
+        feedback
+          ? [
+              `What worked: ${feedback.strengths.join("; ")}`,
+              `To improve: ${feedback.improvements.join("; ")}`,
+              `Answer structure: ${feedback.answerStructure}`,
+              `Follow-up to practice: ${feedback.followUpQuestion}`,
+            ].join("\n")
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    });
 
     const sections = [
       `Interview preparation · ${position} at ${company}`,
@@ -88,10 +208,13 @@ export function InterviewPrep({
       interviewer ? `Interviewer: ${interviewer}` : "",
       `Practice prompts:\n${prompts
         .map((prompt, index) => {
-          const answer = practiceAnswers.find((item) => item.prompt === prompt)?.answer;
+          const answer = savedAnswers.find((item) => item.prompt === prompt)?.answer;
           return `${index + 1}. ${prompt}${answer ? `\n   My example: ${answer}` : ""}`;
         })
         .join("\n")}`,
+      aiPracticeNotes.length
+        ? `AI interview practice:\n${aiPracticeNotes.join("\n\n")}`
+        : "",
       questionsForEmployer
         ? `Questions to ask:\n${questionsForEmployer}`
         : "",
@@ -134,6 +257,10 @@ export function InterviewPrep({
         if (nextOpen) {
           setError(null);
           setSaved(false);
+          setAiConsent(false);
+          setPracticeQuestions([]);
+          setPracticeAnswers({});
+          setPracticeFeedback({});
         }
       }}
     >
@@ -147,8 +274,9 @@ export function InterviewPrep({
             Prepare for your interview
           </DialogTitle>
           <DialogDescription className="text-xs leading-5 text-slate-400">
-            {position} at {company}. These prompts use the fit notes already
-            saved for this job. Nothing is sent to an AI provider.
+            {position} at {company}. Start with private practice prompts, or
+            opt in to AI-generated questions and answer coaching based on this
+            saved job.
           </DialogDescription>
         </DialogHeader>
 
@@ -229,13 +357,66 @@ export function InterviewPrep({
               </section>
 
               <section className="space-y-3">
+                <div className="rounded-xl border border-violet-400/20 bg-violet-500/[0.05] p-4">
+                  <div className="flex items-start gap-3">
+                    <Sparkles
+                      className="mt-0.5 size-4 shrink-0 text-violet-300"
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0 flex-1 space-y-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-white">
+                          AI mock interview
+                        </h3>
+                        <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                          Generate targeted questions, draft your own answers,
+                          and get practical feedback. AI requests count toward
+                          your interview-practice allowance.
+                        </p>
+                      </div>
+                      <label className="flex items-start gap-2 text-[11px] leading-4 text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={aiConsent}
+                          onChange={(event) => setAiConsent(event.target.checked)}
+                          className="mt-0.5 size-4 shrink-0 rounded border-slate-500 bg-slate-900"
+                        />
+                        I agree to send this job&apos;s saved details and the
+                        answers I choose to review to AI for interview coaching.
+                      </label>
+                      <Button
+                        type="button"
+                        onClick={() => void generatePracticeQuestions()}
+                        disabled={generatingQuestions || !aiConsent}
+                        className="gap-2 bg-violet-600 text-white hover:bg-violet-500"
+                      >
+                        {generatingQuestions ? (
+                          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Sparkles className="size-4" aria-hidden="true" />
+                        )}
+                        {generatingQuestions
+                          ? "Building practice round..."
+                          : practiceQuestions.length
+                            ? "Regenerate questions"
+                            : "Generate practice questions"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-3">
                 <div>
                   <h3 className="text-sm font-semibold text-white">
-                    Prepare your examples
+                    {practiceQuestions.length
+                      ? "Practice your answers"
+                      : "Prepare your examples"}
                   </h3>
                   <p className="mt-1 text-[11px] leading-4 text-slate-500">
-                    Use real examples. If you do not have direct experience,
-                    explain what related work or learning you can bring.
+                    {practiceQuestions.length
+                      ? "Keep each answer truthful. You can request coaching for any answer you write."
+                      : "These private prompts use saved fit notes in your browser. Use real examples; if you lack direct experience, explain related work or learning."}
                   </p>
                 </div>
                 {prompts.map((prompt, index) => (
@@ -246,14 +427,81 @@ export function InterviewPrep({
                     >
                       {prompt}
                     </label>
+                    {practiceQuestions[index] ? (
+                      <p className="text-[10px] leading-4 text-slate-500">
+                        {practiceQuestions[index].category.replace("-", " ")} ·{" "}
+                        {practiceQuestions[index].focus}
+                      </p>
+                    ) : null}
                     <Textarea
                       id={`interview-answer-${applicationId}-${index}`}
                       name={`answer-${index}`}
                       maxLength={1200}
                       rows={3}
+                      value={practiceAnswers[prompt] ?? ""}
+                      onChange={(event) =>
+                        setPracticeAnswers((current) => ({
+                          ...current,
+                          [prompt]: event.target.value,
+                        }))
+                      }
                       placeholder="Outline the situation, what you did, and the result. Keep it truthful and specific."
                       className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
                     />
+                    {practiceQuestions.length > 0 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void coachAnswer(prompt)}
+                        disabled={
+                          !aiConsent ||
+                          !practiceAnswers[prompt]?.trim() ||
+                          feedbackFor !== null
+                        }
+                        className="h-8 gap-1.5 border-violet-400/20 text-[11px] text-violet-200 hover:bg-violet-500/10"
+                      >
+                        {feedbackFor === prompt ? (
+                          <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Sparkles className="size-3.5" aria-hidden="true" />
+                        )}
+                        {feedbackFor === prompt
+                          ? "Reviewing answer..."
+                          : practiceFeedback[prompt]
+                            ? "Review answer again"
+                            : "Get answer feedback"}
+                      </Button>
+                    ) : null}
+                    {practiceFeedback[prompt] ? (
+                      <div className="space-y-3 rounded-lg border border-emerald-400/15 bg-emerald-500/[0.04] p-3 text-[11px] leading-5">
+                        <div>
+                          <h4 className="font-semibold text-emerald-200">What works</h4>
+                          <ul className="mt-1 list-disc space-y-1 pl-4 text-slate-300">
+                            {practiceFeedback[prompt].strengths.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-amber-200">What to strengthen</h4>
+                          <ul className="mt-1 list-disc space-y-1 pl-4 text-slate-300">
+                            {practiceFeedback[prompt].improvements.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <p className="text-slate-300">
+                          <span className="font-semibold text-violet-200">
+                            Try this structure:
+                          </span>{" "}
+                          {practiceFeedback[prompt].answerStructure}
+                        </p>
+                        <p className="text-slate-400">
+                          Follow-up to practice:{" "}
+                          {practiceFeedback[prompt].followUpQuestion}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </section>
