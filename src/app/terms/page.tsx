@@ -81,9 +81,17 @@ const sections = [
           Cancelling a paid subscription will stop future renewals. Unless the
           purchase screen says otherwise or applicable law requires otherwise,
           paid access will remain available until the end of the period already
-          paid for. Further details will be published before checkout is
-          enabled. One-time purchases will not renew; their access period will
-          be stated before purchase.
+          paid for. A cancellation does not itself incur a penalty. One-time
+          purchases will not renew; their access period will be stated before
+          purchase. Any refund and usage-based deduction rules will be
+          published in the{" "}
+          <Link
+            href="/refunds"
+            className="text-blue-300 underline decoration-blue-300/40 underline-offset-4 hover:text-blue-200"
+          >
+            Refunds and Cancellation policy
+          </Link>{" "}
+          before checkout is enabled.
         </p>
       </>
     ),

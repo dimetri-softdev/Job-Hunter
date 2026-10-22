@@ -76,6 +76,34 @@ const sections = [
     ),
   },
   {
+    id: "usage-deductions",
+    title: "How usage may affect a refund",
+    content: (
+      <>
+        <p>
+          For a future plan with published monthly feature quotas, if a
+          discretionary refund is approved, JobHunter may deduct only the
+          disclosed, proportionate value of quota-based features used during
+          the relevant billing period. The usage valuation and refund
+          calculation will be explained before payment. No separate
+          cancellation or refund-processing penalty will be added.
+        </p>
+        <p>
+          Premium has no monthly feature quotas, so no quota-based usage
+          deduction will be applied to Premium. Refund requests for Premium
+          will be reviewed individually based on the circumstances, the
+          service provided, and applicable law.
+        </p>
+        <p>
+          These terms do not limit any refund or cancellation right that
+          applicable law requires us to provide. Where the law requires a
+          particular refund, its calculation will follow the legal requirement
+          rather than this discretionary usage approach.
+        </p>
+      </>
+    ),
+  },
+  {
     id: "operator-contact",
     title: "Operator and contact",
     content: (
