@@ -398,8 +398,9 @@ export default function SettingsPage() {
                     Autofill &amp; apply profile
                   </h2>
                   <p className="mt-1 max-w-xl text-xs leading-5 text-slate-400">
-                    Save the details a browser extension can reuse to prefill job forms.
-                    Sensitive fields stay off unless you explicitly opt in for each one.
+                    Save the details a browser extension can reuse to prefill
+                    job forms. Sensitive fields stay off unless you explicitly
+                    opt in for each one.
                   </p>
                 </div>
               </div>
@@ -419,15 +420,18 @@ export default function SettingsPage() {
                     className="mt-0.5 size-4 shrink-0 accent-blue-500"
                   />
                   <span>
-                    I consent to storing and reusing my application profile for autofill
-                    on job forms. This profile is never used to submit applications on my
-                    behalf, and any sensitive fields remain off unless I explicitly opt in.
+                    I consent to storing and reusing my application profile for
+                    autofill on job forms. This profile is never used to submit
+                    applications on my behalf, and any sensitive fields remain
+                    off unless I explicitly opt in.
                   </span>
                 </label>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-300">Full name</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      Full name
+                    </label>
                     <Input
                       value={applicationProfile.fullName ?? ""}
                       onChange={(event) =>
@@ -440,7 +444,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-300">Email</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      Email
+                    </label>
                     <Input
                       value={applicationProfile.email ?? ""}
                       onChange={(event) =>
@@ -453,7 +459,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-300">Phone</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      Phone
+                    </label>
                     <Input
                       value={applicationProfile.phone ?? ""}
                       onChange={(event) =>
@@ -466,7 +474,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-300">Notice period</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      Notice period
+                    </label>
                     <Input
                       value={applicationProfile.noticePeriod ?? ""}
                       onChange={(event) =>
@@ -479,7 +489,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-300">City</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      City
+                    </label>
                     <Input
                       value={applicationProfile.city ?? ""}
                       onChange={(event) =>
@@ -492,7 +504,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-300">State</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      State
+                    </label>
                     <Input
                       value={applicationProfile.state ?? ""}
                       onChange={(event) =>
@@ -505,7 +519,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-300">Country</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      Country
+                    </label>
                     <Input
                       value={applicationProfile.country ?? ""}
                       onChange={(event) =>
@@ -518,7 +534,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-300">Postal code</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      Postal code
+                    </label>
                     <Input
                       value={applicationProfile.postalCode ?? ""}
                       onChange={(event) =>
@@ -531,7 +549,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-xs font-medium text-slate-300">Address line 1</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      Address line 1
+                    </label>
                     <Input
                       value={applicationProfile.addressLine1 ?? ""}
                       onChange={(event) =>
@@ -544,7 +564,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-xs font-medium text-slate-300">Address line 2</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      Address line 2
+                    </label>
                     <Input
                       value={applicationProfile.addressLine2 ?? ""}
                       onChange={(event) =>
@@ -557,7 +579,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-300">LinkedIn</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      LinkedIn
+                    </label>
                     <Input
                       value={applicationProfile.linkedInUrl ?? ""}
                       onChange={(event) =>
@@ -570,7 +594,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-300">GitHub</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      GitHub
+                    </label>
                     <Input
                       value={applicationProfile.githubUrl ?? ""}
                       onChange={(event) =>
@@ -583,7 +609,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-xs font-medium text-slate-300">Portfolio</label>
+                    <label className="text-xs font-medium text-slate-300">
+                      Portfolio
+                    </label>
                     <Input
                       value={applicationProfile.portfolioUrl ?? ""}
                       onChange={(event) =>
@@ -610,15 +638,20 @@ export default function SettingsPage() {
                           setApplicationProfile((current) => ({
                             ...current,
                             workAuthorizationConsent: event.target.checked,
-                            workAuthorization: event.target.checked ? current.workAuthorization ?? "" : "",
+                            workAuthorization: event.target.checked
+                              ? (current.workAuthorization ?? "")
+                              : "",
                           }))
                         }
                         className="size-4 accent-amber-500"
                       />
-                      I consent to saving my work authorization status for form autofill.
+                      I consent to saving my work authorization status for form
+                      autofill.
                     </label>
                     <div className="space-y-2">
-                      <label className="text-xs font-medium text-slate-300">Work authorization</label>
+                      <label className="text-xs font-medium text-slate-300">
+                        Work authorization
+                      </label>
                       <Input
                         value={applicationProfile.workAuthorization ?? ""}
                         onChange={(event) =>
@@ -640,15 +673,20 @@ export default function SettingsPage() {
                           setApplicationProfile((current) => ({
                             ...current,
                             salaryExpectationConsent: event.target.checked,
-                            salaryExpectation: event.target.checked ? current.salaryExpectation ?? "" : "",
+                            salaryExpectation: event.target.checked
+                              ? (current.salaryExpectation ?? "")
+                              : "",
                           }))
                         }
                         className="size-4 accent-amber-500"
                       />
-                      I consent to saving my salary expectation for form autofill.
+                      I consent to saving my salary expectation for form
+                      autofill.
                     </label>
                     <div className="space-y-2">
-                      <label className="text-xs font-medium text-slate-300">Salary expectation</label>
+                      <label className="text-xs font-medium text-slate-300">
+                        Salary expectation
+                      </label>
                       <Input
                         value={applicationProfile.salaryExpectation ?? ""}
                         onChange={(event) =>
@@ -670,40 +708,54 @@ export default function SettingsPage() {
                           setApplicationProfile((current) => ({
                             ...current,
                             eeoDataConsent: event.target.checked,
-                            eeoData: event.target.checked ? current.eeoData ?? {} : null,
+                            eeoData: event.target.checked
+                              ? (current.eeoData ?? {})
+                              : null,
                           }))
                         }
                         className="size-4 accent-amber-500"
                       />
-                      I consent to saving EEO or demographic data for form autofill.
+                      I consent to saving EEO or demographic data for form
+                      autofill.
                     </label>
                   </div>
                 </div>
 
                 {autofillSaveError && (
-                  <div role="alert" className="rounded-lg border border-rose-500/20 bg-rose-500/[0.06] px-3 py-2.5 text-xs text-rose-300">
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-rose-500/20 bg-rose-500/[0.06] px-3 py-2.5 text-xs text-rose-300"
+                  >
                     {autofillSaveError}
                   </div>
                 )}
                 {autofillSaveSuccess && (
-                  <div role="status" className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2.5 text-xs text-emerald-300">
+                  <div
+                    role="status"
+                    className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2.5 text-xs text-emerald-300"
+                  >
                     Autofill profile saved.
                   </div>
                 )}
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#1f212d] bg-[#0d0e14]/60 px-5 py-4 sm:px-6">
                 <p className="text-[11px] text-slate-500">
-                  Saved values are reused only for field matching in the browser extension.
+                  Saved values are reused only for field matching in the browser
+                  extension.
                 </p>
                 <Button
                   type="submit"
-                  disabled={autofillSaving || !applicationProfile.privacyConsentAccepted}
+                  disabled={
+                    autofillSaving || !applicationProfile.privacyConsentAccepted
+                  }
                   className="bg-blue-600 text-white hover:bg-blue-500"
                 >
                   {autofillSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : null}
-                  {autofillSaving ? "Saving profile..." : "Save autofill profile"}
+                  {autofillSaving
+                    ? "Saving profile..."
+                    : "Save autofill profile"}
                 </Button>
               </div>
             </form>
