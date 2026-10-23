@@ -147,6 +147,73 @@ async function createApplication(application) {
   });
 }
 
+async function openReview(message) {
+  const tabId = Number(message?.tabId);
+  const fields = message?.fields;
+  if (!Number.isInteger(tabId) || !Array.isArray(fields) || fields.length > 250) {
+    throw new Error("Unable to prepare this page for review.");
+  }
+
+  const pageUrl = new URL(String(message.pageUrl || ""));
+  if (!["http:", "https:"].includes(pageUrl.protocol)) {
+    throw new Error("Only http and https application pages can be reviewed.");
+  }
+
+  const matches = await mapPageFields(fields);
+  const reviewId = crypto.randomUUID();
+  const storageKey = `jobhunterReview:${reviewId}`;
+  await chrome.storage.session.set({
+    [storageKey]: {
+      tabId,
+      pageUrl: pageUrl.href,
+      pageTitle: String(message.pageTitle || "Job application").slice(0, 300),
+      matches,
+    },
+  });
+
+  await chrome.tabs.create({
+    url: chrome.runtime.getURL(`review.html?reviewId=${encodeURIComponent(reviewId)}`),
+  });
+  return { reviewId };
+}
+
+async function getReviewData(reviewId) {
+  if (typeof reviewId !== "string" || !/^[0-9a-f-]{36}$/i.test(reviewId)) {
+    throw new Error("This review link is invalid or expired.");
+  }
+  const storageKey = `jobhunterReview:${reviewId}`;
+  const stored = await chrome.storage.session.get(storageKey);
+  const review = stored[storageKey];
+  if (!review) throw new Error("This review has expired. Scan the application page again.");
+  return review;
+}
+
+async function fillReviewFields(message) {
+  const review = await getReviewData(message.reviewId);
+  const selectedIds = new Set(
+    Array.isArray(message.fieldIds)
+      ? message.fieldIds.filter((fieldId) => typeof fieldId === "string")
+      : [],
+  );
+  const fills = review.matches
+    .filter((match) => selectedIds.has(match.fieldId) && match.suggestedValue !== null)
+    .map((match) => ({ fieldId: match.fieldId, value: match.suggestedValue }));
+
+  if (fills.length === 0) throw new Error("Select at least one suggested field to fill.");
+  const page = await chrome.tabs.get(review.tabId);
+  if (page.url !== review.pageUrl) {
+    throw new Error("The application page changed. Scan it again before filling fields.");
+  }
+  const response = await chrome.tabs.sendMessage(review.tabId, {
+    type: "FILL_FIELDS",
+    fills,
+  });
+  if (!response?.ok) {
+    throw new Error(response?.error || "The application page is no longer available. Scan it again.");
+  }
+  return response.data;
+}
+
 async function handleMessage(message) {
   switch (message?.type) {
     case "GET_CONFIG":
@@ -161,6 +228,12 @@ async function handleMessage(message) {
       return signOut();
     case "MAP_FIELDS":
       return { matches: await mapPageFields(message.fields) };
+    case "OPEN_REVIEW":
+      return openReview(message);
+    case "GET_REVIEW":
+      return getReviewData(message.reviewId);
+    case "FILL_REVIEW_FIELDS":
+      return fillReviewFields(message);
     case "CREATE_APPLICATION":
       return createApplication(message.application);
     default:

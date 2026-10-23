@@ -122,7 +122,14 @@ document.querySelector("#scan-page").addEventListener("click", async () => {
     });
     const response = await chrome.tabs.sendMessage(tab.id, { type: "SCAN_PAGE" });
     if (!response?.ok) throw new Error(response?.error || "Unable to scan this page.");
-    statusElement.textContent = "Review panel opened in the active tab.";
+    const review = await sendMessage({
+      type: "OPEN_REVIEW",
+      tabId: tab.id,
+      pageUrl: tab.url,
+      pageTitle: tab.title || "Job application",
+      fields: response.data?.fields,
+    });
+    if (!review?.reviewId) throw new Error("Unable to open the review tab.");
     window.close();
   } catch (error) {
     showError(error instanceof Error ? error.message : "Unable to inspect this page.");

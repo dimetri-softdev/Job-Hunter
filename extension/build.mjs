@@ -14,6 +14,9 @@ for (const file of [
   "popup.html",
   "popup.css",
   "popup.js",
+  "review.html",
+  "review.css",
+  "review.js",
   "background.js",
   "content.js",
 ]) {

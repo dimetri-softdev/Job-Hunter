@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Application review | JobHunter</title>
+    <link rel="stylesheet" href="review.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#top" aria-label="JobHunter Autofill Assistant">
+          <span class="brand-mark" aria-hidden="true">J</span>
+          <span class="brand-copy"><strong>JobHunter</strong><small>Autofill Assistant</small></span>
+        </a>
+        <nav aria-label="Extension navigation">
+          <span class="nav-item active"><span class="nav-glyph" aria-hidden="true">A</span><span>Application review</span></span>
+        </nav>
+        <div class="sidebar-note">You choose what gets filled. Applications are never submitted automatically.</div>
+      </aside>
+
+      <main id="top" class="main-content">
+        <header class="topbar">
+          <div><span class="eyebrow">JOB SEARCH TOOLS</span><h1>Application review</h1></div>
+          <span id="account" class="account-label">Connected to JobHunter</span>
+        </header>
+
+        <div id="error" class="notice error" role="alert" hidden></div>
+        <div id="status" class="notice info" role="status">Loading the page review...</div>
+
+        <section class="source-strip" aria-labelledby="source-title">
+          <div class="source-copy">
+            <span class="eyebrow">ACTIVE APPLICATION</span>
+            <h2 id="source-title">Loading page details...</h2>
+            <a id="source-link" href="#" target="_blank" rel="noreferrer">Open application page</a>
+          </div>
+          <span class="source-state">Review only</span>
+        </section>
+
+        <div class="work-grid">
+          <section class="section-panel" aria-labelledby="matches-heading">
+            <div class="section-heading">
+              <div><span class="eyebrow">PROFILE MATCHES</span><h2 id="matches-heading">Suggested fields</h2></div>
+              <span id="match-count" class="count">0</span>
+            </div>
+            <p class="section-description">High-confidence matches are selected. Check lower-confidence or sensitive suggestions only after reviewing them.</p>
+            <div id="suggestions" class="suggestions"></div>
+            <div class="section-actions">
+              <button id="fill-selected" class="button primary" type="button" disabled>Fill selected fields</button>
+              <span class="action-note">Filling does not submit the employer's form.</span>
+            </div>
+          </section>
+
+          <section class="section-panel tracker-panel" aria-labelledby="tracker-heading">
+            <div class="section-heading">
+              <div><span class="eyebrow">JOBHUNTER TRACKER</span><h2 id="tracker-heading">Log application</h2></div>
+            </div>
+            <p class="section-description">This separate action creates a saved item in your JobHunter tracker.</p>
+            <form id="tracker-form" class="tracker-form">
+              <label>Company<input name="company" maxlength="160" autocomplete="organization" required /></label>
+              <label>Position<input name="position" maxlength="160" autocomplete="off" required /></label>
+              <label>Source<select name="source"><option>Job board</option><option>Company website</option><option>LinkedIn</option><option>Recruiter</option><option>Referral</option><option>Networking</option><option>Other</option></select></label>
+              <button id="log-application" class="button secondary" type="submit">Save to tracker</button>
+            </form>
+          </section>
+        </div>
+      </main>
+    </div>
+    <script src="review.js"></script>
+  </body>
+</html>
