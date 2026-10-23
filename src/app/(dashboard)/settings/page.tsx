@@ -37,6 +37,35 @@ interface CareerProfile {
   workArrangement: string;
 }
 
+interface ApplicationProfileRecord {
+  id: string | null;
+  userId: string;
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  postalCode: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  linkedInUrl: string | null;
+  githubUrl: string | null;
+  portfolioUrl: string | null;
+  noticePeriod: string | null;
+  workAuthorization: string | null;
+  salaryExpectation: string | null;
+  eeoData: Record<string, unknown> | null;
+  privacyConsentAccepted: boolean;
+  workAuthorizationConsent: boolean;
+  salaryExpectationConsent: boolean;
+  eeoDataConsent: boolean;
+  workHistory: Array<Record<string, unknown>>;
+  education: Array<Record<string, unknown>>;
+  skills: Array<Record<string, unknown>>;
+  savedAnswers: Array<Record<string, unknown>>;
+}
+
 interface JobRoleRecommendation {
   roleTitle: string;
   seniority: string;
@@ -58,9 +87,45 @@ const emptyCareerProfile: CareerProfile = {
   workArrangement: "Any",
 };
 
+const emptyApplicationProfile: ApplicationProfileRecord = {
+  id: null,
+  userId: "",
+  fullName: "",
+  email: "",
+  phone: "",
+  city: "",
+  state: "",
+  country: "",
+  postalCode: "",
+  addressLine1: "",
+  addressLine2: "",
+  linkedInUrl: "",
+  githubUrl: "",
+  portfolioUrl: "",
+  noticePeriod: "",
+  workAuthorization: "",
+  salaryExpectation: "",
+  eeoData: null,
+  privacyConsentAccepted: false,
+  workAuthorizationConsent: false,
+  salaryExpectationConsent: false,
+  eeoDataConsent: false,
+  workHistory: [],
+  education: [],
+  skills: [],
+  savedAnswers: [],
+};
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [careerProfile, setCareerProfile] = useState(emptyCareerProfile);
+  const [applicationProfile, setApplicationProfile] =
+    useState<ApplicationProfileRecord>(emptyApplicationProfile);
+  const [autofillSaving, setAutofillSaving] = useState(false);
+  const [autofillSaveError, setAutofillSaveError] = useState<string | null>(
+    null,
+  );
+  const [autofillSaveSuccess, setAutofillSaveSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -78,10 +143,12 @@ export default function SettingsPage() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const [userProfile, savedCareerProfile] = await Promise.all([
-          fetcher<UserProfile>("/user"),
-          fetcher<Partial<CareerProfile>>("/career-profile"),
-        ]);
+        const [userProfile, savedCareerProfile, savedApplicationProfile] =
+          await Promise.all([
+            fetcher<UserProfile>("/user"),
+            fetcher<Partial<CareerProfile>>("/career-profile"),
+            fetcher<ApplicationProfileRecord>("/application-profile"),
+          ]);
         setProfile(userProfile);
         setCareerProfile({
           careerSummary: savedCareerProfile.careerSummary ?? "",
@@ -93,6 +160,14 @@ export default function SettingsPage() {
           targetRoles: savedCareerProfile.targetRoles ?? "",
           preferredLocation: savedCareerProfile.preferredLocation ?? "",
           workArrangement: savedCareerProfile.workArrangement ?? "Any",
+        });
+        setApplicationProfile({
+          ...emptyApplicationProfile,
+          ...savedApplicationProfile,
+          workHistory: savedApplicationProfile.workHistory ?? [],
+          education: savedApplicationProfile.education ?? [],
+          skills: savedApplicationProfile.skills ?? [],
+          savedAnswers: savedApplicationProfile.savedAnswers ?? [],
         });
         setProfileSaved(true);
       } catch (loadError) {
@@ -174,6 +249,50 @@ export default function SettingsPage() {
       );
     } finally {
       setRecommendationLoading(false);
+    }
+  }
+
+  async function handleSaveApplicationProfile(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    setAutofillSaving(true);
+    setAutofillSaveError(null);
+    setAutofillSaveSuccess(false);
+
+    try {
+      const savedProfile = await fetcher<ApplicationProfileRecord>(
+        "/application-profile",
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            ...applicationProfile,
+            privacyConsentAccepted: applicationProfile.privacyConsentAccepted,
+            workHistory: applicationProfile.workHistory ?? [],
+            education: applicationProfile.education ?? [],
+            skills: applicationProfile.skills ?? [],
+            savedAnswers: applicationProfile.savedAnswers ?? [],
+          }),
+        },
+      );
+
+      setApplicationProfile({
+        ...emptyApplicationProfile,
+        ...savedProfile,
+        workHistory: savedProfile.workHistory ?? [],
+        education: savedProfile.education ?? [],
+        skills: savedProfile.skills ?? [],
+        savedAnswers: savedProfile.savedAnswers ?? [],
+      });
+      setAutofillSaveSuccess(true);
+    } catch (saveError: unknown) {
+      setAutofillSaveError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to save your autofill profile.",
+      );
+    } finally {
+      setAutofillSaving(false);
     }
   }
 
@@ -266,6 +385,328 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+          </section>
+
+          <section className="overflow-hidden rounded-2xl border border-[#252836] bg-[#12131a]">
+            <div className="border-b border-[#1f212d] px-5 py-5 sm:px-6">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-violet-500/20 bg-violet-500/10 text-violet-300">
+                  <BriefcaseBusiness className="size-4" />
+                </span>
+                <div>
+                  <h2 className="text-sm font-semibold text-white">
+                    Autofill &amp; apply profile
+                  </h2>
+                  <p className="mt-1 max-w-xl text-xs leading-5 text-slate-400">
+                    Save the details a browser extension can reuse to prefill job forms.
+                    Sensitive fields stay off unless you explicitly opt in for each one.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <form onSubmit={handleSaveApplicationProfile}>
+              <div className="space-y-5 px-5 py-5 sm:px-6 sm:py-6">
+                <label className="flex items-start gap-3 rounded-xl border border-[#2b2e3b] bg-[#0d0e14] p-4 text-xs leading-5 text-slate-400">
+                  <input
+                    type="checkbox"
+                    checked={applicationProfile.privacyConsentAccepted}
+                    onChange={(event) =>
+                      setApplicationProfile((current) => ({
+                        ...current,
+                        privacyConsentAccepted: event.target.checked,
+                      }))
+                    }
+                    className="mt-0.5 size-4 shrink-0 accent-blue-500"
+                  />
+                  <span>
+                    I consent to storing and reusing my application profile for autofill
+                    on job forms. This profile is never used to submit applications on my
+                    behalf, and any sensitive fields remain off unless I explicitly opt in.
+                  </span>
+                </label>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-300">Full name</label>
+                    <Input
+                      value={applicationProfile.fullName ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          fullName: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-300">Email</label>
+                    <Input
+                      value={applicationProfile.email ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          email: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-300">Phone</label>
+                    <Input
+                      value={applicationProfile.phone ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          phone: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-300">Notice period</label>
+                    <Input
+                      value={applicationProfile.noticePeriod ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          noticePeriod: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-300">City</label>
+                    <Input
+                      value={applicationProfile.city ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          city: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-300">State</label>
+                    <Input
+                      value={applicationProfile.state ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          state: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-300">Country</label>
+                    <Input
+                      value={applicationProfile.country ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          country: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-300">Postal code</label>
+                    <Input
+                      value={applicationProfile.postalCode ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          postalCode: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-xs font-medium text-slate-300">Address line 1</label>
+                    <Input
+                      value={applicationProfile.addressLine1 ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          addressLine1: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-xs font-medium text-slate-300">Address line 2</label>
+                    <Input
+                      value={applicationProfile.addressLine2 ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          addressLine2: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-300">LinkedIn</label>
+                    <Input
+                      value={applicationProfile.linkedInUrl ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          linkedInUrl: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-300">GitHub</label>
+                    <Input
+                      value={applicationProfile.githubUrl ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          githubUrl: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-xs font-medium text-slate-300">Portfolio</label>
+                    <Input
+                      value={applicationProfile.portfolioUrl ?? ""}
+                      onChange={(event) =>
+                        setApplicationProfile((current) => ({
+                          ...current,
+                          portfolioUrl: event.target.value,
+                        }))
+                      }
+                      className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-200">
+                    Sensitive fields (opt-in only)
+                  </h3>
+                  <div className="space-y-3 text-xs text-slate-300">
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={applicationProfile.workAuthorizationConsent}
+                        onChange={(event) =>
+                          setApplicationProfile((current) => ({
+                            ...current,
+                            workAuthorizationConsent: event.target.checked,
+                            workAuthorization: event.target.checked ? current.workAuthorization ?? "" : "",
+                          }))
+                        }
+                        className="size-4 accent-amber-500"
+                      />
+                      I consent to saving my work authorization status for form autofill.
+                    </label>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-300">Work authorization</label>
+                      <Input
+                        value={applicationProfile.workAuthorization ?? ""}
+                        onChange={(event) =>
+                          setApplicationProfile((current) => ({
+                            ...current,
+                            workAuthorization: event.target.value,
+                          }))
+                        }
+                        disabled={!applicationProfile.workAuthorizationConsent}
+                        className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        placeholder="US Citizen, H-1B, etc."
+                      />
+                    </div>
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={applicationProfile.salaryExpectationConsent}
+                        onChange={(event) =>
+                          setApplicationProfile((current) => ({
+                            ...current,
+                            salaryExpectationConsent: event.target.checked,
+                            salaryExpectation: event.target.checked ? current.salaryExpectation ?? "" : "",
+                          }))
+                        }
+                        className="size-4 accent-amber-500"
+                      />
+                      I consent to saving my salary expectation for form autofill.
+                    </label>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-300">Salary expectation</label>
+                      <Input
+                        value={applicationProfile.salaryExpectation ?? ""}
+                        onChange={(event) =>
+                          setApplicationProfile((current) => ({
+                            ...current,
+                            salaryExpectation: event.target.value,
+                          }))
+                        }
+                        disabled={!applicationProfile.salaryExpectationConsent}
+                        className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        placeholder="$120,000"
+                      />
+                    </div>
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={applicationProfile.eeoDataConsent}
+                        onChange={(event) =>
+                          setApplicationProfile((current) => ({
+                            ...current,
+                            eeoDataConsent: event.target.checked,
+                            eeoData: event.target.checked ? current.eeoData ?? {} : null,
+                          }))
+                        }
+                        className="size-4 accent-amber-500"
+                      />
+                      I consent to saving EEO or demographic data for form autofill.
+                    </label>
+                  </div>
+                </div>
+
+                {autofillSaveError && (
+                  <div role="alert" className="rounded-lg border border-rose-500/20 bg-rose-500/[0.06] px-3 py-2.5 text-xs text-rose-300">
+                    {autofillSaveError}
+                  </div>
+                )}
+                {autofillSaveSuccess && (
+                  <div role="status" className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2.5 text-xs text-emerald-300">
+                    Autofill profile saved.
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#1f212d] bg-[#0d0e14]/60 px-5 py-4 sm:px-6">
+                <p className="text-[11px] text-slate-500">
+                  Saved values are reused only for field matching in the browser extension.
+                </p>
+                <Button
+                  type="submit"
+                  disabled={autofillSaving || !applicationProfile.privacyConsentAccepted}
+                  className="bg-blue-600 text-white hover:bg-blue-500"
+                >
+                  {autofillSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : null}
+                  {autofillSaving ? "Saving profile..." : "Save autofill profile"}
+                </Button>
+              </div>
+            </form>
           </section>
 
           <section className="overflow-hidden rounded-2xl border border-[#252836] bg-[#12131a]">

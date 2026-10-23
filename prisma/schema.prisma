@@ -20,6 +20,7 @@ model User {
   preferredLocation String?
   workArrangement   String?
   offerPriorities   Json?
+  applicationProfile ApplicationProfile?
   roadmaps          Roadmap[]
   applications      Application[]
   applicationActivities ApplicationActivity[]
@@ -29,6 +30,99 @@ model User {
   subscription      UserSubscription?
   billingUsage      BillingUsageEvent[]
   createdAt         DateTime       @default(now())
+}
+
+model ApplicationProfile {
+  id                         String                                @id @default(uuid())
+  userId                     String                                @unique
+  user                       User                                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName                  String?
+  email                     String?
+  phone                     String?
+  city                      String?
+  state                     String?
+  country                   String?
+  postalCode                String?
+  addressLine1              String?
+  addressLine2              String?
+  linkedInUrl               String?
+  githubUrl                 String?
+  portfolioUrl              String?
+  noticePeriod              String?
+  workAuthorization         String?
+  salaryExpectation         String?
+  eeoData                   Json?
+  privacyConsentAccepted     Boolean                               @default(false)
+  workAuthorizationConsent   Boolean                               @default(false)
+  salaryExpectationConsent   Boolean                               @default(false)
+  eeoDataConsent             Boolean                               @default(false)
+  createdAt                 DateTime                              @default(now())
+  updatedAt                 DateTime                              @updatedAt
+  workHistory               ApplicationProfileWorkHistoryEntry[]
+  education                 ApplicationProfileEducationEntry[]
+  skills                    ApplicationProfileSkill[]
+  savedAnswers              ApplicationProfileAnswer[]
+}
+
+model ApplicationProfileWorkHistoryEntry {
+  id          String             @id @default(uuid())
+  profileId   String
+  profile     ApplicationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  company     String?
+  title       String?
+  location    String?
+  startDate   String?
+  endDate     String?
+  isCurrent   Boolean            @default(false)
+  description String?            @db.Text
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([profileId])
+}
+
+model ApplicationProfileEducationEntry {
+  id            String             @id @default(uuid())
+  profileId     String
+  profile       ApplicationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  school       String?
+  degree       String?
+  fieldOfStudy String?
+  startDate    String?
+  endDate      String?
+  location     String?
+  description  String?            @db.Text
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([profileId])
+}
+
+model ApplicationProfileSkill {
+  id         String             @id @default(uuid())
+  profileId  String
+  profile    ApplicationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name       String
+  category   String?
+  proficiency String?
+  createdAt  DateTime           @default(now())
+
+  @@index([profileId])
+}
+
+model ApplicationProfileAnswer {
+  id          String             @id @default(uuid())
+  profileId   String
+  profile     ApplicationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  questionKey String
+  answerText  String             @db.Text
+  isSensitive Boolean            @default(false)
+  consentGiven Boolean            @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([profileId, questionKey])
+  @@index([profileId])
 }
 
 model Roadmap {
