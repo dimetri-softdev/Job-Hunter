@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "JobHunter Autofill Assistant",
+  "version": "0.1.0",
+  "description": "Review and fill job application fields from your saved JobHunter profile.",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "permissions"
+  ],
+  "host_permissions": [
+    "https://jobhunter-api-6c47.onrender.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "JobHunter Autofill Assistant"
+  }
+}

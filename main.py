@@ -866,6 +866,16 @@ def build_roadmap_data(data: Dict[str, Any], user_id: str) -> Dict[str, Any]:
     }
 
 # 6. User & Roadmap Route Handlers
+@app.get("/api/v1/extension/config")
+async def get_extension_client_config():
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        raise HTTPException(status_code=503, detail="Authentication is not configured.")
+    return {
+        "supabaseUrl": SUPABASE_URL.rstrip("/"),
+        "supabaseAnonKey": SUPABASE_ANON_KEY,
+    }
+
+
 @app.get("/api/v1/user")
 async def get_user_profile(user_id: str = Depends(get_current_user)):
     user = await db.user.find_unique(where={"id": user_id})

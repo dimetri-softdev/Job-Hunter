@@ -1,0 +1,167 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", sans-serif;
+  background: #101713;
+  color: #edf4ef;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 340px;
+  margin: 0;
+  background: #101713;
+}
+
+main {
+  padding: 18px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #2a3930;
+}
+
+.brand-mark {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 9px;
+  background: #b6e36b;
+  color: #17210d;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 14px;
+  line-height: 19px;
+}
+
+.brand p,
+.hint,
+footer {
+  color: #a3b2a8;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.status {
+  min-height: 28px;
+  padding: 9px 0 5px;
+  color: #b7c4bb;
+  font-size: 11px;
+}
+
+.error {
+  margin-bottom: 10px;
+  padding: 9px 10px;
+  border: 1px solid #763d38;
+  border-radius: 7px;
+  background: #321e1c;
+  color: #ffc4b8;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.panel {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border: 1px solid #2a3930;
+  border-radius: 9px;
+  background: #17211b;
+}
+
+.panel h2 {
+  margin-bottom: 2px;
+  font-size: 14px;
+}
+
+label,
+.eyebrow {
+  color: #bac7bd;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.eyebrow {
+  color: #b6e36b;
+  letter-spacing: 0.08em;
+}
+
+input {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #39483e;
+  border-radius: 6px;
+  outline: none;
+  background: #0e1511;
+  color: #f1f5f2;
+  font-size: 12px;
+}
+
+input:focus {
+  border-color: #b6e36b;
+  box-shadow: 0 0 0 2px #b6e36b33;
+}
+
+button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.primary {
+  margin-top: 4px;
+  background: #b6e36b;
+  color: #17210d;
+}
+
+.primary:hover:not(:disabled) {
+  background: #c8f184;
+}
+
+.quiet {
+  justify-self: start;
+  min-height: 26px;
+  padding: 0;
+  background: transparent;
+  color: #b4c0b8;
+  font-size: 11px;
+}
+
+.account-email {
+  overflow-wrap: anywhere;
+  color: #edf4ef;
+  font-size: 12px;
+}
+
+footer {
+  padding-top: 13px;
+  text-align: center;
+}

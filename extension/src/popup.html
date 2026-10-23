@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JobHunter Autofill Assistant</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header class="brand">
+        <span class="brand-mark" aria-hidden="true">J</span>
+        <div>
+          <h1>JobHunter</h1>
+          <p>Autofill Assistant</p>
+        </div>
+      </header>
+
+      <p id="status" class="status" role="status">Connecting securely...</p>
+      <p id="error" class="error" role="alert" hidden></p>
+
+      <form id="sign-in-form" class="panel" hidden>
+        <h2>Sign in</h2>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required />
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+        <button id="sign-in" class="primary" type="submit" disabled>Sign in to JobHunter</button>
+        <p class="hint">Your profile stays in your JobHunter account. The extension asks before reading a page or filling fields.</p>
+      </form>
+
+      <section id="signed-in-panel" class="panel" hidden>
+        <p class="eyebrow">SIGNED IN</p>
+        <p id="account-email" class="account-email"></p>
+        <button id="scan-page" class="primary" type="button">Review fields on this page</button>
+        <p class="hint">Only the active tab is inspected, and only after you click.</p>
+        <button id="sign-out" class="quiet" type="button">Sign out</button>
+      </section>
+
+      <footer>Nothing is submitted automatically.</footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
