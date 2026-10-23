@@ -64,6 +64,7 @@ interface ProfileValue {
   autocomplete: string[];
   sensitive: boolean;
   consentGiven: boolean;
+  confidenceCap?: number;
 }
 
 const PROFILE_FIELD_RULES: Array<{
@@ -138,6 +139,31 @@ function getProfileValues(profile: AutofillProfileData): ProfileValue[] {
     });
   }
 
+  const fullName = asText(profile.fullName);
+  const nameParts = fullName?.split(/\s+/) ?? [];
+  if (nameParts.length > 1) {
+    values.push(
+      {
+        key: "fullName.firstName",
+        value: nameParts[0],
+        aliases: ["first name", "given name", "forename"],
+        autocomplete: ["given-name"],
+        sensitive: false,
+        consentGiven: true,
+        confidenceCap: 0.86,
+      },
+      {
+        key: "fullName.lastName",
+        value: nameParts.slice(1).join(" "),
+        aliases: ["last name", "family name", "surname"],
+        autocomplete: ["family-name"],
+        sensitive: false,
+        consentGiven: true,
+        confidenceCap: 0.86,
+      },
+    );
+  }
+
   if (profile.eeoData && profile.eeoDataConsent) {
     for (const [key, rawValue] of Object.entries(profile.eeoData)) {
       const value = asText(rawValue);
@@ -171,11 +197,17 @@ function getProfileValues(profile: AutofillProfileData): ProfileValue[] {
 
 function scoreField(field: DetectedApplicationField, value: ProfileValue): number {
   const autocomplete = normalize(field.autocomplete);
-  if (autocomplete && value.autocomplete.includes(autocomplete)) return 0.99;
+  if (autocomplete && value.autocomplete.includes(autocomplete)) {
+    return Math.min(0.99, value.confidenceCap ?? 1);
+  }
 
   const inputType = normalize(field.type);
-  if (inputType === "email" && value.key === "email") return 0.98;
-  if (inputType === "tel" && value.key === "phone") return 0.98;
+  if (inputType === "email" && value.key === "email") {
+    return Math.min(0.98, value.confidenceCap ?? 1);
+  }
+  if (inputType === "tel" && value.key === "phone") {
+    return Math.min(0.98, value.confidenceCap ?? 1);
+  }
 
   const sources = [
     { text: normalize(field.label), exact: 0.94, contains: 0.9 },
@@ -197,7 +229,7 @@ function scoreField(field: DetectedApplicationField, value: ProfileValue): numbe
     }
   }
 
-  return bestScore;
+  return Math.min(bestScore, value.confidenceCap ?? 1);
 }
 
 function makeUnmatched(

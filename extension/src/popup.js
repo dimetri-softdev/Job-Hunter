@@ -123,6 +123,7 @@ document.querySelector("#scan-page").addEventListener("click", async () => {
     const response = await chrome.tabs.sendMessage(tab.id, { type: "SCAN_PAGE" });
     if (!response?.ok) throw new Error(response?.error || "Unable to scan this page.");
     statusElement.textContent = "Review panel opened in the active tab.";
+    window.close();
   } catch (error) {
     showError(error instanceof Error ? error.message : "Unable to inspect this page.");
   } finally {
