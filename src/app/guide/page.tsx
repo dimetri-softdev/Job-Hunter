@@ -69,7 +69,7 @@ const guides = [
     body: "Compare your resume with a job posting to get a helpful review of your strengths, possible gaps, and questions to check. It is guidance—not a hiring prediction.",
     steps: [
       "In Applications, choose Check job fit.",
-      "Add your resume (PDF, DOCX, or image) and provide the job description as text, a PDF/DOCX/TXT document, or a poster image.",
+      "Add your resume (PDF, DOCX, or image) and provide the job description as at least 80 characters of text or a PDF/DOCX/TXT document. You can also add a poster image.",
       "Give consent to the AI check, then review the result. Save the job if you want to track it.",
     ],
     href: "/login",

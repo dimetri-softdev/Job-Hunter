@@ -2015,8 +2015,11 @@ async def match_job_fit(
         )
     if len(description) > 20000:
         raise HTTPException(status_code=413, detail="Job description must be 20,000 characters or fewer.")
-    if len(description) < 80 and job_image is None:
-        raise HTTPException(status_code=400, detail="Paste at least 80 characters or upload a job-post image.")
+    if len(description) < 80 and job_document is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Paste at least 80 characters or upload a job-posting document.",
+        )
 
     resume_text = ""
     resume_image_mime = None

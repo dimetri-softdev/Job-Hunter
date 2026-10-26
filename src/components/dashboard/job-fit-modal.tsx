@@ -299,8 +299,8 @@ export function JobFitModal({
                 setJobDescription(event.target.value);
                 setAssessment(null);
               }}
-              required={!jobImage && !jobDocument}
-              minLength={jobImage || jobDocument ? 0 : 80}
+              required={!jobDocument}
+              minLength={jobDocument ? 0 : 80}
               maxLength={20000}
               rows={7}
               placeholder="Paste the job description here..."
@@ -308,11 +308,9 @@ export function JobFitModal({
             />
             <p className="flex justify-between gap-3 text-[11px] text-slate-500">
               <span>
-                {jobImage
-                  ? "You can use text, an image, or both."
-                  : jobDocument
-                    ? "You can use pasted text, a document, or both."
-                    : "Paste at least 80 characters, or add a document or poster image."}
+                {jobDocument
+                  ? "You can combine pasted text, a document, and a poster image."
+                  : "Paste at least 80 characters or add a document. A poster image is optional."}
               </span>
               <span className="shrink-0">
                 {jobDescription.length.toLocaleString()} / 20,000
