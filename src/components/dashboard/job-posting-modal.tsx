@@ -8,6 +8,7 @@ import {
   Loader2,
   MapPin,
   Sparkles,
+  X,
 } from "lucide-react";
 import { ActionHint } from "@/components/action-hint";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ interface JobAnalysis {
   employmentType: string | null;
   summary: string;
   keyRequirements: string[];
+  sourceText?: string;
 }
 
 export interface CreatedApplication {
@@ -59,6 +61,8 @@ export function JobPostingModal({
 }) {
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState("");
+  const [jobDocument, setJobDocument] = useState<File | null>(null);
+  const [jobDocumentInputKey, setJobDocumentInputKey] = useState(0);
   const [jobUrl, setJobUrl] = useState("");
   const [source, setSource] = useState<ApplicationSource | "">("");
   const [nextAction, setNextAction] = useState("");
@@ -72,6 +76,8 @@ export function JobPostingModal({
 
   function resetForm() {
     setDescription("");
+    setJobDocument(null);
+    setJobDocumentInputKey((key) => key + 1);
     setJobUrl("");
     setSource("");
     setNextAction("");
@@ -83,16 +89,34 @@ export function JobPostingModal({
   }
 
   async function analyzePosting() {
+    if (!jobDocument && description.trim().length < 80) {
+      setError("Paste at least 80 characters or upload a job-posting document.");
+      return;
+    }
     setAnalyzing(true);
     setError(null);
     try {
-      const result = await fetcher<JobAnalysis>("/applications/analyze", {
-        method: "POST",
-        body: JSON.stringify({ description }),
-      });
+      let result: JobAnalysis;
+      if (jobDocument) {
+        const formData = new FormData();
+        formData.set("description", description);
+        formData.set("job_document", jobDocument);
+        result = await fetcher<JobAnalysis>("/applications/analyze-document", {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        result = await fetcher<JobAnalysis>("/applications/analyze", {
+          method: "POST",
+          body: JSON.stringify({ description }),
+        });
+      }
       setAnalysis(result);
       setCompany(result.company);
       setPosition(result.position);
+      setDescription(result.sourceText ?? description);
+      setJobDocument(null);
+      setJobDocumentInputKey((key) => key + 1);
     } catch (analysisError: unknown) {
       setError(
         analysisError instanceof Error
@@ -154,7 +178,7 @@ export function JobPostingModal({
         if (nextOpen) resetForm();
       }}
     >
-      <ActionHint label="Paste a job post to draft the company, role, and summary for you to review.">
+      <ActionHint label="Paste job-post text or upload a document to draft the company, role, and summary for you to review.">
         <DialogTrigger className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-600/10 px-4 text-xs font-semibold text-blue-300 transition-colors hover:bg-blue-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
           <Sparkles className="h-4 w-4" />
           Analyze job post
@@ -222,8 +246,8 @@ export function JobPostingModal({
               className="h-10 border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
             />
             <p className="text-[11px] text-slate-500">
-              The link is saved with your application. Paste the job details
-              below; this version does not scrape sites automatically.
+              The link is saved with your application. Paste or upload the job
+              details below; this version does not scrape sites automatically.
             </p>
           </div>
           <div className="space-y-2">
@@ -237,8 +261,8 @@ export function JobPostingModal({
                 setDescription(event.target.value);
                 setAnalysis(null);
               }}
-              required
-              minLength={80}
+              required={!jobDocument}
+              minLength={jobDocument ? 0 : 80}
               maxLength={20000}
               rows={8}
               placeholder="Paste the job description and requirements here..."
@@ -246,11 +270,52 @@ export function JobPostingModal({
             />
             <p className="flex justify-between text-[11px] text-slate-500">
               <span>
-                {description.length < 80
+                {jobDocument
+                  ? "You can combine pasted text with your document."
+                  : description.length < 80
                   ? `${80 - description.length} more characters needed to analyze`
                   : "Ready to analyze"}
               </span>
               <span>{description.length.toLocaleString()} / 20,000</span>
+            </p>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="job-posting-document" className="text-xs text-slate-300">
+              Job posting document{" "}
+              <span className="text-slate-500">(optional · PDF, DOCX, or TXT · up to 5 MB)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                key={jobDocumentInputKey}
+                id="job-posting-document"
+                type="file"
+                accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                onChange={(event) => {
+                  setJobDocument(event.target.files?.[0] ?? null);
+                  setAnalysis(null);
+                  setError(null);
+                }}
+                className="block min-w-0 flex-1 text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-xs file:font-medium file:text-white hover:file:bg-blue-500"
+              />
+              {jobDocument && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remove job posting document"
+                  onClick={() => {
+                    setJobDocument(null);
+                    setAnalysis(null);
+                    setJobDocumentInputKey((key) => key + 1);
+                  }}
+                  className="shrink-0 text-slate-400 hover:bg-rose-500/10 hover:text-rose-300"
+                >
+                  <X className="size-4" />
+                </Button>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Text-based PDFs, Word documents, and UTF-8 text files are supported.
             </p>
           </div>
           </section>

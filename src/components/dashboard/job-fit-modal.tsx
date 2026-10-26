@@ -63,6 +63,7 @@ export function JobFitModal({
   const [resume, setResume] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState("");
   const [jobImage, setJobImage] = useState<File | null>(null);
+  const [jobDocument, setJobDocument] = useState<File | null>(null);
   const [company, setCompany] = useState("");
   const [position, setPosition] = useState("");
   const [jobUrl, setJobUrl] = useState("");
@@ -77,11 +78,13 @@ export function JobFitModal({
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [jobDocumentInputKey, setJobDocumentInputKey] = useState(0);
 
   function resetForm() {
     setResume(null);
     setJobDescription("");
     setJobImage(null);
+    setJobDocument(null);
     setCompany("");
     setPosition("");
     setJobUrl("");
@@ -94,6 +97,7 @@ export function JobFitModal({
     setError(null);
     setSaveError(null);
     setFileInputKey((key) => key + 1);
+    setJobDocumentInputKey((key) => key + 1);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -111,14 +115,21 @@ export function JobFitModal({
     body.set("job_description", jobDescription);
     body.set("ai_processing_consent", String(consent));
     if (jobImage) body.set("job_image", jobImage);
+    if (jobDocument) body.set("job_document", jobDocument);
 
     try {
-      const result = await fetcher<FitAssessment>("/applications/match", {
+      const result = await fetcher<FitAssessment & { sourceDescription: string }>(
+        "/applications/match",
+        {
         method: "POST",
         body,
-      });
+        },
+      );
       setAssessment(result);
       setPosition(result.roleTitle);
+      setJobDescription(result.sourceDescription);
+      setJobDocument(null);
+      setJobDocumentInputKey((key) => key + 1);
     } catch (matchError: unknown) {
       setError(
         matchError instanceof Error
@@ -213,7 +224,7 @@ export function JobFitModal({
                 key={`resume-${fileInputKey}`}
                 id="fit-resume"
                 type="file"
-                accept="application/pdf,.pdf,image/jpeg,image/png,image/webp"
+                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp"
                 required
                 onChange={(event) => {
                   const file = event.target.files?.[0] ?? null;
@@ -238,7 +249,7 @@ export function JobFitModal({
                     {resume ? resume.name : "Choose a resume"}
                   </span>
                   <span className="mt-1 block text-[11px] text-slate-500">
-                    PDF, JPEG, PNG, or WebP · up to 5 MB
+                    PDF, DOCX, JPEG, PNG, or WebP · up to 5 MB
                   </span>
                 </span>
                 <span className="shrink-0 rounded-lg border border-[#343848] px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors group-hover:border-emerald-500/40 group-hover:text-white">
@@ -288,8 +299,8 @@ export function JobFitModal({
                 setJobDescription(event.target.value);
                 setAssessment(null);
               }}
-              required={!jobImage}
-              minLength={jobImage ? 0 : 80}
+              required={!jobImage && !jobDocument}
+              minLength={jobImage || jobDocument ? 0 : 80}
               maxLength={20000}
               rows={7}
               placeholder="Paste the job description here..."
@@ -299,12 +310,53 @@ export function JobFitModal({
               <span>
                 {jobImage
                   ? "You can use text, an image, or both."
-                  : "Paste at least 80 characters, or add a poster image."}
+                  : jobDocument
+                    ? "You can use pasted text, a document, or both."
+                    : "Paste at least 80 characters, or add a document or poster image."}
               </span>
               <span className="shrink-0">
                 {jobDescription.length.toLocaleString()} / 20,000
               </span>
             </p>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="fit-job-document" className="text-xs font-medium text-slate-300">
+                Job posting document{" "}
+                <span className="font-normal text-slate-500">Optional · PDF, DOCX, or TXT · up to 5 MB</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  key={jobDocumentInputKey}
+                  id="fit-job-document"
+                  type="file"
+                  accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                  onChange={(event) => {
+                    setJobDocument(event.target.files?.[0] ?? null);
+                    setAssessment(null);
+                  }}
+                  className="block min-w-0 flex-1 text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-xs file:font-medium file:text-white hover:file:bg-blue-500"
+                />
+                {jobDocument && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove job posting document"
+                    onClick={() => {
+                      setJobDocument(null);
+                      setAssessment(null);
+                      setJobDocumentInputKey((key) => key + 1);
+                    }}
+                    className="shrink-0 text-slate-400 hover:bg-rose-500/10 hover:text-rose-300"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Text-based PDFs, Word documents, and UTF-8 text files are supported.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -388,7 +440,7 @@ export function JobFitModal({
                 className="mt-0.5 size-4 shrink-0 accent-blue-500"
               />
               <span>
-                I agree to send my resume and job-post content to Google Gemini
+                I agree to send my resume and job-post content and documents to Google Gemini
                 for this analysis. JobHunter does not save uploaded resumes or
                 extracted resume text. I can separately choose whether to save
                 the assessment and job details.

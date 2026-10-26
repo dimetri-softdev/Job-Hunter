@@ -1269,6 +1269,7 @@ PUBLIC_ASSISTANT_REQUESTS: dict[str, list[float]] = {}
 MAX_ASSISTANT_DOCUMENT_BYTES = 5 * 1024 * 1024
 MAX_ASSISTANT_DOCUMENT_TEXT = 12000
 MAX_ASSISTANT_DOCUMENT_XML_BYTES = 10 * 1024 * 1024
+MAX_JOB_POSTING_DOCUMENT_TEXT = 20000
 
 
 async def reserve_assistant_daily_usage(user_id: str) -> str:
@@ -1387,7 +1388,10 @@ features, plan prices, limits, or payment-provider status.
 """
 
 
-async def extract_assistant_document(file: UploadFile) -> str:
+async def extract_uploaded_document(
+    file: UploadFile,
+    max_text_length: int = MAX_ASSISTANT_DOCUMENT_TEXT,
+) -> str:
     filename = (file.filename or "").strip()
     extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if extension not in {"pdf", "docx", "txt"}:
@@ -1419,11 +1423,11 @@ async def extract_assistant_document(file: UploadFile) -> str:
             text_length = 0
             for page in reader.pages:
                 page_text = page.extract_text() or ""
-                remaining = MAX_ASSISTANT_DOCUMENT_TEXT - text_length
+                remaining = max_text_length - text_length
                 if len(page_text) > remaining:
                     raise HTTPException(
                         status_code=400,
-                        detail="This document contains too much text. Use a shorter document with at most 12,000 characters.",
+                        detail=f"This document contains too much text. Use a shorter document with at most {max_text_length:,} characters.",
                     )
                 text_parts.append(page_text[:remaining])
                 text_length += min(len(page_text), remaining)
@@ -1441,10 +1445,10 @@ async def extract_assistant_document(file: UploadFile) -> str:
                 status_code=400,
                 detail="TXT files must use UTF-8 text encoding.",
             ) from exc
-        if len(text) > MAX_ASSISTANT_DOCUMENT_TEXT:
+        if len(text) > max_text_length:
             raise HTTPException(
                 status_code=400,
-                detail="This document contains too much text. Use a shorter document with at most 12,000 characters.",
+                detail=f"This document contains too much text. Use a shorter document with at most {max_text_length:,} characters.",
             )
     else:
         try:
@@ -1474,10 +1478,10 @@ async def extract_assistant_document(file: UploadFile) -> str:
             "".join(node.text or "" for node in paragraph.iter(f"{word_namespace}t"))
             for paragraph in root.iter(f"{word_namespace}p")
         )
-        if len(text) > MAX_ASSISTANT_DOCUMENT_TEXT:
+        if len(text) > max_text_length:
             raise HTTPException(
                 status_code=400,
-                detail="This document contains too much text. Use a shorter document with at most 12,000 characters.",
+                detail=f"This document contains too much text. Use a shorter document with at most {max_text_length:,} characters.",
             )
 
     if not text.strip():
@@ -1663,7 +1667,7 @@ async def chat_with_signed_in_assistant_document(
             detail="The assistant chat request is invalid. Please try again.",
         ) from exc
 
-    document_text = await extract_assistant_document(file)
+    document_text = await extract_uploaded_document(file)
     if not payload.message.strip():
         raise HTTPException(status_code=400, detail="Enter a message for the assistant.")
     document_context = (
@@ -1893,9 +1897,49 @@ async def analyze_job_posting(
     payload: JobPostingAnalyzeRequest,
     user_id: str = Depends(get_current_user),
 ):
-    description = payload.description.strip()
+    return await analyze_job_posting_text(request, user_id, payload.description)
+
+
+@app.post("/api/v1/applications/analyze-document")
+async def analyze_job_posting_document(
+    request: Request,
+    description: str = Form(""),
+    job_document: UploadFile = File(...),
+    user_id: str = Depends(get_current_user),
+):
+    document_text = await extract_uploaded_document(
+        job_document,
+        max_text_length=MAX_JOB_POSTING_DOCUMENT_TEXT,
+    )
+    source_text = "\n\n".join(
+        part for part in (description.strip(), document_text.strip()) if part
+    )
+    if len(source_text) > 20000:
+        raise HTTPException(
+            status_code=413,
+            detail="The combined job-posting text must be 20,000 characters or fewer.",
+        )
+    result = await analyze_job_posting_text(request, user_id, source_text)
+    result["sourceText"] = source_text
+    return result
+
+
+async def analyze_job_posting_text(
+    request: Request,
+    user_id: str,
+    description: str,
+) -> dict:
+    description = description.strip()
     if len(description) < 80:
-        raise HTTPException(status_code=400, detail="Paste more of the job posting to analyze it.")
+        raise HTTPException(
+            status_code=400,
+            detail="Paste at least 80 characters or upload a job-posting document.",
+        )
+    if len(description) > 20000:
+        raise HTTPException(
+            status_code=413,
+            detail="Job posting text must be 20,000 characters or fewer.",
+        )
     await reserve_billing_usage(request, user_id, "job_fit")
 
     prompt = f"""
@@ -1948,6 +1992,7 @@ async def match_job_fit(
     job_description: str = Form(""),
     ai_processing_consent: bool = Form(...),
     job_image: Optional[UploadFile] = File(None),
+    job_document: Optional[UploadFile] = File(None),
     user_id: str = Depends(get_current_user),
 ):
     if not ai_processing_consent:
@@ -1960,6 +2005,14 @@ async def match_job_fit(
         raise HTTPException(status_code=413, detail="Resume files must be 5 MB or smaller.")
 
     description = job_description.strip()
+    if job_document is not None:
+        document_text = await extract_uploaded_document(
+            job_document,
+            max_text_length=MAX_JOB_POSTING_DOCUMENT_TEXT,
+        )
+        description = "\n\n".join(
+            part for part in (description, document_text.strip()) if part
+        )
     if len(description) > 20000:
         raise HTTPException(status_code=413, detail="Job description must be 20,000 characters or fewer.")
     if len(description) < 80 and job_image is None:
@@ -1968,8 +2021,15 @@ async def match_job_fit(
     resume_text = ""
     resume_image_mime = None
     resume_pdf_for_vision = None
+    resume_filename = (resume.filename or "").lower()
+    resume_extension = (
+        resume_filename.rsplit(".", 1)[-1] if "." in resume_filename else ""
+    )
     try:
-        if resume_bytes.startswith(b"%PDF-"):
+        if resume_extension == "docx":
+            await resume.seek(0)
+            resume_text = await extract_uploaded_document(resume)
+        elif resume_bytes.startswith(b"%PDF-"):
             pdf_reader = PdfReader(io.BytesIO(resume_bytes))
             if len(pdf_reader.pages) > 50:
                 raise HTTPException(status_code=400, detail="Resume PDF must have 50 pages or fewer.")
@@ -1997,7 +2057,7 @@ async def match_job_fit(
 
     await reserve_billing_usage(request, user_id, "job_fit")
     prompt = f"""
-    Compare the resume evidence with the job posting and any attached images.
+    Compare the resume evidence with the job posting and any attached documents or images.
     Return one JSON object with:
     verdict, roleTitle, assessment, strengths, gaps, and questionsToConfirm.
 
@@ -2074,6 +2134,7 @@ async def match_job_fit(
             "strengths": clean_items("strengths"),
             "gaps": clean_items("gaps"),
             "questionsToConfirm": clean_items("questionsToConfirm"),
+            "sourceDescription": description,
         }
     except HTTPException:
         raise
