@@ -104,3 +104,11 @@ class ApplicationActivityCreate(BaseModel):
         "OTHER",
     ]
     detail: str = Field(min_length=1, max_length=6000)
+
+
+class OfferPrioritiesRequest(BaseModel):
+    salary: int = Field(ge=0, le=5)
+    commute: int = Field(ge=0, le=5)
+    learning: int = Field(ge=0, le=5)
+    stability: int = Field(ge=0, le=5)
+    workLife: int = Field(ge=0, le=5)

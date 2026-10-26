@@ -217,20 +217,28 @@ curl -X POST http://localhost:3000/api/jobs \
 
 ```
 Job-Hunter/
-├── app/                    # Next.js app directory
-│   ├── api/               # API routes
-│   └── (routes)/          # Page routes
-├── components/            # React components
-├── lib/                   # Utility functions
-├── prisma/                # Database schema
-│   ├── schema.prisma      # Prisma schema
-│   └── migrations/        # Database migrations
+├── src/
+│   ├── app/               # Next.js App Router pages and API routes
+│   ├── components/        # Shared React components
+│   ├── context/           # React context providers
+│   └── lib/               # Frontend utilities and integrations
+├── api/
+│   ├── routes/            # FastAPI feature routers
+│   ├── schemas/           # Pydantic request and response models
+│   └── services/          # Backend business logic
+├── extension/             # Browser extension
+├── tests/                 # Python backend tests
+├── main.py                # FastAPI application entry point
+├── prisma/                # Prisma schema and migrations
 ├── public/                # Static assets
-├── styles/                # CSS/styling
-├── .env.local             # Environment variables (not committed)
-├── package.json           # Project dependencies
-└── README.md              # This file
+├── package.json           # Frontend dependencies and scripts
+├── requirements.txt       # Python backend dependencies
+└── README.md
 ```
+
+Run the Python backend tests from the repository root with
+`python -m unittest discover -s tests -v`. The FastAPI application is exposed
+as `main:app`.
 
 ## Database Schema
 

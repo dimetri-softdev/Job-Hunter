@@ -24,11 +24,47 @@ load_dotenv()
 from fastapi import FastAPI, HTTPException, Depends, Header, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
 from prisma import Prisma
 from groq import Groq
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
+from api.schemas.applications import (
+    APPLICATION_STATUSES,
+    ApplicationActivityCreate,
+    ApplicationCreate,
+    ApplicationImportRequest,
+    ApplicationUpdate,
+    OfferDetailsRequest,
+    OfferPrioritiesRequest,
+    SavedFitAssessment,
+)
+from api.schemas.assistant import (
+    ApplicationPackRequest,
+    AssistantChatRequest,
+    AssistantMessage,
+    CareerRecommendationsRequest,
+    CoverLetterDraft,
+    FitGapRoadmapRequest,
+    FollowUpSequenceDraft,
+    FollowUpSequenceMessage,
+    FollowUpSequenceRequest,
+    GenerateRoadmapRequest,
+    InterviewAnswerFeedback,
+    InterviewPracticeQuestionSet,
+    InterviewPracticeRequest,
+    JobPostingAnalyzeRequest,
+    ProofSprintRequest,
+    PublicAssistantRequest,
+    ResumeUpdateDraft,
+)
+from api.schemas.reminders import ReminderPreferenceUpdate
+from api.routes.application_profiles import create_application_profiles_router
+from api.routes.feedback import create_feedback_router
+from api.routes.identity import create_identity_router
+from api.routes.profiles import create_profiles_router
+from api.routes.roadmaps import create_roadmaps_router
+from api.schemas.roadmaps import ProjectProofUpdate, TaskUpdate
+from api.services.roadmaps import build_roadmap_data
 
 logger = logging.getLogger(__name__)
 
@@ -76,99 +112,6 @@ app.add_middleware(
 )
 
 # 4. Pydantic Models & Auth Helpers
-class GenerateRoadmapRequest(BaseModel):
-    role: str
-    targetLevel: str
-
-class TaskUpdate(BaseModel):
-    completed: bool
-
-class SavedFitAssessment(BaseModel):
-    verdict: Literal[
-        "STRONG_MATCH",
-        "POSSIBLE_MATCH",
-        "STRETCH",
-        "LOW_MATCH",
-        "INSUFFICIENT_INFO",
-    ]
-    roleTitle: str = Field(min_length=1, max_length=160)
-    assessment: str = Field(max_length=800)
-    strengths: list[str] = Field(default_factory=list, max_length=5)
-    gaps: list[str] = Field(default_factory=list, max_length=5)
-    questionsToConfirm: list[str] = Field(default_factory=list, max_length=5)
-
-class OfferDetailsRequest(BaseModel):
-    annualCompensation: Optional[float] = Field(default=None, ge=0, le=1000000000)
-    currency: Optional[str] = Field(default=None, min_length=3, max_length=3)
-    commuteMinutes: Optional[int] = Field(default=None, ge=0, le=5000)
-    learning: Optional[int] = Field(default=None, ge=1, le=5)
-    stability: Optional[int] = Field(default=None, ge=1, le=5)
-    workLife: Optional[int] = Field(default=None, ge=1, le=5)
-
-class FeatureFeedback(BaseModel):
-    feature: Literal[
-        "job_fit",
-        "application_tracking",
-        "account_settings",
-        "career_suggestions",
-        "roadmaps",
-        "proof_sprints",
-        "career_momentum",
-        "search_playbook",
-        "offer_comparison",
-        "application_assistant",
-        "application_packs",
-        "csv_backups",
-    ]
-    usefulness: int = Field(ge=1, le=5)
-
-class PeerFeedbackRequest(BaseModel):
-    overallRating: int = Field(ge=1, le=5)
-    featureRatings: list[FeatureFeedback] = Field(min_length=1, max_length=12)
-    needsImprovement: Literal["yes", "no", "not_sure"]
-    improvementNotes: Optional[str] = Field(default=None, max_length=1500)
-    mostValuable: Optional[str] = Field(default=None, max_length=800)
-    mainFriction: Optional[str] = Field(default=None, max_length=1200)
-    wouldPay: Literal["yes", "no", "not_sure"]
-    fairMonthlyPrice: Optional[str] = Field(default=None, max_length=100)
-
-class ApplicationCreate(BaseModel):
-    company: str
-    position: str
-    status: Optional[str] = "APPLIED" # APPLIED, INTERVIEWING, REJECTED, OFFERED
-    source: Optional[Literal[
-        "Company website",
-        "LinkedIn",
-        "Job board",
-        "Recruiter",
-        "Referral",
-        "Networking",
-        "Other",
-    ]] = None
-    notes: Optional[str] = None
-    jobUrl: Optional[str] = None
-    jobDescription: Optional[str] = None
-    jobSummary: Optional[str] = None
-    fitAssessment: Optional[SavedFitAssessment] = None
-    offerDetails: Optional[OfferDetailsRequest] = None
-    nextAction: Optional[str] = Field(default=None, max_length=280)
-    followUpAt: Optional[date] = None
-    contactName: Optional[str] = Field(default=None, max_length=120)
-    contactEmail: Optional[str] = Field(default=None, max_length=254)
-
-class ApplicationImportRequest(BaseModel):
-    applications: list[ApplicationCreate] = Field(min_length=1)
-
-APPLICATION_STATUSES = {
-    "SAVED",
-    "APPLIED",
-    "PHONE_SCREEN",
-    "INTERVIEWING",
-    "OFFERED",
-    "REJECTED",
-    "WITHDRAWN",
-}
-
 def gemini_generate_with_retry(**kwargs: Any):
     models = [GEMINI_MODEL, "gemini-3.5-flash-lite"]
     last_error: Optional[Exception] = None
@@ -197,193 +140,6 @@ def serialize_offer_details(details: Optional[OfferDetailsRequest]) -> Optional[
     values = details.dict()
     values["currency"] = currency
     return json.dumps(values)
-
-class ApplicationUpdate(BaseModel):
-    company: str = Field(min_length=1, max_length=120)
-    position: str = Field(min_length=1, max_length=120)
-    status: str
-    source: Optional[Literal[
-        "Company website",
-        "LinkedIn",
-        "Job board",
-        "Recruiter",
-        "Referral",
-        "Networking",
-        "Other",
-    ]] = None
-    notes: Optional[str] = Field(default=None, max_length=2000)
-    jobUrl: Optional[str] = Field(default=None, max_length=2000)
-    nextAction: Optional[str] = Field(default=None, max_length=280)
-    followUpAt: Optional[date] = None
-    contactName: Optional[str] = Field(default=None, max_length=120)
-    contactEmail: Optional[str] = Field(default=None, max_length=254)
-
-class ApplicationActivityCreate(BaseModel):
-    kind: Literal[
-        "NOTE",
-        "FOLLOW_UP",
-        "INTERVIEW",
-        "EMAIL",
-        "OFFER",
-        "APPLICATION_DRAFT",
-        "OTHER",
-    ]
-    detail: str = Field(min_length=1, max_length=6000)
-
-class ReminderPreferenceUpdate(BaseModel):
-    emailEnabled: bool
-
-class JobPostingAnalyzeRequest(BaseModel):
-    description: str = Field(min_length=80, max_length=20000)
-
-class CareerProfileUpdate(BaseModel):
-    careerSummary: str = Field(default="", max_length=2500)
-    skills: str = Field(default="", max_length=2500)
-    workHistory: str = Field(default="", max_length=6000)
-    education: str = Field(default="", max_length=3500)
-    accomplishments: str = Field(default="", max_length=3500)
-    experienceLevel: str = Field(default="", max_length=40)
-    targetRoles: str = Field(default="", max_length=500)
-    preferredLocation: str = Field(default="", max_length=160)
-    workArrangement: str = Field(default="Any", max_length=40)
-
-class ApplicationProfileWorkHistoryEntryInput(BaseModel):
-    company: Optional[str] = Field(default=None, max_length=160)
-    title: Optional[str] = Field(default=None, max_length=160)
-    location: Optional[str] = Field(default=None, max_length=160)
-    startDate: Optional[str] = Field(default=None, max_length=40)
-    endDate: Optional[str] = Field(default=None, max_length=40)
-    isCurrent: bool = False
-    description: Optional[str] = Field(default=None, max_length=2000)
-
-class ApplicationProfileEducationEntryInput(BaseModel):
-    school: Optional[str] = Field(default=None, max_length=200)
-    degree: Optional[str] = Field(default=None, max_length=200)
-    fieldOfStudy: Optional[str] = Field(default=None, max_length=200)
-    startDate: Optional[str] = Field(default=None, max_length=40)
-    endDate: Optional[str] = Field(default=None, max_length=40)
-    location: Optional[str] = Field(default=None, max_length=160)
-    description: Optional[str] = Field(default=None, max_length=2000)
-
-class ApplicationProfileSkillInput(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    category: Optional[str] = Field(default=None, max_length=80)
-    proficiency: Optional[str] = Field(default=None, max_length=80)
-
-class ApplicationProfileAnswerInput(BaseModel):
-    questionKey: str = Field(min_length=1, max_length=200)
-    answerText: str = Field(min_length=1, max_length=5000)
-    isSensitive: bool = False
-    consentGiven: bool = False
-
-class ApplicationProfileUpdate(BaseModel):
-    fullName: Optional[str] = Field(default=None, max_length=200)
-    email: Optional[str] = Field(default=None, max_length=320)
-    phone: Optional[str] = Field(default=None, max_length=50)
-    city: Optional[str] = Field(default=None, max_length=120)
-    state: Optional[str] = Field(default=None, max_length=120)
-    country: Optional[str] = Field(default=None, max_length=120)
-    postalCode: Optional[str] = Field(default=None, max_length=30)
-    addressLine1: Optional[str] = Field(default=None, max_length=200)
-    addressLine2: Optional[str] = Field(default=None, max_length=200)
-    linkedInUrl: Optional[str] = Field(default=None, max_length=500)
-    githubUrl: Optional[str] = Field(default=None, max_length=500)
-    portfolioUrl: Optional[str] = Field(default=None, max_length=500)
-    noticePeriod: Optional[str] = Field(default=None, max_length=120)
-    workAuthorization: Optional[str] = Field(default=None, max_length=200)
-    workAuthorizationConsent: bool = False
-    salaryExpectation: Optional[str] = Field(default=None, max_length=200)
-    salaryExpectationConsent: bool = False
-    eeoData: Optional[Dict[str, Any]] = None
-    eeoDataConsent: bool = False
-    privacyConsentAccepted: bool = False
-    workHistory: list[ApplicationProfileWorkHistoryEntryInput] = Field(default_factory=list, max_items=25)
-    education: list[ApplicationProfileEducationEntryInput] = Field(default_factory=list, max_items=20)
-    skills: list[ApplicationProfileSkillInput] = Field(default_factory=list, max_items=80)
-    savedAnswers: list[ApplicationProfileAnswerInput] = Field(default_factory=list, max_items=200)
-
-class CareerRecommendationsRequest(BaseModel):
-    aiProcessingConsent: bool
-
-class AssistantMessage(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=2000)
-
-class AssistantChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=2000)
-    history: list[AssistantMessage] = Field(default_factory=list, max_length=8)
-    mode: Literal["product", "career"] = "career"
-    context: Optional[str] = Field(default=None, max_length=6000)
-    savedContext: Optional[str] = Field(default=None, max_length=15000)
-    savedContextConsent: bool = False
-
-class PublicAssistantRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=2000)
-    history: list[AssistantMessage] = Field(default_factory=list, max_length=8)
-
-class ApplicationPackRequest(BaseModel):
-    aiProcessingConsent: bool
-    jobDescription: Optional[str] = Field(default=None, max_length=20000)
-
-class FollowUpSequenceRequest(BaseModel):
-    aiProcessingConsent: bool
-    focus: Literal["after-application", "after-interview", "no-response"]
-
-class FollowUpSequenceMessage(BaseModel):
-    timing: str = Field(min_length=1, max_length=120)
-    purpose: str = Field(min_length=1, max_length=240)
-    subject: str = Field(min_length=1, max_length=200)
-    body: str = Field(min_length=1, max_length=4000)
-
-class FollowUpSequenceDraft(BaseModel):
-    messages: list[FollowUpSequenceMessage]
-
-class InterviewPracticeRequest(BaseModel):
-    aiProcessingConsent: bool
-    action: Literal["questions", "feedback"]
-    question: Optional[str] = Field(default=None, min_length=1, max_length=1000)
-    answer: Optional[str] = Field(default=None, min_length=1, max_length=4000)
-
-class InterviewPracticeQuestion(BaseModel):
-    category: Literal["behavioral", "role-specific", "situational", "fit"]
-    question: str = Field(min_length=1, max_length=500)
-    focus: str = Field(min_length=1, max_length=300)
-
-class InterviewPracticeQuestionSet(BaseModel):
-    questions: list[InterviewPracticeQuestion] = Field(min_length=4, max_length=6)
-
-class InterviewAnswerFeedback(BaseModel):
-    strengths: list[str] = Field(min_length=1, max_length=3)
-    improvements: list[str] = Field(min_length=1, max_length=3)
-    answerStructure: str = Field(min_length=1, max_length=1200)
-    followUpQuestion: str = Field(min_length=1, max_length=500)
-
-class FitGapRoadmapRequest(BaseModel):
-    aiProcessingConsent: bool
-    targetLevel: Literal["Junior", "Intermediate", "Senior"] = "Intermediate"
-
-class ProofSprintRequest(BaseModel):
-    gap: str = Field(min_length=1, max_length=300)
-    aiProcessingConsent: bool
-
-class ProjectProofUpdate(BaseModel):
-    proofUrl: Optional[str] = Field(..., max_length=2048)
-    proofNotes: Optional[str] = Field(..., max_length=2000)
-
-class ResumeUpdateDraft(BaseModel):
-    updatedResume: str = Field(min_length=1, max_length=18000)
-    revisionNotes: list[str] = Field(default_factory=list, max_length=6)
-
-class CoverLetterDraft(BaseModel):
-    coverLetter: str = Field(min_length=1, max_length=12000)
-    revisionNotes: list[str] = Field(default_factory=list, max_length=6)
-
-class OfferPrioritiesRequest(BaseModel):
-    salary: int = Field(ge=0, le=5)
-    commute: int = Field(ge=0, le=5)
-    learning: int = Field(ge=0, le=5)
-    stability: int = Field(ge=0, le=5)
-    workLife: int = Field(ge=0, le=5)
 
 def validate_image_upload(image_bytes: bytes) -> str:
     mime_types = {
@@ -541,6 +297,13 @@ async def get_current_user(
     request.state.billing_user_id = user_id
     return user_id
 
+app.include_router(
+    create_identity_router(db, get_current_user, SUPABASE_URL, SUPABASE_ANON_KEY)
+)
+app.include_router(create_application_profiles_router(db, get_current_user))
+app.include_router(create_profiles_router(db, get_current_user))
+app.include_router(create_roadmaps_router(db, get_current_user))
+app.include_router(create_feedback_router(db, get_current_user))
 
 BILLING_PLANS = {
     "basic": {
@@ -832,355 +595,7 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
     }
 
 
-# 5. Helper Function for Prisma Nested Writes
-def build_roadmap_data(data: Dict[str, Any], user_id: str) -> Dict[str, Any]:
-    projects_to_create = []
-    projects = data.get("projects")
-    if not isinstance(projects, list) or not projects:
-        raise ValueError("The generated roadmap must contain projects.")
-
-    readiness_score = int(data["readinessScore"])
-    if not 0 <= readiness_score <= 100:
-        raise ValueError("The generated readiness score must be between 0 and 100.")
-
-    for proj in projects:
-        if not isinstance(proj, dict) or not isinstance(proj.get("tasks"), list):
-            raise ValueError("Each generated project must include a task list.")
-
-        tasks_to_create = [
-            {"label": str(task), "completed": False}
-            for task in proj["tasks"]
-        ]
-        projects_to_create.append({
-            "title": str(proj["title"]),
-            "description": str(proj["description"]),
-            "level": str(proj["level"]),
-            "tasks": {"create": tasks_to_create}
-        })
-
-    return {
-        "title": str(data["title"]),
-        "readinessScore": readiness_score,
-        "userId": user_id,
-        "projects": {"create": projects_to_create}
-    }
-
 # 6. User & Roadmap Route Handlers
-@app.get("/api/v1/extension/config")
-async def get_extension_client_config():
-    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        raise HTTPException(status_code=503, detail="Authentication is not configured.")
-    return {
-        "supabaseUrl": SUPABASE_URL.rstrip("/"),
-        "supabaseAnonKey": SUPABASE_ANON_KEY,
-    }
-
-
-@app.get("/api/v1/user")
-async def get_user_profile(user_id: str = Depends(get_current_user)):
-    user = await db.user.find_unique(where={"id": user_id})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
-
-def _sanitize_application_profile_payload(payload: ApplicationProfileUpdate) -> Dict[str, Any]:
-    data = payload.dict(exclude_none=False)
-    data["fullName"] = (data.get("fullName") or "").strip() or None
-    data["email"] = (data.get("email") or "").strip() or None
-    data["phone"] = (data.get("phone") or "").strip() or None
-    data["city"] = (data.get("city") or "").strip() or None
-    data["state"] = (data.get("state") or "").strip() or None
-    data["country"] = (data.get("country") or "").strip() or None
-    data["postalCode"] = (data.get("postalCode") or "").strip() or None
-    data["addressLine1"] = (data.get("addressLine1") or "").strip() or None
-    data["addressLine2"] = (data.get("addressLine2") or "").strip() or None
-    data["linkedInUrl"] = (data.get("linkedInUrl") or "").strip() or None
-    data["githubUrl"] = (data.get("githubUrl") or "").strip() or None
-    data["portfolioUrl"] = (data.get("portfolioUrl") or "").strip() or None
-    data["noticePeriod"] = (data.get("noticePeriod") or "").strip() or None
-    data["workAuthorization"] = (data.get("workAuthorization") or "").strip() or None
-    data["salaryExpectation"] = (data.get("salaryExpectation") or "").strip() or None
-
-    if not data.get("workAuthorizationConsent"):
-        data["workAuthorization"] = None
-    if not data.get("salaryExpectationConsent"):
-        data["salaryExpectation"] = None
-    if not data.get("eeoDataConsent"):
-        data["eeoData"] = None
-
-    return data
-
-
-@app.get("/api/v1/application-profile")
-async def get_application_profile(user_id: str = Depends(get_current_user)):
-    profile_rows = await db.query_raw(
-        'SELECT * FROM "ApplicationProfile" WHERE "userId" = $1',
-        user_id,
-    )
-    if not profile_rows:
-        return {
-            "id": None,
-            "userId": user_id,
-            "fullName": None,
-            "email": None,
-            "phone": None,
-            "city": None,
-            "state": None,
-            "country": None,
-            "postalCode": None,
-            "addressLine1": None,
-            "addressLine2": None,
-            "linkedInUrl": None,
-            "githubUrl": None,
-            "portfolioUrl": None,
-            "noticePeriod": None,
-            "workAuthorization": None,
-            "salaryExpectation": None,
-            "eeoData": None,
-            "privacyConsentAccepted": False,
-            "workAuthorizationConsent": False,
-            "salaryExpectationConsent": False,
-            "eeoDataConsent": False,
-            "workHistory": [],
-            "education": [],
-            "skills": [],
-            "savedAnswers": [],
-        }
-
-    profile = dict(profile_rows[0])
-    if not profile.get("workAuthorizationConsent"):
-        profile["workAuthorization"] = None
-    if not profile.get("salaryExpectationConsent"):
-        profile["salaryExpectation"] = None
-    if not profile.get("eeoDataConsent"):
-        profile["eeoData"] = None
-
-    work_history = await db.query_raw(
-        'SELECT * FROM "ApplicationProfileWorkHistoryEntry" WHERE "profileId" = $1 ORDER BY "createdAt" ASC',
-        profile["id"],
-    )
-    education = await db.query_raw(
-        'SELECT * FROM "ApplicationProfileEducationEntry" WHERE "profileId" = $1 ORDER BY "createdAt" ASC',
-        profile["id"],
-    )
-    skills = await db.query_raw(
-        'SELECT * FROM "ApplicationProfileSkill" WHERE "profileId" = $1 ORDER BY "createdAt" ASC',
-        profile["id"],
-    )
-    answers = await db.query_raw(
-        'SELECT * FROM "ApplicationProfileAnswer" WHERE "profileId" = $1 ORDER BY "createdAt" ASC',
-        profile["id"],
-    )
-
-    return {
-        **profile,
-        "workHistory": [dict(row) for row in work_history],
-        "education": [dict(row) for row in education],
-        "skills": [dict(row) for row in skills],
-        "savedAnswers": [dict(row) for row in answers],
-    }
-
-
-@app.put("/api/v1/application-profile")
-async def update_application_profile(
-    payload: ApplicationProfileUpdate,
-    user_id: str = Depends(get_current_user),
-):
-    if not payload.privacyConsentAccepted:
-        raise HTTPException(
-            status_code=400,
-            detail="Confirm the application-profile consent text before saving or using your autofill profile.",
-        )
-
-    data = _sanitize_application_profile_payload(payload)
-    existing = await db.query_raw(
-        'SELECT "id" FROM "ApplicationProfile" WHERE "userId" = $1',
-        user_id,
-    )
-    profile_id = existing[0]["id"] if existing else str(uuid.uuid4())
-
-    if existing:
-        await db.execute_raw(
-            'UPDATE "ApplicationProfile" SET "fullName" = $1, "email" = $2, "phone" = $3, '
-            '"city" = $4, "state" = $5, "country" = $6, "postalCode" = $7, '
-            '"addressLine1" = $8, "addressLine2" = $9, "linkedInUrl" = $10, '
-            '"githubUrl" = $11, "portfolioUrl" = $12, "noticePeriod" = $13, '
-            '"workAuthorization" = $14, "salaryExpectation" = $15, "eeoData" = $16::jsonb, '
-            '"privacyConsentAccepted" = $17, "workAuthorizationConsent" = $18, '
-            '"salaryExpectationConsent" = $19, "eeoDataConsent" = $20, "updatedAt" = NOW() '
-            'WHERE "id" = $21 AND "userId" = $22',
-            data["fullName"],
-            data["email"],
-            data["phone"],
-            data["city"],
-            data["state"],
-            data["country"],
-            data["postalCode"],
-            data["addressLine1"],
-            data["addressLine2"],
-            data["linkedInUrl"],
-            data["githubUrl"],
-            data["portfolioUrl"],
-            data["noticePeriod"],
-            data["workAuthorization"],
-            data["salaryExpectation"],
-            json.dumps(data["eeoData"]) if data.get("eeoData") is not None else None,
-            data["privacyConsentAccepted"],
-            data["workAuthorizationConsent"],
-            data["salaryExpectationConsent"],
-            data["eeoDataConsent"],
-            profile_id,
-            user_id,
-        )
-    else:
-        await db.execute_raw(
-            'INSERT INTO "ApplicationProfile" ("id", "userId", "fullName", "email", "phone", "city", '
-            '"state", "country", "postalCode", "addressLine1", "addressLine2", "linkedInUrl", '
-            '"githubUrl", "portfolioUrl", "noticePeriod", "workAuthorization", "salaryExpectation", '
-            '"eeoData", "privacyConsentAccepted", "workAuthorizationConsent", '
-            '"salaryExpectationConsent", "eeoDataConsent", "createdAt", "updatedAt") '
-            'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, '
-            '$19, $20, $21, $22, NOW(), NOW())',
-            profile_id,
-            user_id,
-            data["fullName"],
-            data["email"],
-            data["phone"],
-            data["city"],
-            data["state"],
-            data["country"],
-            data["postalCode"],
-            data["addressLine1"],
-            data["addressLine2"],
-            data["linkedInUrl"],
-            data["githubUrl"],
-            data["portfolioUrl"],
-            data["noticePeriod"],
-            data["workAuthorization"],
-            data["salaryExpectation"],
-            json.dumps(data["eeoData"]) if data.get("eeoData") is not None else None,
-            data["privacyConsentAccepted"],
-            data["workAuthorizationConsent"],
-            data["salaryExpectationConsent"],
-            data["eeoDataConsent"],
-        )
-
-    await db.execute_raw(
-        'DELETE FROM "ApplicationProfileWorkHistoryEntry" WHERE "profileId" = $1',
-        profile_id,
-    )
-    await db.execute_raw(
-        'DELETE FROM "ApplicationProfileEducationEntry" WHERE "profileId" = $1',
-        profile_id,
-    )
-    await db.execute_raw(
-        'DELETE FROM "ApplicationProfileSkill" WHERE "profileId" = $1',
-        profile_id,
-    )
-    await db.execute_raw(
-        'DELETE FROM "ApplicationProfileAnswer" WHERE "profileId" = $1',
-        profile_id,
-    )
-
-    for item in payload.workHistory:
-        await db.execute_raw(
-            'INSERT INTO "ApplicationProfileWorkHistoryEntry" ("id", "profileId", "company", "title", "location", "startDate", "endDate", "isCurrent", "description", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())',
-            str(uuid.uuid4()),
-            profile_id,
-            item.company.strip() if item.company else None,
-            item.title.strip() if item.title else None,
-            item.location.strip() if item.location else None,
-            item.startDate.strip() if item.startDate else None,
-            item.endDate.strip() if item.endDate else None,
-            item.isCurrent,
-            item.description.strip() if item.description else None,
-        )
-
-    for item in payload.education:
-        await db.execute_raw(
-            'INSERT INTO "ApplicationProfileEducationEntry" ("id", "profileId", "school", "degree", "fieldOfStudy", "startDate", "endDate", "location", "description", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())',
-            str(uuid.uuid4()),
-            profile_id,
-            item.school.strip() if item.school else None,
-            item.degree.strip() if item.degree else None,
-            item.fieldOfStudy.strip() if item.fieldOfStudy else None,
-            item.startDate.strip() if item.startDate else None,
-            item.endDate.strip() if item.endDate else None,
-            item.location.strip() if item.location else None,
-            item.description.strip() if item.description else None,
-        )
-
-    for item in payload.skills:
-        await db.execute_raw(
-            'INSERT INTO "ApplicationProfileSkill" ("id", "profileId", "name", "category", "proficiency", "createdAt") VALUES ($1, $2, $3, $4, $5, NOW())',
-            str(uuid.uuid4()),
-            profile_id,
-            item.name.strip(),
-            item.category.strip() if item.category else None,
-            item.proficiency.strip() if item.proficiency else None,
-        )
-
-    for item in payload.savedAnswers:
-        if not item.answerText.strip():
-            continue
-        await db.execute_raw(
-            'INSERT INTO "ApplicationProfileAnswer" ("id", "profileId", "questionKey", "answerText", "isSensitive", "consentGiven", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())',
-            str(uuid.uuid4()),
-            profile_id,
-            item.questionKey.strip(),
-            item.answerText.strip(),
-            bool(item.isSensitive),
-            bool(item.consentGiven),
-        )
-
-    return await get_application_profile(user_id)
-
-
-@app.get("/api/v1/career-profile")
-async def get_career_profile(user_id: str = Depends(get_current_user)):
-    profiles = await db.query_raw(
-        'SELECT "careerSummary", "skills", "workHistory", "education", "accomplishments", '
-        '"experienceLevel", "targetRoles", '
-        '"preferredLocation", "workArrangement" FROM "User" WHERE "id" = $1',
-        user_id,
-    )
-    if not profiles:
-        raise HTTPException(status_code=404, detail="Career profile not found.")
-    return profiles[0]
-
-@app.put("/api/v1/career-profile")
-async def update_career_profile(
-    payload: CareerProfileUpdate,
-    user_id: str = Depends(get_current_user),
-):
-    allowed_levels = {"Student", "Entry level", "Junior", "Mid-level", "Senior", "Career changer"}
-    allowed_arrangements = {"Any", "Remote", "Hybrid", "On-site"}
-    experience_level = payload.experienceLevel.strip() or None
-    work_arrangement = payload.workArrangement.strip() or "Any"
-    if experience_level and experience_level not in allowed_levels:
-        raise HTTPException(status_code=400, detail="Choose a valid experience level.")
-    if work_arrangement not in allowed_arrangements:
-        raise HTTPException(status_code=400, detail="Choose a valid work arrangement.")
-
-    updated = await db.execute_raw(
-        'UPDATE "User" SET "careerSummary" = $1, "skills" = $2, "experienceLevel" = $3, '
-        '"workHistory" = $4, "education" = $5, "accomplishments" = $6, '
-        '"targetRoles" = $7, "preferredLocation" = $8, "workArrangement" = $9 WHERE "id" = $10',
-        payload.careerSummary.strip() or None,
-        payload.skills.strip() or None,
-        experience_level,
-        payload.workHistory.strip() or None,
-        payload.education.strip() or None,
-        payload.accomplishments.strip() or None,
-        payload.targetRoles.strip() or None,
-        payload.preferredLocation.strip() or None,
-        work_arrangement,
-        user_id,
-    )
-    if updated != 1:
-        raise HTTPException(status_code=404, detail="User not found.")
-    return await get_career_profile(user_id)
-
 @app.post("/api/v1/career-profile/recommendations")
 async def recommend_job_roles(
     request: Request,
@@ -1688,102 +1103,6 @@ async def chat_with_signed_in_assistant_document(
         context=combined_context,
     )
     return {"reply": answer}
-
-@app.get("/api/v1/roadmaps")
-async def get_roadmaps(user_id: str = Depends(get_current_user)):
-    return await db.roadmap.find_many(
-        where={"userId": user_id},
-        include={
-            "projects": {
-                "include": {
-                    "tasks": True
-                }
-            }
-        }
-    )
-
-@app.delete("/api/v1/roadmaps/{roadmap_id}")
-async def delete_roadmap(
-    roadmap_id: str,
-    user_id: str = Depends(get_current_user),
-):
-    deleted = await db.query_raw(
-        'DELETE FROM "Roadmap" WHERE "id" = $1 AND "userId" = $2 RETURNING "id"',
-        roadmap_id,
-        user_id,
-    )
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Roadmap not found.")
-    return {"id": roadmap_id, "deleted": True}
-
-@app.patch("/api/v1/tasks/{task_id}")
-async def update_task_status(
-    task_id: str,
-    payload: TaskUpdate,
-    user_id: str = Depends(get_current_user),
-):
-    task = await db.task.find_unique(
-        where={"id": task_id},
-        include={"projectTrack": {"include": {"roadmap": True}}}
-    )
-    if (
-        not task
-        or not task.projectTrack
-        or not task.projectTrack.roadmap
-        or task.projectTrack.roadmap.userId != user_id
-    ):
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    updated_task = await db.task.update(
-        where={"id": task_id},
-        data={"completed": payload.completed}
-    )
-    return {"status": "success", "task": updated_task}
-
-@app.get("/api/v1/projects/{project_id}/proof")
-async def get_project_proof(
-    project_id: str,
-    user_id: str = Depends(get_current_user),
-):
-    proof = await db.query_raw(
-        'SELECT p."proofUrl", p."proofNotes" FROM "ProjectTrack" p '
-        'JOIN "Roadmap" r ON r."id" = p."roadmapId" '
-        'WHERE p."id" = $1 AND r."userId" = $2',
-        project_id,
-        user_id,
-    )
-    if not proof:
-        raise HTTPException(status_code=404, detail="Project not found.")
-    return proof[0]
-
-@app.patch("/api/v1/projects/{project_id}/proof")
-async def update_project_proof(
-    project_id: str,
-    payload: ProjectProofUpdate,
-    user_id: str = Depends(get_current_user),
-):
-    proof_url = (
-        payload.proofUrl.strip()
-        if payload.proofUrl and payload.proofUrl.strip()
-        else None
-    )
-    if proof_url:
-        parsed_url = urlparse(proof_url)
-        if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
-            raise HTTPException(status_code=400, detail="Proof URL must be a valid HTTP or HTTPS link.")
-
-    updated = await db.query_raw(
-        'UPDATE "ProjectTrack" p SET "proofUrl" = $1, "proofNotes" = $2 '
-        'FROM "Roadmap" r WHERE p."id" = $3 AND p."roadmapId" = r."id" '
-        'AND r."userId" = $4 RETURNING p."proofUrl", p."proofNotes"',
-        proof_url,
-        payload.proofNotes.strip() if payload.proofNotes and payload.proofNotes.strip() else None,
-        project_id,
-        user_id,
-    )
-    if not updated:
-        raise HTTPException(status_code=404, detail="Project not found.")
-    return updated[0]
 
 @app.post("/api/v1/roadmaps/generate")
 async def generate_roadmap(
@@ -2560,24 +1879,6 @@ async def generate_cover_letter(
             status_code=502,
             detail="Unable to draft a cover letter right now. Please try again.",
         ) from exc
-
-@app.post("/api/v1/feedback")
-async def submit_peer_feedback(
-    payload: PeerFeedbackRequest,
-    user_id: str = Depends(get_current_user),
-):
-    """Save peer feedback without retaining account or contact details."""
-    feature_keys = [item.feature for item in payload.featureRatings]
-    if len(feature_keys) != len(set(feature_keys)):
-        raise HTTPException(status_code=400, detail="Rate each selected feature only once.")
-
-    response_id = str(uuid.uuid4())
-    await db.execute_raw(
-        'INSERT INTO "FeedbackResponse" ("id", "answers") VALUES ($1, $2::jsonb)',
-        response_id,
-        json.dumps(payload.dict()),
-    )
-    return {"submitted": True}
 
 @app.get("/api/v1/applications")
 async def get_applications(user_id: str = Depends(get_current_user)):
