@@ -170,7 +170,7 @@ APPLICATION_STATUSES = {
 }
 
 def gemini_generate_with_retry(**kwargs: Any):
-    models = [GEMINI_MODEL, "gemini-2.5-flash-lite"]
+    models = [GEMINI_MODEL, "gemini-3.5-flash-lite"]
     last_error: Optional[Exception] = None
     for attempt in range(3):
         model = models[0] if attempt < 2 else models[-1]
