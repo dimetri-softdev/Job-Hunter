@@ -25,7 +25,7 @@ from fastapi import FastAPI, HTTPException, Depends, Header, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prisma import Prisma
-from groq import Groq
+from groq import BadRequestError, Groq
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 from api.schemas.applications import (
@@ -2653,7 +2653,16 @@ async def prepare_application_pack(
     await reserve_billing_usage(request, user_id, "application_drafts")
     prompt = f"""
     Prepare a review-only application pack for this job. Return one JSON object
-    with exactly these fields:
+    with exactly these fields and value types:
+    {{
+      "coverLetter": "string",
+      "roleSummary": "string",
+      "evidenceToEmphasize": ["string"],
+      "resumeSummary": "string",
+      "resumeBullets": ["string"],
+      "supportedKeywords": ["string"],
+      "verifyBeforeUsing": ["string"]
+    }}
     - coverLetter: under 180 words.
     - roleSummary: up to three concise sentences summarizing the role.
     - evidenceToEmphasize: up to four short items supported by the candidate profile.
@@ -2684,14 +2693,34 @@ async def prepare_application_pack(
     """
 
     try:
-        completion = groq_client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "You draft truthful, concise application materials from provided evidence. Always return valid JSON."},
-                {"role": "user", "content": prompt},
-            ],
-            model=GROQ_MODEL,
-            response_format={"type": "json_object"},
-        )
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You draft truthful, concise application materials from "
+                    "provided evidence. Return only one valid JSON object, "
+                    "without markdown or surrounding text."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ]
+        try:
+            completion = groq_client.chat.completions.create(
+                messages=messages,
+                model=GROQ_MODEL,
+                response_format={"type": "json_object"},
+            )
+        except BadRequestError as exc:
+            error = exc.body.get("error") if isinstance(exc.body, dict) else None
+            if not isinstance(error, dict) or error.get("code") != "json_validate_failed":
+                raise
+            logger.warning(
+                "Groq rejected constrained JSON for application drafts; retrying without response_format"
+            )
+            completion = groq_client.chat.completions.create(
+                messages=messages,
+                model=GROQ_MODEL,
+            )
         raw_content = completion.choices[0].message.content
         if not raw_content:
             raise HTTPException(status_code=502, detail="The AI returned an empty application draft.")
