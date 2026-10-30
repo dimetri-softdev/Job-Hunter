@@ -20,6 +20,44 @@ logger = logging.getLogger(__name__)
 PAYFAST_SANDBOX_PROCESS_URL = "https://sandbox.payfast.co.za/eng/process"
 PAYFAST_SANDBOX_VALIDATE_URL = "https://sandbox.payfast.co.za/eng/query/validate"
 MAX_ITN_BODY_BYTES = 16_384
+PAYFAST_CHECKOUT_SIGNATURE_FIELDS = (
+    "merchant_id",
+    "merchant_key",
+    "return_url",
+    "cancel_url",
+    "notify_url",
+    "notify_method",
+    "name_first",
+    "name_last",
+    "email_address",
+    "cell_number",
+    "m_payment_id",
+    "amount",
+    "item_name",
+    "item_description",
+    "custom_int1",
+    "custom_int2",
+    "custom_int3",
+    "custom_int4",
+    "custom_int5",
+    "custom_str1",
+    "custom_str2",
+    "custom_str3",
+    "custom_str4",
+    "custom_str5",
+    "email_confirmation",
+    "confirmation_address",
+    "currency",
+    "payment_method",
+    "subscription_type",
+    "billing_date",
+    "recurring_amount",
+    "frequency",
+    "cycles",
+    "subscription_notify_email",
+    "subscription_notify_webhook",
+    "subscription_notify_buyer",
+)
 
 
 @dataclass(frozen=True)
@@ -66,6 +104,16 @@ def _signature(fields: Sequence[tuple[str, str]], passphrase: str) -> str:
         encoded_passphrase = quote_plus(normalized_passphrase, safe="").replace("~", "%7E")
         parameters.append(f"passphrase={encoded_passphrase}")
     return hashlib.md5("&".join(parameters).encode("utf-8")).hexdigest()
+
+
+def _checkout_signature(fields: Sequence[tuple[str, str]], passphrase: str) -> str:
+    field_values = dict(fields)
+    ordered_fields = [
+        (key, field_values[key])
+        for key in PAYFAST_CHECKOUT_SIGNATURE_FIELDS
+        if key in field_values
+    ]
+    return _signature(ordered_fields, passphrase)
 
 
 def _next_period(start: datetime, interval: str) -> datetime:
@@ -176,16 +224,16 @@ def create_payfast_router(
             ("return_url", settings.return_url or ""),
             ("cancel_url", settings.cancel_url or ""),
             ("notify_url", settings.notify_url or ""),
+            ("email_address", str(users[0]["email"])),
             ("m_payment_id", checkout_id),
             ("amount", f"{amount:.2f}"),
             ("item_name", f"Job Hunter {payload.plan.title()} ({payload.billingInterval})"),
-            ("email_address", str(users[0]["email"])),
             ("subscription_type", "1"),
+            ("recurring_amount", f"{amount:.2f}"),
             ("frequency", "6" if payload.billingInterval == "annual" else "3"),
             ("cycles", "0"),
-            ("recurring_amount", f"{amount:.2f}"),
         ]
-        fields.append(("signature", _signature(fields, settings.passphrase or "")))
+        fields.append(("signature", _checkout_signature(fields, settings.passphrase or "")))
 
         return {
             "action": PAYFAST_SANDBOX_PROCESS_URL,

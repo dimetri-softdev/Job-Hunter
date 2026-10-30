@@ -14,6 +14,7 @@ from starlette.requests import Request
 from api.routes.payfast import (
     PAYFAST_SANDBOX_PROCESS_URL,
     PayFastSettings,
+    _checkout_signature,
     _next_period,
     _signature,
     create_payfast_router,
@@ -97,10 +98,29 @@ class PayFastRouteTests(unittest.TestCase):
         self.assertEqual(result["fields"]["recurring_amount"], "278.40")
         self.assertEqual(
             result["fields"]["signature"],
-            _signature(
+            _checkout_signature(
                 [(key, value) for key, value in result["fields"].items() if key != "signature"],
                 "sandbox-passphrase",
             ),
+        )
+        self.assertEqual(
+            list(result["fields"]),
+            [
+                "merchant_id",
+                "merchant_key",
+                "return_url",
+                "cancel_url",
+                "notify_url",
+                "email_address",
+                "m_payment_id",
+                "amount",
+                "item_name",
+                "subscription_type",
+                "recurring_amount",
+                "frequency",
+                "cycles",
+                "signature",
+            ],
         )
         self.assertEqual(len(db.executions), 1)
         self.assertIn("$5::numeric", db.executions[0][0])
@@ -329,6 +349,27 @@ class PayFastRouteTests(unittest.TestCase):
                 " salt ",
             ),
             expected,
+        )
+
+    def test_checkout_signature_uses_payfast_field_order_not_input_order(self):
+        fields = [
+            ("frequency", "6"),
+            ("email_address", "person@example.com"),
+            ("recurring_amount", "278.40"),
+            ("merchant_id", "merchant"),
+            ("subscription_type", "1"),
+        ]
+        reordered_fields = [
+            ("merchant_id", "merchant"),
+            ("email_address", "person@example.com"),
+            ("subscription_type", "1"),
+            ("recurring_amount", "278.40"),
+            ("frequency", "6"),
+        ]
+
+        self.assertEqual(
+            _checkout_signature(fields, "sandbox-passphrase"),
+            _checkout_signature(reordered_fields, "sandbox-passphrase"),
         )
 
     def _endpoint(self, db, path, settings=None):
