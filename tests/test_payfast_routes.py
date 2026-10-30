@@ -103,6 +103,7 @@ class PayFastRouteTests(unittest.TestCase):
             ),
         )
         self.assertEqual(len(db.executions), 1)
+        self.assertIn("$5::numeric", db.executions[0][0])
 
     def test_checkout_is_disabled_when_live_mode_is_selected(self):
         settings = PayFastSettings(
@@ -218,6 +219,11 @@ class PayFastRouteTests(unittest.TestCase):
         self.assertEqual(len(db.executions), 2)
         self.assertIn('"UserSubscription"', db.executions[0][0])
         self.assertIn('"PayfastCheckout"', db.executions[1][0])
+        notification_insert = next(
+            query for query, _values in db.queries
+            if 'INSERT INTO "PayfastNotification"' in query
+        )
+        self.assertIn("$6::numeric", notification_insert)
 
     def test_duplicate_notification_does_not_repeat_subscription_updates(self):
         db = FakeDatabase(

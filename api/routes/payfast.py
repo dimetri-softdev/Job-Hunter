@@ -159,7 +159,7 @@ def create_payfast_router(
                 await transaction.execute_raw(
                     'INSERT INTO "PayfastCheckout" '
                     '("id", "userId", "plan", "billingInterval", "amount", "status", "updatedAt") '
-                    'VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)',
+                    'VALUES ($1, $2, $3, $4, $5::numeric, $6, CURRENT_TIMESTAMP)',
                     checkout_id,
                     user_id,
                     payload.plan,
@@ -334,7 +334,7 @@ def create_payfast_router(
                 'INSERT INTO "PayfastNotification" '
                 '("id", "providerPaymentId", "merchantReference", "providerSubscriptionId", '
                 '"paymentStatus", "amount") '
-                'VALUES ($1, $2, $3, $4, $5, $6) '
+                'VALUES ($1, $2, $3, $4, $5, $6::numeric) '
                 'ON CONFLICT ("providerPaymentId", "paymentStatus") DO NOTHING RETURNING "id"',
                 str(uuid.uuid4()),
                 fields["pf_payment_id"],
