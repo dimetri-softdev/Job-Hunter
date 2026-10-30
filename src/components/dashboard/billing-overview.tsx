@@ -268,7 +268,9 @@ export function BillingOverview() {
                   <p className="mt-1 text-xs text-slate-400">
                     {feature.limit === null
                       ? feature.included
-                        ? "Unlimited"
+                        ? feature.available
+                          ? "Unlimited"
+                          : "Included; access inactive"
                         : "Not included in this plan"
                       : `${feature.used} of ${feature.limit} used`}
                   </p>

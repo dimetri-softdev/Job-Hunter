@@ -225,13 +225,14 @@ model PayfastCheckout {
 
 model PayfastNotification {
   id                     String   @id @default(uuid())
-  providerPaymentId      String   @unique
+  providerPaymentId      String
   merchantReference      String
   providerSubscriptionId String?
   paymentStatus          String
   amount                 Decimal  @db.Decimal(10, 2)
   receivedAt             DateTime @default(now())
 
+  @@unique([providerPaymentId, paymentStatus])
   @@index([merchantReference])
   @@index([providerSubscriptionId])
 }

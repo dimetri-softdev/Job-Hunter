@@ -5,7 +5,7 @@ import uuid
 from calendar import monthrange
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
 from urllib.parse import parse_qsl, quote_plus
@@ -173,8 +173,21 @@ def create_payfast_router(
         ):
             raise HTTPException(status_code=415, detail="Expected a URL-encoded PayFast notification.")
 
-        body = await request.body()
-        if not body or len(body) > MAX_ITN_BODY_BYTES:
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                declared_length = int(content_length)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="PayFast notification length is invalid.") from exc
+            if declared_length > MAX_ITN_BODY_BYTES:
+                raise HTTPException(status_code=413, detail="PayFast notification is too large.")
+        body_buffer = bytearray()
+        async for chunk in request.stream():
+            body_buffer.extend(chunk)
+            if len(body_buffer) > MAX_ITN_BODY_BYTES:
+                raise HTTPException(status_code=413, detail="PayFast notification is too large.")
+        body = bytes(body_buffer)
+        if not body:
             raise HTTPException(status_code=400, detail="PayFast notification body is invalid.")
         try:
             pairs = parse_qsl(body.decode("utf-8"), keep_blank_values=True, strict_parsing=True)
@@ -273,7 +286,7 @@ def create_payfast_router(
                 '("id", "providerPaymentId", "merchantReference", "providerSubscriptionId", '
                 '"paymentStatus", "amount") '
                 'VALUES ($1, $2, $3, $4, $5, $6) '
-                'ON CONFLICT ("providerPaymentId") DO NOTHING RETURNING "id"',
+                'ON CONFLICT ("providerPaymentId", "paymentStatus") DO NOTHING RETURNING "id"',
                 str(uuid.uuid4()),
                 fields["pf_payment_id"],
                 fields["m_payment_id"],
@@ -335,7 +348,8 @@ def create_payfast_router(
                     )
                 elif subscription:
                     await transaction.execute_raw(
-                        'UPDATE "UserSubscription" SET "status" = $1, "paymentFailedAt" = $2, '
+                        'UPDATE "UserSubscription" SET "status" = $1, '
+                        '"paymentFailedAt" = CASE WHEN $1 = $6 THEN $2 ELSE NULL END, '
                         '"canceledAt" = CASE WHEN $1 = $3 THEN $2 ELSE "canceledAt" END, '
                         '"updatedAt" = CURRENT_TIMESTAMP WHERE "provider" = $4 '
                         'AND "providerSubscriptionId" = $5',
@@ -344,6 +358,7 @@ def create_payfast_router(
                         "CANCELED",
                         "payfast",
                         token,
+                        "PAST_DUE",
                     )
 
         return {"received": True, "duplicate": False}

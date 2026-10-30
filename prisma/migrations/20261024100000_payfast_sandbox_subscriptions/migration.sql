@@ -30,8 +30,8 @@ CREATE TABLE "PayfastNotification" (
     CONSTRAINT "PayfastNotification_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "PayfastNotification_providerPaymentId_key"
-ON "PayfastNotification"("providerPaymentId");
+CREATE UNIQUE INDEX "PayfastNotification_providerPaymentId_paymentStatus_key"
+ON "PayfastNotification"("providerPaymentId", "paymentStatus");
 
 CREATE INDEX "PayfastNotification_merchantReference_idx"
 ON "PayfastNotification"("merchantReference");
