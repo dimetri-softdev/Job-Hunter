@@ -323,13 +323,13 @@ BILLING_PLANS = {
         "assistant_chat": 30,
     },
     "starter": {
-        "job_fit": 5,
-        "roadmap_generation": 2,
+        "job_fit": 10,
+        "roadmap_generation": 4,
         "application_drafts": 5,
         "interview_prep": 5,
         "resume_updates": 2,
         "role_suggestions": 5,
-        "assistant_chat": 30,
+        "assistant_chat": 50,
     },
     "standard": {
         "job_fit": 15,

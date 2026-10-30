@@ -37,6 +37,16 @@ class BillingPlanTests(unittest.TestCase):
         self.assertTrue(main._feature_available("lite", "resume_updates"))
         self.assertTrue(main._feature_available("premium", "resume_updates"))
 
+    def test_starter_increases_core_allowances_over_basic(self):
+        self.assertEqual(main.BILLING_PLANS["starter"]["job_fit"], 10)
+        self.assertEqual(main.BILLING_PLANS["starter"]["roadmap_generation"], 4)
+        self.assertEqual(main.BILLING_PLANS["starter"]["assistant_chat"], 50)
+        for feature in ("job_fit", "roadmap_generation", "assistant_chat"):
+            self.assertGreater(
+                main.BILLING_PLANS["starter"][feature],
+                main.BILLING_PLANS["basic"][feature],
+            )
+
     def test_premium_usage_is_recorded_without_a_monthly_count_limit(self):
         db = _BillingDatabase(
             {
