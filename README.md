@@ -141,6 +141,31 @@ curl --fail --silent --show-error -X POST "$JOBHUNTER_API_URL/internal/reminders
 
 The endpoint sends reminders only while the admin feature switch is enabled, for opted-in accounts and due follow-up dates. Successful sends are recorded so repeated job runs do not resend for the same application and date. Failed sends are retried at most three times, no sooner than six hours apart, while Resend's idempotency key protects retries within its 24-hour window. Browser notifications require permission and the signed-in dashboard to remain open in that browser; they are not controlled by the email feature switch.
 
+### PayFast sandbox subscriptions
+
+The current checkout integration is sandbox-only. Configure these variables on the FastAPI service (for Render, use the service's private environment settings):
+
+```env
+PAYFAST_MODE=sandbox
+PAYFAST_MERCHANT_ID=your_sandbox_merchant_id
+PAYFAST_MERCHANT_KEY=your_sandbox_merchant_key
+PAYFAST_PASSPHRASE=your_sandbox_subscription_passphrase
+PAYFAST_RETURN_URL=https://your-site.example/billing?checkout=return
+PAYFAST_CANCEL_URL=https://your-site.example/billing?checkout=cancelled
+PAYFAST_NOTIFY_URL=https://your-api.example/api/v1/billing/payfast/itn
+```
+
+Get the merchant credentials from the PayFast sandbox account and set its **Salt Passphrase** under sandbox Settings. Never paste these values into chat or commit them. The passphrase stays on the backend; the hosted checkout form is signed server-side. The notification URL must be publicly reachable over HTTPS.
+
+Apply the database migration before deploying the backend and web app:
+
+```bash
+npx prisma migrate deploy
+npx prisma generate
+```
+
+Checkout stays unavailable unless sandbox mode, all credentials, and all three HTTPS URLs are configured. The return URL is informational only: access is granted only after the backend validates the signed PayFast notification against the sandbox validation endpoint. Keep the existing Admin billing-enforcement switch disabled during sandbox testing; this code does not support live payments.
+
 ### Password requirements
 
 Sign-up and password reset require a password of 7–128 characters with at least one number and one symbol. The form checks these rules before submitting. For enforcement by Supabase Auth (including requests that bypass the web form), configure the project's Email password requirements in the Supabase Auth settings to require a minimum length of 7 and the required number and symbol characters. Supabase's predefined strongest option may additionally require lowercase and uppercase letters. Existing accounts with passwords that do not meet newly configured Supabase requirements may need to reset their passwords before signing in.

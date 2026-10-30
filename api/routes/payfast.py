@@ -47,6 +47,10 @@ class PayFastSettings:
                     self.notify_url,
                 )
             )
+            and all(
+                value.startswith("https://")
+                for value in (self.return_url or "", self.cancel_url or "", self.notify_url or "")
+            )
         )
 
 
@@ -124,8 +128,8 @@ def create_payfast_router(
         checkout_id = str(uuid.uuid4())
         await db.execute_raw(
             'INSERT INTO "PayfastCheckout" '
-            '("id", "userId", "plan", "billingInterval", "amount", "status") '
-            'VALUES ($1, $2, $3, $4, $5, $6)',
+            '("id", "userId", "plan", "billingInterval", "amount", "status", "updatedAt") '
+            'VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)',
             checkout_id,
             user_id,
             payload.plan,

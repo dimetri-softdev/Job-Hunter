@@ -9,16 +9,20 @@ interface FeatureUsage {
   limit: number | null;
   used: number;
   remaining: number | null;
+  included: boolean;
   available: boolean;
   includedFrom: string;
 }
 
 interface BillingStatus {
   billingEnabled: boolean;
-  checkoutEnabled: false;
+  checkoutEnabled: boolean;
+  checkoutMode: "sandbox" | null;
   currency: string | null;
   annualDiscountPercent: number;
   plan: string | null;
+  provider: string | null;
+  billingInterval: string | null;
   status: string;
   trialEndsAt: string | null;
   currentPeriodStart: string | null;
@@ -27,8 +31,23 @@ interface BillingStatus {
   canceledAt: string | null;
   usagePeriodStartsAt: string;
   features: Record<string, FeatureUsage>;
-  plans: Record<string, Record<string, number>>;
+  plans: Record<string, Record<string, number | null>>;
+  prices: Record<string, { monthly: number; annual: number }>;
 }
+
+interface CheckoutResponse {
+  action: string;
+  fields: Record<string, string>;
+  mode: "sandbox";
+}
+
+const PLAN_ORDER: Record<string, number> = {
+  basic: 0,
+  starter: 1,
+  standard: 2,
+  lite: 3,
+  premium: 4,
+};
 
 const FEATURE_ORDER = [
   "job_fit",
@@ -56,9 +75,21 @@ function titleCase(value: string) {
     .join(" ");
 }
 
+function formatPrice(value: number) {
+  return new Intl.NumberFormat("en-ZA", {
+    style: "currency",
+    currency: "ZAR",
+  }).format(value);
+}
+
 export function BillingOverview() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutPending, setCheckoutPending] = useState<string | null>(null);
+  const [checkoutInterval, setCheckoutInterval] = useState<"monthly" | "annual">(
+    "monthly",
+  );
 
   useEffect(() => {
     let active = true;
@@ -79,6 +110,43 @@ export function BillingOverview() {
       active = false;
     };
   }, []);
+
+  async function startCheckout(plan: string) {
+    setCheckoutError(null);
+    setCheckoutPending(plan);
+    try {
+      const checkout = await fetcher<CheckoutResponse>("/billing/checkout", {
+        method: "POST",
+        body: JSON.stringify({ plan, billingInterval: checkoutInterval }),
+      });
+      if (
+        checkout.mode !== "sandbox" ||
+        checkout.action !== "https://sandbox.payfast.co.za/eng/process"
+      ) {
+        throw new Error("The checkout response did not use the PayFast sandbox.");
+      }
+
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = checkout.action;
+      for (const [name, value] of Object.entries(checkout.fields)) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      }
+      document.body.appendChild(form);
+      form.submit();
+    } catch (checkoutLoadError: unknown) {
+      setCheckoutError(
+        checkoutLoadError instanceof Error
+          ? checkoutLoadError.message
+          : "Unable to start PayFast sandbox checkout.",
+      );
+      setCheckoutPending(null);
+    }
+  }
 
   if (error) {
     return (
@@ -150,15 +218,26 @@ export function BillingOverview() {
         {status.billingEnabled && !entitled && (
           <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-5 text-amber-100">
             <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            Checkout has not been enabled. No payment can be made from this app
-            yet; an administrator must grant a tester trial.
+            {!status.checkoutEnabled
+              ? "Checkout is not configured. An administrator must grant a tester trial."
+              : "Complete sandbox checkout to test the payment flow. Access changes only after PayFast's server-verified notification."}
           </p>
         )}
-        {status.checkoutEnabled === false && (
+        {status.checkoutEnabled ? (
+          <p className="mt-3 text-xs text-emerald-200">
+            Sandbox checkout is enabled. No real charge will be made, and paid
+            feature enforcement remains separate.
+          </p>
+        ) : (
           <p className="mt-3 text-xs text-slate-500">
-            Prices are not set. Checkout is disabled until a payment provider,
-            South African merchant eligibility, settlement currency, and fees are
-            confirmed.
+            Sandbox checkout is not configured. No live PayFast payment mode is
+            available in this release.
+          </p>
+        )}
+        {status.provider === "payfast" && (
+          <p className="mt-3 text-xs text-slate-400">
+            A PayFast subscription is already linked to this account. Contact
+            support to make subscription changes.
           </p>
         )}
       </section>
@@ -188,7 +267,9 @@ export function BillingOverview() {
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
                     {feature.limit === null
-                      ? "Not included in this plan"
+                      ? feature.included
+                        ? "Unlimited"
+                        : "Not included in this plan"
                       : `${feature.used} of ${feature.limit} used`}
                   </p>
                   {feature.limit !== null && !feature.available && (
@@ -208,10 +289,38 @@ export function BillingOverview() {
         <div className="mb-3">
           <h2 className="text-sm font-semibold text-white">Plan allowances</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Monthly AI allowances. Prices will be published after payment setup
-            and operating costs are confirmed.
+            Monthly AI allowances. Premium includes unlimited monthly usage for
+            the listed features.
           </p>
         </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-xs text-slate-400">Billing period</span>
+          {(["monthly", "annual"] as const).map((interval) => (
+            <button
+              key={interval}
+              type="button"
+              aria-pressed={checkoutInterval === interval}
+              onClick={() => setCheckoutInterval(interval)}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                checkoutInterval === interval
+                  ? "border-violet-400/50 bg-violet-400/10 text-violet-100"
+                  : "border-[#252735] text-slate-400 hover:text-white"
+              }`}
+            >
+              {interval === "monthly"
+                ? "Monthly"
+                : `Annual · ${status.annualDiscountPercent}% off`}
+            </button>
+          ))}
+        </div>
+        {checkoutError && (
+          <p
+            role="alert"
+            className="mb-3 rounded-lg border border-rose-400/20 bg-rose-500/10 p-3 text-xs text-rose-200"
+          >
+            {checkoutError}
+          </p>
+        )}
         <div className="grid gap-3 lg:grid-cols-3">
           {Object.entries(status.plans).map(([plan, limits]) => (
             <article
@@ -232,20 +341,22 @@ export function BillingOverview() {
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-xs text-slate-500">Price to be announced</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {plan === "basic"
+                  ? "Free"
+                  : status.prices[plan]
+                    ? checkoutInterval === "monthly"
+                      ? `${formatPrice(status.prices[plan].monthly)} / month`
+                      : `${formatPrice(status.prices[plan].annual)} / year`
+                    : "Price unavailable"}
+              </p>
               <ul className="mt-4 space-y-2">
                 {FEATURE_ORDER.map((key) => {
                   const feature = status.features[key];
-                  const included = limits[key] !== undefined &&
-                    (plan === "premium" ||
-                      (plan === "standard" &&
-                        key !== "resume_updates") ||
-                      (plan === "basic" &&
-                        [
-                          "job_fit",
-                          "roadmap_generation",
-                          "assistant_chat",
-                        ].includes(key)));
+                  const included =
+                    PLAN_ORDER[plan] >=
+                    PLAN_ORDER[feature?.includedFrom ?? "basic"];
+                  const limit = limits[key];
                   return (
                     <li key={key} className="flex items-start gap-2 text-xs">
                       {included ? (
@@ -261,7 +372,9 @@ export function BillingOverview() {
                       )}
                       <span className={included ? "text-slate-300" : "text-slate-500"}>
                         {feature?.label ?? titleCase(key)}
-                        {included ? ` · ${limits[key]} / month` : ""}
+                        {included
+                          ? ` · ${limit === null ? "Unlimited" : `${limit} / month`}`
+                          : ""}
                       </span>
                     </li>
                   );
@@ -269,17 +382,38 @@ export function BillingOverview() {
               </ul>
               <p className="mt-4 border-t border-[#252735] pt-3 text-[11px] text-slate-500">
                 {plan === "basic"
-                  ? "Job-fit checks, roadmap generation, and AI assistant"
-                  : plan === "standard"
-                    ? "Adds role suggestions, application drafts, and AI interview practice"
-                    : "Adds resume updates and the highest allowances"}
+                  ? "Free access to core job-fit checks, roadmaps, and the AI assistant"
+                  : plan === "starter"
+                    ? "Core features with monthly usage limits"
+                    : plan === "standard"
+                      ? "Adds role suggestions, application drafts, and AI interview practice"
+                      : plan === "lite"
+                        ? "Adds resume updates and higher monthly allowances"
+                        : "Unlimited monthly allowances for normal personal use"}
               </p>
+              {plan !== "basic" && status.checkoutEnabled && (
+                <button
+                  type="button"
+                  onClick={() => void startCheckout(plan)}
+                  disabled={
+                    checkoutPending !== null || status.provider === "payfast"
+                  }
+                  className="mt-4 w-full rounded-lg bg-violet-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {checkoutPending === plan
+                    ? "Opening PayFast…"
+                    : status.provider === "payfast"
+                      ? "Subscription already active"
+                      : "Subscribe in sandbox"}
+                </button>
+              )}
             </article>
           ))}
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Annual billing is planned with a {status.annualDiscountPercent}% discount.
-          No payment details are collected during the testing period.
+          Annual billing is {status.annualDiscountPercent}% off. Payments in
+          this stage use PayFast sandbox only; no live payment details are
+          collected.
         </p>
       </section>
     </div>
