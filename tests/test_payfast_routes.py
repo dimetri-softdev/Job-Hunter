@@ -316,6 +316,21 @@ class PayFastRouteTests(unittest.TestCase):
             expected,
         )
 
+    def test_signature_trims_values_and_passphrase_before_encoding(self):
+        import hashlib
+
+        expected = hashlib.md5(
+            b"email_address=person%40example.com&passphrase=salt"
+        ).hexdigest()
+
+        self.assertEqual(
+            _signature(
+                [("email_address", " person@example.com "), ("empty", " ")],
+                " salt ",
+            ),
+            expected,
+        )
+
     def _endpoint(self, db, path, settings=None):
         router = create_payfast_router(
             db,
