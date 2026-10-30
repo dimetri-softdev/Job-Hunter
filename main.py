@@ -10,6 +10,7 @@ from zipfile import BadZipFile, ZipFile
 from xml.etree import ElementTree
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Optional, Dict, Any, Literal
 from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
@@ -61,6 +62,7 @@ from api.schemas.reminders import ReminderPreferenceUpdate
 from api.routes.application_profiles import create_application_profiles_router
 from api.routes.feedback import create_feedback_router
 from api.routes.identity import create_identity_router
+from api.routes.payfast import PayFastSettings, create_payfast_router
 from api.routes.profiles import create_profiles_router
 from api.routes.roadmaps import create_roadmaps_router
 from api.schemas.roadmaps import ProjectProofUpdate, TaskUpdate
@@ -277,6 +279,11 @@ async def get_current_user(
                 previous_user_id,
             )
             await transaction.execute_raw(
+                'UPDATE "PayfastCheckout" SET "userId" = $1 WHERE "userId" = $2',
+                user_id,
+                previous_user_id,
+            )
+            await transaction.execute_raw(
                 'UPDATE "BillingUsageEvent" SET "userId" = $1 WHERE "userId" = $2',
                 user_id,
                 previous_user_id,
@@ -315,6 +322,15 @@ BILLING_PLANS = {
         "role_suggestions": 5,
         "assistant_chat": 30,
     },
+    "starter": {
+        "job_fit": 5,
+        "roadmap_generation": 2,
+        "application_drafts": 5,
+        "interview_prep": 5,
+        "resume_updates": 2,
+        "role_suggestions": 5,
+        "assistant_chat": 30,
+    },
     "standard": {
         "job_fit": 15,
         "roadmap_generation": 5,
@@ -324,7 +340,7 @@ BILLING_PLANS = {
         "role_suggestions": 15,
         "assistant_chat": 100,
     },
-    "premium": {
+    "lite": {
         "job_fit": 40,
         "roadmap_generation": 15,
         "application_drafts": 40,
@@ -333,6 +349,30 @@ BILLING_PLANS = {
         "role_suggestions": 40,
         "assistant_chat": 250,
     },
+    "premium": {
+        "job_fit": None,
+        "roadmap_generation": None,
+        "application_drafts": None,
+        "interview_prep": None,
+        "resume_updates": None,
+        "role_suggestions": None,
+        "assistant_chat": None,
+    },
+}
+
+PLAN_ORDER = {
+    "basic": 0,
+    "starter": 1,
+    "standard": 2,
+    "lite": 3,
+    "premium": 4,
+}
+
+BILLING_PRICES = {
+    "starter": {"monthly": Decimal("29.00"), "annual": Decimal("278.40")},
+    "standard": {"monthly": Decimal("79.00"), "annual": Decimal("758.40")},
+    "lite": {"monthly": Decimal("120.00"), "annual": Decimal("1152.00")},
+    "premium": {"monthly": Decimal("179.99"), "annual": Decimal("1727.90")},
 }
 
 FEATURE_MINIMUM_PLANS = {
@@ -341,7 +381,7 @@ FEATURE_MINIMUM_PLANS = {
     "role_suggestions": "standard",
     "application_drafts": "standard",
     "interview_prep": "standard",
-    "resume_updates": "premium",
+    "resume_updates": "lite",
     "assistant_chat": "basic",
 }
 
@@ -354,6 +394,18 @@ FEATURE_LABELS = {
     "resume_updates": "resume updates",
     "assistant_chat": "AI assistant messages",
 }
+
+PAYFAST_SETTINGS = PayFastSettings(
+    mode=os.getenv("PAYFAST_MODE"),
+    merchant_id=os.getenv("PAYFAST_MERCHANT_ID"),
+    merchant_key=os.getenv("PAYFAST_MERCHANT_KEY"),
+    passphrase=os.getenv("PAYFAST_PASSPHRASE"),
+    return_url=os.getenv("PAYFAST_RETURN_URL"),
+    cancel_url=os.getenv("PAYFAST_CANCEL_URL"),
+    notify_url=os.getenv("PAYFAST_NOTIFY_URL"),
+)
+
+app.include_router(create_payfast_router(db, get_current_user, PAYFAST_SETTINGS, BILLING_PRICES))
 
 
 async def billing_is_enabled() -> bool:
@@ -372,7 +424,7 @@ def _utc_datetime(value: Any) -> Optional[datetime]:
 
 def _subscription_is_entitled(subscription: Optional[dict], now: datetime) -> bool:
     if not subscription:
-        return False
+        return True
 
     status = subscription.get("status")
     trial_end = _utc_datetime(subscription.get("trialEndsAt"))
@@ -417,11 +469,10 @@ def _month_start_utc(now: datetime) -> datetime:
 
 
 def _feature_available(plan: str, feature: str) -> bool:
-    plan_order = {"basic": 0, "standard": 1, "premium": 2}
     return (
-        plan in plan_order
+        plan in PLAN_ORDER
         and feature in FEATURE_MINIMUM_PLANS
-        and plan_order[plan] >= plan_order[FEATURE_MINIMUM_PLANS[feature]]
+        and PLAN_ORDER[plan] >= PLAN_ORDER[FEATURE_MINIMUM_PLANS[feature]]
     )
 
 
@@ -436,19 +487,23 @@ async def reserve_billing_usage(
     now = datetime.now(timezone.utc)
     month_start = _month_start_utc(now)
     async with db.tx() as transaction:
+        await transaction.query_raw(
+            'SELECT "id" FROM "User" WHERE "id" = $1 FOR UPDATE',
+            user_id,
+        )
         subscriptions = await transaction.query_raw(
             'SELECT "plan", "status", "trialEndsAt", "currentPeriodEnd", "paymentFailedAt" '
             'FROM "UserSubscription" WHERE "userId" = $1 FOR UPDATE',
             user_id,
         )
         subscription = subscriptions[0] if subscriptions else None
-        if subscription is None or not _subscription_is_entitled(subscription, now):
+        if subscription is not None and not _subscription_is_entitled(subscription, now):
             raise HTTPException(
                 status_code=402,
                 detail="Paid access is not active for this account.",
             )
 
-        plan = str(subscription["plan"]).lower()
+        plan = str(subscription["plan"]).lower() if subscription else "basic"
         if not _feature_available(plan, feature):
             required_plan = FEATURE_MINIMUM_PLANS[feature].title()
             raise HTTPException(
@@ -457,26 +512,28 @@ async def reserve_billing_usage(
             )
 
         limit = BILLING_PLANS[plan][feature]
-        counts = await transaction.query_raw(
-            'SELECT COUNT(*)::int AS "used" FROM "BillingUsageEvent" '
-            'WHERE "userId" = $1 AND "feature" = $2 AND "createdAt" >= CAST($3 AS TIMESTAMP) '
-            'AND ("status" = $4 OR ("status" = $5 AND "createdAt" >= CAST($6 AS TIMESTAMP)))',
-            user_id,
-            feature,
-            month_start,
-            "USED",
-            "RESERVED",
-            now - timedelta(minutes=15),
-        )
-        used = int(counts[0]["used"]) if counts else 0
-        if used >= limit:
-            raise HTTPException(
-                status_code=429,
-                detail=(
-                    f"You have used this month's {FEATURE_LABELS[feature]} allowance. "
-                    "Your allowance resets at the start of next month."
-                ),
+        used = 0
+        if limit is not None:
+            counts = await transaction.query_raw(
+                'SELECT COUNT(*)::int AS "used" FROM "BillingUsageEvent" '
+                'WHERE "userId" = $1 AND "feature" = $2 AND "createdAt" >= CAST($3 AS TIMESTAMP) '
+                'AND ("status" = $4 OR ("status" = $5 AND "createdAt" >= CAST($6 AS TIMESTAMP)))',
+                user_id,
+                feature,
+                month_start,
+                "USED",
+                "RESERVED",
+                now - timedelta(minutes=15),
             )
+            used = int(counts[0]["used"]) if counts else 0
+            if used >= limit:
+                raise HTTPException(
+                    status_code=429,
+                    detail=(
+                        f"You have used this month's {FEATURE_LABELS[feature]} allowance. "
+                        "Your allowance resets at the start of next month."
+                    ),
+                )
 
         event_id = str(uuid.uuid4())
         await transaction.execute_raw(
@@ -535,7 +592,8 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
     enabled = await billing_is_enabled()
     subscriptions = await db.query_raw(
         'SELECT "plan", "status", "trialEndsAt", "currentPeriodStart", "currentPeriodEnd", '
-        '"paymentFailedAt", "canceledAt" FROM "UserSubscription" WHERE "userId" = $1',
+        '"paymentFailedAt", "canceledAt", "provider", "billingInterval" '
+        'FROM "UserSubscription" WHERE "userId" = $1',
         user_id,
     )
     subscription = subscriptions[0] if subscriptions else None
@@ -550,8 +608,8 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
         "USED",
     )
     usage = {row["feature"]: int(row["used"]) for row in counts}
-    plan = str(subscription["plan"]).lower() if subscription else None
-    effective_status = subscription.get("status") if subscription else "NONE"
+    plan = str(subscription["plan"]).lower() if subscription else ("basic" if enabled else None)
+    effective_status = subscription.get("status") if subscription else ("ACTIVE" if enabled else "NONE")
     if subscription and not _subscription_is_entitled(subscription, now):
         effective_status = "EXPIRED"
 
@@ -564,9 +622,9 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
             "limit": limit,
             "used": used,
             "remaining": max(limit - used, 0) if limit is not None else None,
+            "included": _feature_available(plan or "", feature),
             "available": bool(
                 enabled
-                and subscription
                 and _subscription_is_entitled(subscription, now)
                 and _feature_available(plan or "", feature)
             ),
@@ -579,11 +637,14 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
 
     return {
         "billingEnabled": enabled,
-        "checkoutEnabled": False,
-        "currency": None,
+        "checkoutEnabled": PAYFAST_SETTINGS.checkout_enabled,
+        "checkoutMode": "sandbox" if PAYFAST_SETTINGS.checkout_enabled else None,
+        "currency": "ZAR",
         "annualDiscountPercent": 20,
         "plan": plan,
         "status": effective_status,
+        "provider": subscription.get("provider") if subscription else None,
+        "billingInterval": subscription.get("billingInterval") if subscription else None,
         "trialEndsAt": serialize_date(subscription.get("trialEndsAt")) if subscription else None,
         "currentPeriodStart": serialize_date(subscription.get("currentPeriodStart")) if subscription else None,
         "currentPeriodEnd": serialize_date(subscription.get("currentPeriodEnd")) if subscription else None,
@@ -592,6 +653,13 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
         "usagePeriodStartsAt": month_start.isoformat(),
         "features": features,
         "plans": BILLING_PLANS,
+        "prices": {
+            plan_name: {
+                interval: float(amount)
+                for interval, amount in intervals.items()
+            }
+            for plan_name, intervals in BILLING_PRICES.items()
+        },
     }
 
 

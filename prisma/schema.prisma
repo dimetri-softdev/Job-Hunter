@@ -276,8 +276,36 @@ model UserSubscription {
   provider               String?
   providerCustomerId     String?
   providerSubscriptionId String?  @unique
+  billingInterval        String   @default("monthly")
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
+}
+
+model PayfastCheckout {
+  id                     String   @id @default(uuid())
+  userId                 String
+  plan                   String
+  billingInterval        String
+  amount                 Decimal  @db.Decimal(10, 2)
+  status                 String   @default("PENDING")
+  providerSubscriptionId String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model PayfastNotification {
+  id                     String   @id @default(uuid())
+  providerPaymentId      String   @unique
+  merchantReference      String
+  providerSubscriptionId String?
+  paymentStatus          String
+  amount                 Decimal  @db.Decimal(10, 2)
+  receivedAt             DateTime @default(now())
+
+  @@index([merchantReference])
+  @@index([providerSubscriptionId])
 }
 
 model BillingUsageEvent {
