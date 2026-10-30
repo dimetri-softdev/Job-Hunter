@@ -17,9 +17,6 @@ export async function GET() {
       updatedBy: null,
       updatedAt: null,
     },
-    checkoutEnabled: false,
-    currency: null,
-    pricesConfigured: false,
   });
 }
 
@@ -67,15 +64,12 @@ export async function PATCH(request: Request) {
         actorId: authorization.user.id,
         actorEmail,
         action: enabled ? "BILLING_ENABLED" : "BILLING_DISABLED",
-        details: { checkoutEnabled: false },
+        details: { billingEnforcementEnabled: enabled },
       },
     }),
   ]);
 
   return adminJson({
     configuration,
-    checkoutEnabled: false,
-    currency: null,
-    pricesConfigured: false,
   });
 }

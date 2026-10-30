@@ -15,9 +15,6 @@ interface BillingConfiguration {
 
 interface BillingSettingsResponse {
   configuration: BillingConfiguration;
-  checkoutEnabled: false;
-  currency: string | null;
-  pricesConfigured: boolean;
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -79,7 +76,7 @@ export function AdminBillingPanel() {
     if (
       enabled &&
       !window.confirm(
-        "Enable paid-access enforcement? Accounts without an active plan or admin-granted trial will become read-only, and AI tools will require an entitled plan. Checkout is still disabled.",
+        "Enable paid-access enforcement? Basic accounts keep Basic access, while expired paid accounts become read-only. This switch does not enable checkout or change PayFast mode. Keep it off until sandbox payments are verified.",
       )
     ) {
       return;
@@ -178,25 +175,26 @@ export function AdminBillingPanel() {
       </section>
 
       <section className="rounded-xl border border-[#1f212d] bg-[#12131a] p-5">
-        <h2 className="text-sm font-semibold text-white">Checkout and pricing</h2>
+        <h2 className="text-sm font-semibold text-white">PayFast sandbox setup</h2>
         <p className="mt-2 text-sm leading-6 text-slate-400">
-          Checkout is intentionally unavailable. No payment provider, prices, or
-          merchant settlement details have been configured, so enabling paid
-          access will not charge anyone. Grant testers a 14-day Standard trial
-          from the Users &amp; admins tab.
+          Sandbox subscriptions are available from the user-facing Plans &amp;
+          usage page when the FastAPI service has all PayFast sandbox settings.
+          This switch controls entitlement enforcement only. It does not enable
+          checkout or permit live payments. Grant testers a 14-day Standard
+          trial from the Users &amp; admins tab.
         </p>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
           <div className="rounded-lg border border-[#252735] p-3">
             <dt className="text-xs text-slate-500">Payment provider</dt>
-            <dd className="mt-1 text-slate-200">Not selected</dd>
+            <dd className="mt-1 text-slate-200">PayFast sandbox only</dd>
           </div>
           <div className="rounded-lg border border-[#252735] p-3">
             <dt className="text-xs text-slate-500">Currency and prices</dt>
-            <dd className="mt-1 text-slate-200">Not configured</dd>
+            <dd className="mt-1 text-slate-200">ZAR · R29–R179.99 monthly</dd>
           </div>
           <div className="rounded-lg border border-[#252735] p-3">
             <dt className="text-xs text-slate-500">Annual discount</dt>
-            <dd className="mt-1 text-slate-200">20% planned</dd>
+            <dd className="mt-1 text-slate-200">20%</dd>
           </div>
         </dl>
       </section>

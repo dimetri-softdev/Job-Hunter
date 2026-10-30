@@ -56,12 +56,13 @@ class PayFastSettings:
 
 def _signature(fields: Sequence[tuple[str, str]], passphrase: str) -> str:
     parameters = [
-        f"{key}={quote_plus(value, safe='')}"
+        f"{key}={quote_plus(value, safe='').replace('~', '%7E')}"
         for key, value in fields
         if key != "signature" and value != ""
     ]
     if passphrase:
-        parameters.append(f"passphrase={quote_plus(passphrase, safe='')}")
+        encoded_passphrase = quote_plus(passphrase, safe="").replace("~", "%7E")
+        parameters.append(f"passphrase={encoded_passphrase}")
     return hashlib.md5("&".join(parameters).encode("utf-8")).hexdigest()
 
 

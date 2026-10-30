@@ -210,6 +210,18 @@ class PayFastRouteTests(unittest.TestCase):
         self.assertEqual(_next_period(month_end, "monthly"), datetime(2026, 2, 28, 12, tzinfo=timezone.utc))
         self.assertEqual(_next_period(leap_day, "annual"), datetime(2025, 2, 28, 12, tzinfo=timezone.utc))
 
+    def test_signature_matches_php_urlencode_for_tilde_values(self):
+        import hashlib
+
+        expected = hashlib.md5(
+            b"item_name=Job%7EHunter&passphrase=salt%7Evalue"
+        ).hexdigest()
+
+        self.assertEqual(
+            _signature([("item_name", "Job~Hunter")], "salt~value"),
+            expected,
+        )
+
     def _endpoint(self, db, path, settings=None):
         router = create_payfast_router(
             db,
