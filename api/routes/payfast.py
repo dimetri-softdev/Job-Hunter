@@ -105,19 +105,6 @@ def create_payfast_router(
                 detail="PayFast sandbox checkout is not configured.",
             )
 
-        existing = await db.query_raw(
-            'SELECT "provider", "status", "providerSubscriptionId", "currentPeriodEnd" '
-            'FROM "UserSubscription" WHERE "userId" = $1',
-            user_id,
-        )
-        if existing and existing[0].get("provider") == "payfast" and existing[0].get(
-            "providerSubscriptionId"
-        ):
-            raise HTTPException(
-                status_code=409,
-                detail="This account already has a PayFast subscription. Contact support to change it.",
-            )
-
         users = await db.query_raw(
             'SELECT "email" FROM "User" WHERE "id" = $1',
             user_id,
@@ -125,19 +112,61 @@ def create_payfast_router(
         if not users or not users[0].get("email"):
             raise HTTPException(status_code=404, detail="Account email was not found.")
 
-        amount = prices[payload.plan][payload.billingInterval]
-        checkout_id = str(uuid.uuid4())
-        await db.execute_raw(
-            'INSERT INTO "PayfastCheckout" '
-            '("id", "userId", "plan", "billingInterval", "amount", "status", "updatedAt") '
-            'VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)',
-            checkout_id,
-            user_id,
-            payload.plan,
-            payload.billingInterval,
-            amount,
-            "PENDING",
-        )
+        plan = payload.plan
+        interval = payload.billingInterval
+        amount = prices[plan][interval]
+        async with db.tx() as transaction:
+            await transaction.query_raw(
+                'SELECT "id" FROM "User" WHERE "id" = $1 FOR UPDATE',
+                user_id,
+            )
+            existing = await transaction.query_raw(
+                'SELECT "provider", "status", "providerSubscriptionId", "currentPeriodEnd" '
+                'FROM "UserSubscription" WHERE "userId" = $1 FOR UPDATE',
+                user_id,
+            )
+            if existing and existing[0].get("provider") == "payfast" and existing[0].get(
+                "providerSubscriptionId"
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="This account already has a PayFast subscription. Contact support to change it.",
+                )
+
+            pending = await transaction.query_raw(
+                'SELECT "id", "plan", "billingInterval", "amount" FROM "PayfastCheckout" '
+                'WHERE "userId" = $1 AND "status" = $2 LIMIT 1 FOR UPDATE',
+                user_id,
+                "PENDING",
+            )
+            if pending:
+                pending_checkout = pending[0]
+                if (
+                    pending_checkout["plan"] != plan
+                    or pending_checkout["billingInterval"] != interval
+                ):
+                    raise HTTPException(
+                        status_code=409,
+                        detail="A checkout for a different plan is already pending. Reopen that checkout or contact support.",
+                    )
+                checkout_id = str(pending_checkout["id"])
+                pending_amount = _as_decimal(pending_checkout["amount"])
+                if pending_amount is None:
+                    raise HTTPException(status_code=500, detail="Stored PayFast checkout amount is invalid.")
+                amount = pending_amount
+            else:
+                checkout_id = str(uuid.uuid4())
+                await transaction.execute_raw(
+                    'INSERT INTO "PayfastCheckout" '
+                    '("id", "userId", "plan", "billingInterval", "amount", "status", "updatedAt") '
+                    'VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)',
+                    checkout_id,
+                    user_id,
+                    payload.plan,
+                    payload.billingInterval,
+                    amount,
+                    "PENDING",
+                )
 
         fields = [
             ("merchant_id", settings.merchant_id or ""),
@@ -248,9 +277,19 @@ def create_payfast_router(
             )
             subscription = subscription_rows[0] if subscription_rows else None
 
-        if checkout and checkout.get("status") == "COMPLETE" and token:
-            if checkout.get("providerSubscriptionId") == token:
+        if checkout and checkout.get("status") == "COMPLETE":
+            if token and checkout.get("providerSubscriptionId") == token:
                 checkout = None
+            else:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This PayFast checkout has already completed for another subscription.",
+                )
+        elif checkout and checkout.get("status") not in {"PENDING", payment_status}:
+            raise HTTPException(
+                status_code=409,
+                detail="This PayFast checkout is no longer pending.",
+            )
 
         if checkout:
             user_id = str(checkout["userId"])

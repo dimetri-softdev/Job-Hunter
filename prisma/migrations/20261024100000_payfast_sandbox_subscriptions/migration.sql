@@ -18,6 +18,9 @@ CREATE TABLE "PayfastCheckout" (
 CREATE INDEX "PayfastCheckout_userId_createdAt_idx"
 ON "PayfastCheckout"("userId", "createdAt");
 
+CREATE INDEX "PayfastCheckout_userId_status_idx"
+ON "PayfastCheckout"("userId", "status");
+
 CREATE TABLE "PayfastNotification" (
     "id" TEXT NOT NULL,
     "providerPaymentId" TEXT NOT NULL,

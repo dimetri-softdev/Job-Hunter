@@ -8,6 +8,7 @@ from unittest.mock import patch
 from urllib.parse import urlencode
 
 from fastapi import HTTPException
+from fastapi.routing import APIRoute
 from starlette.requests import Request
 
 from api.routes.payfast import (
@@ -87,7 +88,7 @@ class PayFastRouteTests(unittest.TestCase):
             result["fields"]["signature"],
             _signature(
                 [(key, value) for key, value in result["fields"].items() if key != "signature"],
-                self.settings.passphrase,
+                "sandbox-passphrase",
             ),
         )
         self.assertEqual(len(db.executions), 1)
@@ -117,6 +118,53 @@ class PayFastRouteTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.status_code, 503)
 
+    def test_checkout_reuses_the_existing_pending_session(self):
+        db = FakeDatabase(
+            checkout={
+                "id": "existing-checkout",
+                "plan": "starter",
+                "billingInterval": "monthly",
+                "amount": Decimal("29.00"),
+            }
+        )
+        endpoint = self._endpoint(db, "/api/v1/billing/checkout")
+
+        result = asyncio.run(
+            endpoint(
+                payload=SubscriptionCheckoutRequest(
+                    plan="starter",
+                    billingInterval="monthly",
+                ),
+                user_id="user-123",
+            )
+        )
+
+        self.assertEqual(result["fields"]["m_payment_id"], "existing-checkout")
+        self.assertEqual(db.executions, [])
+
+    def test_checkout_rejects_reusing_a_pending_session_for_a_different_plan(self):
+        db = FakeDatabase(
+            checkout={
+                "id": "existing-checkout",
+                "plan": "starter",
+                "billingInterval": "monthly",
+                "amount": Decimal("29.00"),
+            }
+        )
+        endpoint = self._endpoint(db, "/api/v1/billing/checkout")
+
+        with self.assertRaises(HTTPException) as raised:
+            asyncio.run(
+                endpoint(
+                    payload=SubscriptionCheckoutRequest(
+                        plan="starter",
+                        billingInterval="annual",
+                    ),
+                    user_id="user-123",
+                )
+            )
+
+        self.assertEqual(raised.exception.status_code, 409)
     def test_invalid_signature_is_rejected_before_provider_validation(self):
         endpoint = self._endpoint(FakeDatabase(), "/api/v1/billing/payfast/itn")
         request = _request(
@@ -229,7 +277,12 @@ class PayFastRouteTests(unittest.TestCase):
             settings or self.settings,
             self.prices,
         )
-        return next(route.endpoint for route in router.routes if route.path == path)
+        route = next(
+            route
+            for route in router.routes
+            if isinstance(route, APIRoute) and route.path == path
+        )
+        return route.endpoint
 
 
 class _ValidatingClient:
@@ -239,10 +292,10 @@ class _ValidatingClient:
     async def __aenter__(self):
         return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, _exc_type, _exc_value, _traceback):
         return None
 
-    async def post(self, url, *, content, headers):
+    async def post(self, _url, *, _content, _headers):
         return SimpleNamespace(status_code=200, text="VALID")
 
 

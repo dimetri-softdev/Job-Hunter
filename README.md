@@ -150,8 +150,8 @@ PAYFAST_MODE=sandbox
 PAYFAST_MERCHANT_ID=your_sandbox_merchant_id
 PAYFAST_MERCHANT_KEY=your_sandbox_merchant_key
 PAYFAST_PASSPHRASE=your_sandbox_subscription_passphrase
-PAYFAST_RETURN_URL=https://your-site.example/billing?checkout=return
-PAYFAST_CANCEL_URL=https://your-site.example/billing?checkout=cancelled
+PAYFAST_RETURN_URL=https://your-site.example/billing
+PAYFAST_CANCEL_URL=https://your-site.example/billing
 PAYFAST_NOTIFY_URL=https://your-api.example/api/v1/billing/payfast/itn
 ```
 
@@ -164,7 +164,7 @@ npx prisma migrate deploy
 npx prisma generate
 ```
 
-Checkout stays unavailable unless sandbox mode, all credentials, and all three HTTPS URLs are configured. The return URL is informational only: access is granted only after the backend validates the signed PayFast notification against the sandbox validation endpoint. Keep the existing Admin billing-enforcement switch disabled during sandbox testing; this code does not support live payments.
+Checkout stays unavailable unless sandbox mode, all credentials, and all three HTTPS URLs are configured. The return and cancel URLs only send the browser back to the app; access is granted only after the backend validates the signed PayFast notification against the sandbox validation endpoint. Keep the existing Admin billing-enforcement switch disabled during sandbox testing. Live payments and in-app subscription cancellation/plan changes are not implemented.
 
 ### Password requirements
 

@@ -226,7 +226,8 @@ export function BillingOverview() {
         {status.checkoutEnabled ? (
           <p className="mt-3 text-xs text-emerald-200">
             Sandbox checkout is enabled. No real charge will be made, and paid
-            feature enforcement remains separate.
+            feature enforcement remains separate. Access changes only after the
+            backend verifies PayFast&apos;s notification, not from the return page.
           </p>
         ) : (
           <p className="mt-3 text-xs text-slate-500">
