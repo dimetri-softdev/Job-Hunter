@@ -321,6 +321,15 @@ def create_payfast_router(
 
         now = datetime.now(timezone.utc)
         async with db.tx() as transaction:
+            completed_event = await transaction.query_raw(
+                'SELECT "id" FROM "PayfastNotification" '
+                'WHERE "providerPaymentId" = $1 AND "paymentStatus" = $2',
+                fields["pf_payment_id"],
+                "COMPLETE",
+            )
+            if completed_event and payment_status != "COMPLETE":
+                return {"received": True, "duplicate": True}
+
             inserted = await transaction.query_raw(
                 'INSERT INTO "PayfastNotification" '
                 '("id", "providerPaymentId", "merchantReference", "providerSubscriptionId", '

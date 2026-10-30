@@ -22,9 +22,18 @@ from api.schemas.payfast import SubscriptionCheckoutRequest
 
 
 class FakeDatabase:
-    def __init__(self, *, checkout=None, duplicate_notification=False):
+    def __init__(
+        self,
+        *,
+        checkout=None,
+        subscription=None,
+        duplicate_notification=False,
+        completed_event=False,
+    ):
         self.checkout = checkout
+        self.subscription = subscription
         self.duplicate_notification = duplicate_notification
+        self.completed_event = completed_event
         self.queries = []
         self.executions = []
 
@@ -32,10 +41,12 @@ class FakeDatabase:
         self.queries.append((query, values))
         if 'INSERT INTO "PayfastNotification"' in query:
             return [] if self.duplicate_notification else [{"id": "notification-id"}]
+        if 'FROM "PayfastNotification"' in query:
+            return [{"id": "notification-id"}] if self.completed_event else []
         if 'FROM "PayfastCheckout"' in query:
             return [self.checkout] if self.checkout else []
         if 'FROM "UserSubscription"' in query:
-            return []
+            return [self.subscription] if self.subscription else []
         if 'FROM "User"' in query:
             return [{"email": "person@example.com"}]
         raise AssertionError(f"Unexpected query: {query}")
@@ -229,6 +240,35 @@ class PayFastRouteTests(unittest.TestCase):
         self.assertEqual(result, {"received": True, "duplicate": True})
         self.assertEqual(db.executions, [])
 
+    def test_late_failure_does_not_downgrade_a_completed_payment(self):
+        db = FakeDatabase(
+            checkout={
+                "id": "checkout-id",
+                "userId": "user-123",
+                "plan": "starter",
+                "billingInterval": "monthly",
+                "amount": Decimal("29.00"),
+                "status": "COMPLETE",
+                "providerSubscriptionId": "subscription-token",
+            },
+            subscription={
+                "userId": "user-123",
+                "plan": "starter",
+                "billingInterval": "monthly",
+                "status": "ACTIVE",
+                "currentPeriodEnd": datetime.now(timezone.utc),
+            },
+            completed_event=True,
+        )
+        endpoint = self._endpoint(db, "/api/v1/billing/payfast/itn")
+        request = _signed_itn(self.settings.passphrase, status="FAILED")
+
+        with patch("api.routes.payfast.httpx.AsyncClient", _ValidatingClient):
+            result = asyncio.run(endpoint(request=request))
+
+        self.assertEqual(result, {"received": True, "duplicate": True})
+        self.assertEqual(db.executions, [])
+
     def test_amount_mismatch_does_not_create_entitlement(self):
         db = FakeDatabase(
             checkout={
@@ -293,9 +333,11 @@ class _ValidatingClient:
         return self
 
     async def __aexit__(self, _exc_type, _exc_value, _traceback):
+        _ = (_exc_type, _exc_value, _traceback)
         return None
 
-    async def post(self, _url, *, _content, _headers):
+    async def post(self, url, *, content, headers):
+        self.validation_request = (url, content, headers)
         return SimpleNamespace(status_code=200, text="VALID")
 
 
@@ -323,12 +365,12 @@ def _request(body):
     )
 
 
-def _signed_itn(passphrase, *, amount="29.00"):
+def _signed_itn(passphrase, *, amount="29.00", status="COMPLETE"):
     pairs = [
         ("merchant_id", "sandbox-merchant"),
         ("m_payment_id", "checkout-id"),
         ("pf_payment_id", "payment-id"),
-        ("payment_status", "COMPLETE"),
+        ("payment_status", status),
         ("amount_gross", amount),
         ("token", "subscription-token"),
     ]
