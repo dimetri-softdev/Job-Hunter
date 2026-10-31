@@ -201,6 +201,26 @@ export default function PrivacyPage() {
             </p>
           </section>
 
+          <section aria-labelledby="advertising-heading">
+            <h2
+              id="advertising-heading"
+              className="text-xl font-semibold text-white"
+            >
+              Advertising
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              If an administrator enables advertising and configures Google
+              AdSense, ad placements may appear on the public home page and in
+              the signed-in workspace. Google may process browser, device, and
+              interaction information, and may use cookies or similar
+              technologies to serve and measure ads. Google handles that
+              information under its own privacy terms. Ads remain disabled until
+              an administrator enables them. We will provide any consent
+              experience required for the regions where JobHunter operates
+              before enabling ad delivery.
+            </p>
+          </section>
+
           <section aria-labelledby="contact-heading">
             <h2
               id="contact-heading"

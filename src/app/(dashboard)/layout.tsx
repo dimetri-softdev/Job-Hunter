@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { ApplicationReminderWatcher } from "@/components/dashboard/application-reminders";
+import { AdsenseSlot } from "@/components/adsense-slot";
 
 export const metadata = {
   robots: {
@@ -20,6 +21,7 @@ export default function DashboardLayout({
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         <Header />
+        <AdsenseSlot placement="dashboard" />
         <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
           <div className="mx-auto w-full max-w-[1600px]">{children}</div>
         </main>

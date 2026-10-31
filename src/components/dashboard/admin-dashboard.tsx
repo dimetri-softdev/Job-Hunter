@@ -6,13 +6,15 @@ import { AdminBillingPanel } from "@/components/dashboard/admin-billing-panel";
 import { AdminSupportPanel } from "@/components/dashboard/admin-support-panel";
 import { AdminUsersPanel } from "@/components/dashboard/admin-users-panel";
 import { AdminRemindersPanel } from "@/components/dashboard/admin-reminders-panel";
+import { AdminAdsPanel } from "@/components/dashboard/admin-ads-panel";
 
 type AdminSectionWithSupport =
   | "feedback"
   | "users"
   | "billing"
   | "reminders"
-  | "support";
+  | "support"
+  | "ads";
 
 const ADMIN_SECTIONS: { value: AdminSectionWithSupport; label: string }[] = [
   { value: "feedback", label: "Feedback" },
@@ -20,6 +22,7 @@ const ADMIN_SECTIONS: { value: AdminSectionWithSupport; label: string }[] = [
   { value: "billing", label: "Billing" },
   { value: "reminders", label: "Reminders" },
   { value: "support", label: "Support" },
+  { value: "ads", label: "Ads" },
 ];
 
 export function AdminDashboard() {
@@ -86,8 +89,10 @@ export function AdminDashboard() {
           <AdminBillingPanel />
         ) : section === "reminders" ? (
           <AdminRemindersPanel />
-        ) : (
+        ) : section === "support" ? (
           <AdminSupportPanel />
+        ) : (
+          <AdminAdsPanel />
         )}
       </div>
     </div>

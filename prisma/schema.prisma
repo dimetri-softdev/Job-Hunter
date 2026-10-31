@@ -257,6 +257,7 @@ model BillingConfiguration {
   id                     String   @id
   enabled                Boolean  @default(false)
   reminderEmailsEnabled  Boolean  @default(false)
+  adsEnabled             Boolean  @default(false)
   supportEmail           String   @default("jobhunter408@gmail.com")
   updatedBy              String?
   updatedAt              DateTime @updatedAt

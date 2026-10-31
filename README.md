@@ -141,6 +141,23 @@ curl --fail --silent --show-error -X POST "$JOBHUNTER_API_URL/internal/reminders
 
 The endpoint sends reminders only while the admin feature switch is enabled, for opted-in accounts and due follow-up dates. Successful sends are recorded so repeated job runs do not resend for the same application and date. Failed sends are retried at most three times, no sooner than six hours apart, while Resend's idempotency key protects retries within its 24-hour window. Browser notifications require permission and the signed-in dashboard to remain open in that browser; they are not controlled by the email feature switch.
 
+### Advertising
+
+Advertising is disabled by default and can be switched on or off by an administrator under **Admin → Ads**. The first provider integration uses Google AdSense and places ads on the public home page and signed-in workspace; admin pages are excluded. Before enabling it, obtain AdSense site approval, configure the IDs below, and make sure the privacy notice and any required consent experience are ready:
+
+```env
+NEXT_PUBLIC_ADSENSE_CLIENT_ID=ca-pub-0000000000000000
+NEXT_PUBLIC_ADSENSE_PUBLIC_SLOT_ID=0000000000
+NEXT_PUBLIC_ADSENSE_DASHBOARD_SLOT_ID=0000000000
+```
+
+Set these public IDs in the web app's build environment and redeploy. The admin switch cannot be enabled unless all three IDs are valid. Apply the database migration and regenerate Prisma Client before deploying:
+
+```bash
+npx prisma migrate deploy
+npx prisma generate
+```
+
 ### PayFast sandbox subscriptions
 
 The current checkout integration is sandbox-only. Configure these variables on the FastAPI service (for Render, use the service's private environment settings):

@@ -20,6 +20,7 @@ import {
 import { PublicSiteFooter } from "@/components/public-site-footer";
 import { PublicSiteHeader } from "@/components/public-site-header";
 import { AssistantLauncher } from "@/components/assistant/assistant-launcher";
+import { AdsenseSlot } from "@/components/adsense-slot";
 
 export const metadata = {
   title: "Find your fit, build proof, and move forward",
@@ -373,6 +374,7 @@ export default function HomePage() {
           </div>
         </section>
       </main>
+      <AdsenseSlot placement="public" />
       <PublicSiteFooter />
     </div>
   );
