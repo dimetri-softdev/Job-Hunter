@@ -2,6 +2,8 @@
 
 This is a practical first campaign for introducing Job Hunter without overpromising or needing a marketing team. Start with one short interactive product demo, share it with a small audience, learn from responses, and improve it.
 
+For ready-to-record materials, use the [step-by-step Supademo guide](./docs/demo/STEP-BY-STEP-SUPADEMO.md), [voice-over and captions](./docs/demo/VOICEOVER-STORYBOARD.md), [fictional demo resume](./docs/demo/DEMO-RESUME.md), and [fictional job posting](./docs/demo/DEMO-JOB-POSTING.md).
+
 ## 1. What Job Hunter does
 
 **Positioning:** Job Hunter is a workspace for making a job search more organized and actionable.

@@ -3,11 +3,14 @@ import {
   ArrowDown,
   ArrowRight,
   Award,
+  Bot,
   BriefcaseBusiness,
   Check,
   Compass,
   FileSearch,
+  FileText,
   ListChecks,
+  MessageSquareText,
   PanelsTopLeft,
   ShieldCheck,
   Sparkles,
@@ -19,9 +22,9 @@ import { PublicSiteHeader } from "@/components/public-site-header";
 import { AssistantLauncher } from "@/components/assistant/assistant-launcher";
 
 export const metadata = {
-  title: "Make your next career move with clarity",
+  title: "Find your fit, build proof, and move forward",
   description:
-    "Build your career profile, assess job fit, prepare application drafts, track progress, and shape your dashboard in one focused workspace.",
+    "Review how your experience fits a role, turn skill gaps into practical projects, and prepare applications and interviews in one focused workspace.",
   alternates: {
     canonical: "/",
   },
@@ -59,6 +62,30 @@ const features = [
       "Create learning roadmaps and focused proof sprints, then save project notes or links as evidence of what you build.",
     tone: "text-amber-200",
     border: "border-amber-300/30",
+  },
+  {
+    icon: MessageSquareText,
+    title: "Practice for the conversation",
+    description:
+      "Prepare role-specific interview prompts from a saved job, then opt in to get AI feedback on answers you choose to share.",
+    tone: "text-cyan-300",
+    border: "border-cyan-400/30",
+  },
+  {
+    icon: FileText,
+    title: "Build resume updates from real work",
+    description:
+      "Turn completed roadmap projects into editable resume suggestions. Review every draft and export it when it feels right.",
+    tone: "text-rose-300",
+    border: "border-rose-400/30",
+  },
+  {
+    icon: Bot,
+    title: "Get a thought partner",
+    description:
+      "Ask the in-app assistant about your job search and explore practical next steps. Its suggestions are yours to evaluate.",
+    tone: "text-indigo-300",
+    border: "border-indigo-400/30",
   },
   {
     icon: Award,
@@ -113,13 +140,13 @@ export default function HomePage() {
                 A clearer job search starts here
               </p>
               <h1 className="mt-6 max-w-2xl text-4xl font-semibold leading-[1.12] tracking-tight text-white sm:text-5xl lg:text-6xl">
-                Make your next career move with{" "}
-                <span className="text-blue-300">more clarity.</span>
+                Find your fit. Build proof.{" "}
+                <span className="text-blue-300">Move forward.</span>
               </h1>
               <p className="mt-6 max-w-xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
-                Understand where your experience fits, keep applications moving,
-                and turn skill gaps into practical next steps—all in one
-                workspace.
+                Review how your experience fits a role, turn skill gaps into
+                practical projects, and prepare applications and interviews—all
+                while you stay in control.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link
