@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import {
   Camera,
   CameraOff,
+  CheckCircle2,
+  Loader2,
   Mic,
   MicOff,
   Play,
-  RotateCcw,
   Volume2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,7 @@ export function MockInterviewRoom({
 }: MockInterviewRoomProps) {
   const [active, setActive] = useState(false);
   const [cameraEnabled, setCameraEnabled] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [listening, setListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -148,38 +150,45 @@ export function MockInterviewRoom({
   }, [video]);
 
   async function startPractice() {
+    if (starting) return;
+    setStarting(true);
     setError(null);
-    if (!questions.length) {
-      setError("Generate interview questions before starting practice.");
-      return;
-    }
-    if (cameraEnabled) {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setError("Camera preview is not available in this browser. Turn it off to continue with voice practice.");
+    try {
+      if (!questions.length) {
+        setError("Generate interview questions before starting practice.");
         return;
       }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
-          audio: false,
-        });
-        if (!mountedRef.current) {
-          stream.getTracks().forEach((track) => track.stop());
+      if (cameraEnabled) {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setError("Camera preview is not available in this browser. Turn it off to continue with voice practice.");
           return;
         }
-        streamRef.current = stream;
-        setVideo(true);
-      } catch (cameraError: unknown) {
-        setError(
-          cameraError instanceof Error
-            ? `Camera access failed: ${cameraError.message}. Turn off camera preview to continue with voice practice.`
-            : "Camera access failed. Turn off camera preview to continue with voice practice.",
-        );
-        return;
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: false,
+          });
+          if (!mountedRef.current) {
+            stream.getTracks().forEach((track) => track.stop());
+            return;
+          }
+          streamRef.current = stream;
+          setVideo(true);
+        } catch (cameraError: unknown) {
+          if (!mountedRef.current) return;
+          setError(
+            cameraError instanceof Error
+              ? `Camera access failed: ${cameraError.message}. Turn off camera preview to continue with voice practice.`
+              : "Camera access failed. Turn off camera preview to continue with voice practice.",
+          );
+          return;
+        }
       }
+      setQuestionIndex(0);
+      setActive(true);
+    } finally {
+      if (mountedRef.current) setStarting(false);
     }
-    setQuestionIndex(0);
-    setActive(true);
   }
 
   function startAnswerRecording() {
@@ -312,10 +321,19 @@ export function MockInterviewRoom({
           <Button
             type="button"
             onClick={() => void startPractice()}
+            disabled={starting}
             className="gap-2 bg-cyan-700 text-white hover:bg-cyan-600"
           >
-            <Play className="size-4" aria-hidden="true" />
-            {cameraEnabled ? "Start video + voice practice" : "Start voice practice"}
+            {starting ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Play className="size-4" aria-hidden="true" />
+            )}
+            {starting
+              ? "Starting practice..."
+              : cameraEnabled
+                ? "Start video + voice practice"
+                : "Start voice practice"}
           </Button>
           <p className="text-[10px] leading-4 text-slate-500">
             Voice transcription uses your browser&apos;s speech-recognition
@@ -468,7 +486,7 @@ export function MockInterviewRoom({
                     onClick={endPractice}
                     className="gap-2 bg-emerald-700 text-white hover:bg-emerald-600"
                   >
-                    <RotateCcw className="size-4" aria-hidden="true" />
+                    <CheckCircle2 className="size-4" aria-hidden="true" />
                     Finish practice
                   </Button>
                 )}
