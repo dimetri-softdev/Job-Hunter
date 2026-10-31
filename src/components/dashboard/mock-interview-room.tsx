@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Camera,
   CameraOff,
@@ -83,6 +83,10 @@ const rubricDimensions: {
     description: "How well your answer uses a grounded example.",
   },
 ];
+
+function getSpeechLocale() {
+  return typeof navigator === "undefined" ? "en-US" : navigator.language || "en-US";
+}
 
 function getRubricAverage(rubric: InterviewAnswerRubric) {
   const scores = rubricDimensions.map(({ key }) => rubric[key].score);
@@ -167,6 +171,30 @@ function getSessionSummary(
   };
 }
 
+function getRecommendedVoices(voices: SpeechSynthesisVoice[], locale: string) {
+  const requestedLocale = locale.toLowerCase();
+  const baseLanguage = requestedLocale.split("-")[0];
+  const matchingVoices = voices.filter((voice) =>
+    voice.lang.toLowerCase().startsWith(baseLanguage),
+  );
+  const pool = matchingVoices.length ? matchingVoices : voices;
+
+  return [...pool]
+    .sort((left, right) => {
+      const qualityScore = (voice: SpeechSynthesisVoice) => {
+        const name = voice.name.toLowerCase();
+        return (
+          (voice.lang.toLowerCase() === requestedLocale ? 12 : 0) +
+          (/\b(natural|neural|premium|enhanced)\b/.test(name) ? 8 : 0) +
+          (voice.default ? 4 : 0) +
+          (voice.localService ? 2 : 0)
+        );
+      };
+      return qualityScore(right) - qualityScore(left);
+    })
+    .slice(0, 3);
+}
+
 interface SpeechRecognitionAlternativeLike {
   transcript: string;
 }
@@ -233,6 +261,10 @@ export function MockInterviewRoom({
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [starting, setStarting] = useState(false);
   const [listening, setListening] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState<
+    SpeechSynthesisVoice[]
+  >([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -253,6 +285,13 @@ export function MockInterviewRoom({
       ? feedback[currentQuestion.question]
       : undefined
     : undefined;
+  const recommendedVoices = useMemo(
+    () => getRecommendedVoices(availableVoices, getSpeechLocale()),
+    [availableVoices],
+  );
+  const selectedVoice = recommendedVoices.find(
+    (voice) => voice.voiceURI === selectedVoiceURI,
+  );
   const sessionSummary = getSessionSummary(
     questions,
     answers,
@@ -299,12 +338,50 @@ export function MockInterviewRoom({
   }, []);
 
   useEffect(() => {
-    if (!active || !currentQuestion || !window.speechSynthesis) return;
+    if (!window.speechSynthesis) return;
+    const updateVoices = () => {
+      setAvailableVoices(window.speechSynthesis.getVoices());
+    };
+    updateVoices();
+    window.speechSynthesis.addEventListener("voiceschanged", updateVoices);
+    return () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", updateVoices);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      recommendedVoices.length &&
+      !recommendedVoices.some((voice) => voice.voiceURI === selectedVoiceURI)
+    ) {
+      const preferredVoice =
+        recommendedVoices.find((voice) => voice.default) ??
+        recommendedVoices[0];
+      if (preferredVoice) setSelectedVoiceURI(preferredVoice.voiceURI);
+    }
+  }, [recommendedVoices, selectedVoiceURI]);
+
+  const speak = useCallback((text: string) => {
+    if (!window.speechSynthesis) {
+      setError("Voice playback is not supported in this browser.");
+      return;
+    }
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(currentQuestion.question);
-    utterance.rate = 0.95;
+    const utterance = new SpeechSynthesisUtterance(text);
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+      utterance.lang = selectedVoice.lang;
+    } else {
+      utterance.lang = navigator.language || "en-US";
+    }
+    utterance.rate = 0.88;
+    utterance.pitch = 1;
     window.speechSynthesis.speak(utterance);
-  }, [active, currentQuestion]);
+  }, [selectedVoice]);
+
+  useEffect(() => {
+    if (active && currentQuestion) speak(currentQuestion.question);
+  }, [active, currentQuestion, speak]);
 
   useEffect(() => {
     if (video && streamRef.current && videoRef.current) {
@@ -471,6 +548,57 @@ export function MockInterviewRoom({
         ) : null}
       </div>
 
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-white/[0.08] bg-black/10 p-3">
+        <div className="min-w-52 flex-1 space-y-1.5">
+          <label
+            htmlFor="mock-interview-voice"
+            className="text-[11px] font-medium text-slate-300"
+          >
+            Interviewer voice
+          </label>
+          <select
+            id="mock-interview-voice"
+            value={selectedVoiceURI}
+            onChange={(event) => setSelectedVoiceURI(event.target.value)}
+            disabled={!recommendedVoices.length}
+            className="h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#090a0f] px-3 text-xs text-white outline-none focus-visible:border-cyan-400 disabled:opacity-60"
+          >
+            {recommendedVoices.length ? (
+              recommendedVoices.map((voice, index) => (
+                <option key={voice.voiceURI} value={voice.voiceURI}>
+                  {index === 0 ? "Recommended · " : ""}
+                  {voice.name} ({voice.lang})
+                  {voice.localService ? " · on device" : ""}
+                </option>
+              ))
+            ) : (
+              <option value="">Using browser default voice</option>
+            )}
+          </select>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={
+            typeof window === "undefined" || !window.speechSynthesis
+          }
+          onClick={() =>
+            speak(
+              "Welcome to your interview practice. Take a moment to think, then answer in your own words.",
+            )
+          }
+          className="h-10 gap-2 border-cyan-400/25 text-cyan-100 hover:bg-cyan-500/10"
+        >
+          <Volume2 className="size-4" aria-hidden="true" />
+          Preview voice
+        </Button>
+        <p className="basis-full text-[10px] leading-4 text-slate-500">
+          Showing up to three voices available in your browser, matched to your
+          language when possible. Choose one and preview it before you begin.
+          Clearer voices may be available in your device&apos;s speech settings.
+        </p>
+      </div>
+
       {!active && finished ? (
         <div className="space-y-5">
           <div className="flex flex-col gap-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] p-4 sm:flex-row sm:items-center">
@@ -580,6 +708,42 @@ export function MockInterviewRoom({
                     ))}
                 </div>
               ) : null}
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-lg border border-emerald-400/15 bg-emerald-500/[0.04] p-3">
+                  <h4 className="text-xs font-semibold text-emerald-200">
+                    Strengths to keep using
+                  </h4>
+                  {sessionSummary.strengths.length ? (
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-[11px] leading-5 text-slate-300">
+                      {sessionSummary.strengths.map((strength) => (
+                        <li key={strength}>{strength}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-[11px] leading-5 text-slate-400">
+                      Request coaching on an answer to see specific strengths.
+                    </p>
+                  )}
+                </div>
+                <div className="rounded-lg border border-amber-300/15 bg-amber-300/[0.03] p-3">
+                  <h4 className="text-xs font-semibold text-amber-100">
+                    Weak points to work on
+                  </h4>
+                  {sessionSummary.focusPoints.length ? (
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-[11px] leading-5 text-slate-300">
+                      {sessionSummary.focusPoints.map((focusPoint) => (
+                        <li key={focusPoint}>{focusPoint}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-[11px] leading-5 text-slate-400">
+                      Your coach will suggest a practice focus after reviewing
+                      your answers.
+                    </p>
+                  )}
+                </div>
+              </div>
 
               {(() => {
                 const nextFocus = rubricDimensions
@@ -721,14 +885,9 @@ export function MockInterviewRoom({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  if (currentQuestion && window.speechSynthesis) {
-                    window.speechSynthesis.cancel();
-                    window.speechSynthesis.speak(
-                      new SpeechSynthesisUtterance(currentQuestion.question),
-                    );
-                  }
-                }}
+                onClick={() =>
+                  currentQuestion && speak(currentQuestion.question)
+                }
                 className="gap-2 border-white/10 text-slate-200 hover:bg-white/5"
               >
                 <Volume2 className="size-4" aria-hidden="true" />
