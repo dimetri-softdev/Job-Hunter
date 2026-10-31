@@ -340,26 +340,30 @@ export function MockInterviewRoom({
   useEffect(() => {
     if (!window.speechSynthesis) return;
     const updateVoices = () => {
-      setAvailableVoices(window.speechSynthesis.getVoices());
+      const voices = window.speechSynthesis.getVoices();
+      const candidates = getRecommendedVoices(voices, getSpeechLocale());
+      setAvailableVoices(voices);
+      setSelectedVoiceURI((current) => {
+        if (
+          candidates.some((voice) => voice.voiceURI === current) ||
+          !candidates.length
+        ) {
+          return current;
+        }
+        return (
+          candidates.find((voice) => voice.default)?.voiceURI ??
+          candidates[0]?.voiceURI ??
+          current
+        );
+      });
     };
-    updateVoices();
+    const timer = window.setTimeout(updateVoices, 0);
     window.speechSynthesis.addEventListener("voiceschanged", updateVoices);
     return () => {
+      window.clearTimeout(timer);
       window.speechSynthesis.removeEventListener("voiceschanged", updateVoices);
     };
   }, []);
-
-  useEffect(() => {
-    if (
-      recommendedVoices.length &&
-      !recommendedVoices.some((voice) => voice.voiceURI === selectedVoiceURI)
-    ) {
-      const preferredVoice =
-        recommendedVoices.find((voice) => voice.default) ??
-        recommendedVoices[0];
-      if (preferredVoice) setSelectedVoiceURI(preferredVoice.voiceURI);
-    }
-  }, [recommendedVoices, selectedVoiceURI]);
 
   const speak = useCallback((text: string) => {
     if (!window.speechSynthesis) {
@@ -380,8 +384,19 @@ export function MockInterviewRoom({
   }, [selectedVoice]);
 
   useEffect(() => {
-    if (active && currentQuestion) speak(currentQuestion.question);
-  }, [active, currentQuestion, speak]);
+    if (!active || !currentQuestion || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(currentQuestion.question);
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+      utterance.lang = selectedVoice.lang;
+    } else {
+      utterance.lang = getSpeechLocale();
+    }
+    utterance.rate = 0.88;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+  }, [active, currentQuestion, selectedVoice]);
 
   useEffect(() => {
     if (video && streamRef.current && videoRef.current) {
