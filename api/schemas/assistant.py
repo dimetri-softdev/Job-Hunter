@@ -73,11 +73,24 @@ class InterviewPracticeQuestionSet(BaseModel):
     questions: list[InterviewPracticeQuestion] = Field(min_length=4, max_length=6)
 
 
+class InterviewAnswerRating(BaseModel):
+    score: int = Field(ge=1, le=5)
+    evidence: str = Field(min_length=1, max_length=240)
+
+
+class InterviewAnswerRubric(BaseModel):
+    relevance: InterviewAnswerRating
+    clarity: InterviewAnswerRating
+    problemSolving: InterviewAnswerRating
+    specificity: InterviewAnswerRating
+
+
 class InterviewAnswerFeedback(BaseModel):
     strengths: list[str] = Field(min_length=1, max_length=3)
     improvements: list[str] = Field(min_length=1, max_length=3)
     answerStructure: str = Field(min_length=1, max_length=1200)
     followUpQuestion: str = Field(min_length=1, max_length=500)
+    rubric: InterviewAnswerRubric
 
 
 class FitGapRoadmapRequest(BaseModel):

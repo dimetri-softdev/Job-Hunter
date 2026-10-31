@@ -5,10 +5,16 @@ import {
   Camera,
   CameraOff,
   CheckCircle2,
+  Award,
+  Lightbulb,
   Loader2,
   Mic,
   MicOff,
   Play,
+  Sparkles,
+  Star,
+  Target,
+  Trophy,
   Volume2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +31,140 @@ export interface MockInterviewFeedback {
   improvements: string[];
   answerStructure: string;
   followUpQuestion: string;
+  rubric: InterviewAnswerRubric;
+}
+
+export interface InterviewAnswerRating {
+  score: number;
+  evidence: string;
+}
+
+export interface InterviewAnswerRubric {
+  relevance: InterviewAnswerRating;
+  clarity: InterviewAnswerRating;
+  problemSolving: InterviewAnswerRating;
+  specificity: InterviewAnswerRating;
+}
+
+export interface InterviewSessionSummary {
+  averageScore: number | null;
+  points: number;
+  answered: number;
+  reviewed: number;
+  improved: number;
+  dimensions: Record<keyof InterviewAnswerRubric, number | null>;
+  strengths: string[];
+  focusPoints: string[];
+}
+
+const rubricDimensions: {
+  key: keyof InterviewAnswerRubric;
+  label: string;
+  description: string;
+}[] = [
+  {
+    key: "relevance",
+    label: "Relevance",
+    description: "How directly your answer addresses the question.",
+  },
+  {
+    key: "problemSolving",
+    label: "Problem-solving",
+    description: "How clearly you explain your approach and decisions.",
+  },
+  {
+    key: "clarity",
+    label: "Clarity",
+    description: "How easy your explanation is to follow.",
+  },
+  {
+    key: "specificity",
+    label: "Specificity",
+    description: "How well your answer uses a grounded example.",
+  },
+];
+
+function getRubricAverage(rubric: InterviewAnswerRubric) {
+  const scores = rubricDimensions.map(({ key }) => rubric[key].score);
+  return scores.reduce((sum, score) => sum + score, 0) / scores.length;
+}
+
+function getSessionSummary(
+  questions: MockInterviewQuestion[],
+  answers: Record<string, string>,
+  feedback: Record<string, MockInterviewFeedback>,
+  firstRubric: Record<string, InterviewAnswerRubric>,
+  firstCoachedAnswers: Record<string, string>,
+  coachedAnswers: Record<string, string>,
+): InterviewSessionSummary {
+  const answeredQuestions = questions.filter(
+    ({ question }) => Boolean(answers[question]?.trim()),
+  );
+  const reviewedQuestions = questions.filter(
+    ({ question }) =>
+      Boolean(feedback[question]) &&
+      answers[question]?.trim() === coachedAnswers[question],
+  );
+  const categoryScores = Object.fromEntries(
+    rubricDimensions.map(({ key }) => {
+      const ratings = reviewedQuestions
+        .map(({ question }) => feedback[question]?.rubric[key].score)
+        .filter((score): score is number => typeof score === "number");
+      return [
+        key,
+        ratings.length
+          ? ratings.reduce((sum, score) => sum + score, 0) / ratings.length
+          : null,
+      ];
+    }),
+  ) as InterviewSessionSummary["dimensions"];
+  const reviewedAverages = reviewedQuestions
+    .map(({ question }) => feedback[question]?.rubric)
+    .filter((rubric): rubric is InterviewAnswerRubric => Boolean(rubric))
+    .map(getRubricAverage);
+  const averageScore = reviewedAverages.length
+    ? reviewedAverages.reduce((sum, score) => sum + score, 0) /
+      reviewedAverages.length
+    : null;
+  const improvedQuestions = questions.filter(({ question }) => {
+    const currentRubric = feedback[question]?.rubric;
+    const initialRubric = firstRubric[question];
+    if (
+      !currentRubric ||
+      !initialRubric ||
+      firstCoachedAnswers[question] === answers[question]?.trim() ||
+      answers[question]?.trim() !== coachedAnswers[question]
+    ) {
+      return false;
+    }
+    return getRubricAverage(currentRubric) > getRubricAverage(initialRubric);
+  }).length;
+
+  return {
+    averageScore,
+    points:
+      answeredQuestions.length * 5 +
+      Object.keys(firstRubric).length * 5 +
+      improvedQuestions * 10,
+    answered: answeredQuestions.length,
+    reviewed: Object.keys(firstRubric).length,
+    improved: improvedQuestions,
+    dimensions: categoryScores,
+    strengths: [
+      ...new Set(
+        reviewedQuestions.flatMap(
+          ({ question }) => feedback[question]?.strengths ?? [],
+        ),
+      ),
+    ].slice(0, 4),
+    focusPoints: [
+      ...new Set(
+        reviewedQuestions.flatMap(
+          ({ question }) => feedback[question]?.improvements ?? [],
+        ),
+      ),
+    ].slice(0, 4),
+  };
 }
 
 interface SpeechRecognitionAlternativeLike {
@@ -63,9 +203,14 @@ interface MockInterviewRoomProps {
   questions: MockInterviewQuestion[];
   answers: Record<string, string>;
   feedback: Record<string, MockInterviewFeedback>;
+  firstRubric: Record<string, InterviewAnswerRubric>;
+  firstCoachedAnswers: Record<string, string>;
+  coachedAnswers: Record<string, string>;
   feedbackFor: string | null;
   onAnswerChange: (question: string, answer: string) => void;
   onCoach: (question: string, answer: string) => void;
+  onSessionFinished: (summary: InterviewSessionSummary) => void;
+  onSessionReset: () => void;
 }
 
 export function MockInterviewRoom({
@@ -74,11 +219,17 @@ export function MockInterviewRoom({
   questions,
   answers,
   feedback,
+  firstRubric,
+  firstCoachedAnswers,
+  coachedAnswers,
   feedbackFor,
   onAnswerChange,
   onCoach,
+  onSessionFinished,
+  onSessionReset,
 }: MockInterviewRoomProps) {
   const [active, setActive] = useState(false);
+  const [finished, setFinished] = useState(false);
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [starting, setStarting] = useState(false);
   const [listening, setListening] = useState(false);
@@ -98,8 +249,18 @@ export function MockInterviewRoom({
     ? answers[currentQuestion.question] ?? ""
     : "";
   const currentFeedback = currentQuestion
-    ? feedback[currentQuestion.question]
+    ? coachedAnswers[currentQuestion.question] === currentAnswer
+      ? feedback[currentQuestion.question]
+      : undefined
     : undefined;
+  const sessionSummary = getSessionSummary(
+    questions,
+    answers,
+    feedback,
+    firstRubric,
+    firstCoachedAnswers,
+    coachedAnswers,
+  );
 
   function stopRecognition() {
     const recognition = recognitionRef.current;
@@ -121,6 +282,8 @@ export function MockInterviewRoom({
     stopCamera();
     window.speechSynthesis?.cancel();
     setActive(false);
+    setFinished(true);
+    onSessionFinished(sessionSummary);
   }
 
   useEffect(() => {
@@ -185,6 +348,7 @@ export function MockInterviewRoom({
         }
       }
       setQuestionIndex(0);
+      setFinished(false);
       setActive(true);
     } finally {
       if (mountedRef.current) setStarting(false);
@@ -307,7 +471,178 @@ export function MockInterviewRoom({
         ) : null}
       </div>
 
-      {!active ? (
+      {!active && finished ? (
+        <div className="space-y-5">
+          <div className="flex flex-col gap-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] p-4 sm:flex-row sm:items-center">
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-amber-300/10 text-amber-200">
+              <Trophy className="size-7" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
+                Practice round complete
+              </p>
+              <p className="mt-1 text-sm font-semibold text-white">
+                {sessionSummary.reviewed
+                  ? `${sessionSummary.points} practice points earned`
+                  : "You showed up and practiced"}
+              </p>
+              <p className="mt-1 text-[11px] leading-5 text-slate-400">
+                {sessionSummary.answered} answer
+                {sessionSummary.answered === 1 ? "" : "s"} ·{" "}
+                {sessionSummary.reviewed} coached ·{" "}
+                {sessionSummary.improved} improved on a retry
+              </p>
+            </div>
+            <div className="text-left sm:text-right">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                Answer score
+              </p>
+              {sessionSummary.averageScore === null ? (
+                <p className="mt-1 text-sm font-semibold text-slate-300">
+                  Not scored yet
+                </p>
+              ) : (
+                <>
+                  <p className="mt-1 text-2xl font-bold text-white">
+                    {Math.round(sessionSummary.averageScore * 20)}
+                    <span className="text-sm text-slate-400">/100</span>
+                  </p>
+                  <p className="text-[10px] text-slate-500">
+                    {sessionSummary.averageScore.toFixed(1)}/5 across reviewed
+                    answers
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
+          {sessionSummary.averageScore === null ? (
+            <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs leading-5 text-slate-300">
+              Your answers are still here. Request AI coaching on an answer to
+              receive a scorecard with specific strengths, weak points, and a
+              next practice focus.
+            </div>
+          ) : (
+            <>
+              <div>
+                <div className="flex items-center gap-2">
+                  <Target className="size-4 text-cyan-300" aria-hidden="true" />
+                  <h4 className="text-xs font-semibold text-white">
+                    Your answer scorecard
+                  </h4>
+                </div>
+                <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                  Average of answers you reviewed with coaching. Scores reflect
+                  answer content only—not video, voice, accent, or interview
+                  readiness.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {rubricDimensions.map(({ key, label, description }) => {
+                    const score = sessionSummary.dimensions[key];
+                    return (
+                      <div
+                        key={key}
+                        className="rounded-lg border border-white/[0.08] bg-[#090a0f] p-3"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs font-medium text-slate-200">
+                            {label}
+                          </span>
+                          <span className="text-xs font-semibold text-cyan-200">
+                            {score === null ? "—" : `${score.toFixed(1)}/5`}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                          {description}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {rubricDimensions.some(
+                ({ key }) => (sessionSummary.dimensions[key] ?? 0) >= 4,
+              ) ? (
+                <div className="flex flex-wrap gap-2">
+                  {rubricDimensions
+                    .filter(
+                      ({ key }) => (sessionSummary.dimensions[key] ?? 0) >= 4,
+                    )
+                    .map(({ key, label }) => (
+                      <span
+                        key={key}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/[0.06] px-2.5 py-1 text-[10px] font-medium text-emerald-200"
+                      >
+                        <Award className="size-3" aria-hidden="true" />
+                        {label} strength
+                      </span>
+                    ))}
+                </div>
+              ) : null}
+
+              {(() => {
+                const nextFocus = rubricDimensions
+                  .filter(({ key }) => sessionSummary.dimensions[key] !== null)
+                  .sort(
+                    (left, right) =>
+                      (sessionSummary.dimensions[left.key] ?? 0) -
+                      (sessionSummary.dimensions[right.key] ?? 0),
+                  )[0];
+                if (!nextFocus) return null;
+                return (
+                  <div className="rounded-lg border border-violet-400/15 bg-violet-500/[0.04] p-3">
+                    <div className="flex items-center gap-2">
+                      <Lightbulb
+                        className="size-4 text-violet-300"
+                        aria-hidden="true"
+                      />
+                      <h4 className="text-xs font-semibold text-violet-100">
+                        Your next practice focus: {nextFocus.label}
+                      </h4>
+                    </div>
+                    <p className="mt-1 text-[11px] leading-5 text-slate-300">
+                      {nextFocus.description} Try another answer and focus on
+                      one concrete detail that demonstrates this skill.
+                    </p>
+                  </div>
+                );
+              })()}
+            </>
+          )}
+
+          <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3">
+            <div className="flex items-center gap-2">
+              <Star className="size-4 text-amber-200" aria-hidden="true" />
+              <h4 className="text-xs font-semibold text-white">
+                How practice points work
+              </h4>
+            </div>
+            <p className="mt-1 text-[10px] leading-5 text-slate-400">
+              +5 for answering a question, +5 for reviewing it with coaching,
+              and +10 once per question when a retry improves your rubric
+              average. Points reward practice and growth—not candidate worth.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex items-center gap-1.5 text-[10px] leading-4 text-slate-500">
+              <Sparkles className="size-3.5 shrink-0 text-cyan-300" aria-hidden="true" />
+              Save interview prep below to keep these notes in this job&apos;s
+              history.
+            </p>
+            <Button
+              type="button"
+              onClick={() => {
+                setFinished(false);
+                onSessionReset();
+              }}
+              className="bg-cyan-700 text-white hover:bg-cyan-600"
+            >
+              Practice again
+            </Button>
+          </div>
+        </div>
+      ) : !active ? (
         <div className="space-y-3">
           <label className="flex items-start gap-2 text-[11px] leading-4 text-slate-300">
             <input
@@ -495,6 +830,21 @@ export function MockInterviewRoom({
             {currentFeedback ? (
               <div className="space-y-2 rounded-lg border border-emerald-400/15 bg-emerald-500/[0.04] p-3 text-[11px] leading-5">
                 <p className="font-semibold text-emerald-200">Coaching notes</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {rubricDimensions.map(({ key, label }) => (
+                    <div
+                      key={key}
+                      className="rounded-md border border-white/[0.08] bg-black/10 p-2"
+                    >
+                      <p className="font-medium text-cyan-100">
+                        {label}: {currentFeedback.rubric[key].score}/5
+                      </p>
+                      <p className="mt-0.5 text-slate-400">
+                        {currentFeedback.rubric[key].evidence}
+                      </p>
+                    </div>
+                  ))}
+                </div>
                 <ul className="list-disc space-y-1 pl-4 text-slate-300">
                   {currentFeedback.strengths.map((item) => (
                     <li key={item}>{item}</li>

@@ -23,6 +23,8 @@ import {
   MockInterviewRoom,
   type MockInterviewFeedback,
   type MockInterviewQuestion,
+  type InterviewAnswerRubric,
+  type InterviewSessionSummary,
 } from "@/components/dashboard/mock-interview-room";
 
 function buildPracticePrompts(
@@ -72,6 +74,16 @@ export function InterviewPrep({
   const [practiceFeedback, setPracticeFeedback] = useState<
     Record<string, MockInterviewFeedback>
   >({});
+  const [practiceFirstRubric, setPracticeFirstRubric] = useState<
+    Record<string, InterviewAnswerRubric>
+  >({});
+  const [practiceFirstCoachedAnswers, setPracticeFirstCoachedAnswers] =
+    useState<Record<string, string>>({});
+  const [practiceCoachedAnswers, setPracticeCoachedAnswers] = useState<
+    Record<string, string>
+  >({});
+  const [sessionSummary, setSessionSummary] =
+    useState<InterviewSessionSummary | null>(null);
   const prompts = practiceQuestions.length
     ? practiceQuestions.map((item) => item.question)
     : buildPracticePrompts(
@@ -105,6 +117,10 @@ export function InterviewPrep({
       setPracticeQuestions(result.questions);
       setPracticeAnswers({});
       setPracticeFeedback({});
+      setPracticeFirstRubric({});
+      setPracticeFirstCoachedAnswers({});
+      setPracticeCoachedAnswers({});
+      setSessionSummary(null);
     } catch (practiceError: unknown) {
       setError(
         practiceError instanceof Error
@@ -142,6 +158,20 @@ export function InterviewPrep({
         },
       );
       setPracticeFeedback((current) => ({ ...current, [question]: result }));
+      setPracticeFirstRubric((current) =>
+        current[question]
+          ? current
+          : { ...current, [question]: result.rubric },
+      );
+      setPracticeFirstCoachedAnswers((current) =>
+        Object.prototype.hasOwnProperty.call(current, question)
+          ? current
+          : { ...current, [question]: answer },
+      );
+      setPracticeCoachedAnswers((current) => ({
+        ...current,
+        [question]: answer,
+      }));
     } catch (feedbackError: unknown) {
       setError(
         feedbackError instanceof Error
@@ -173,7 +203,10 @@ export function InterviewPrep({
 
     const aiPracticeNotes = practiceQuestions.map((item) => {
       const answer = practiceAnswers[item.question]?.trim();
-      const feedback = practiceFeedback[item.question];
+      const feedback =
+        practiceCoachedAnswers[item.question] === answer
+          ? practiceFeedback[item.question]
+          : undefined;
       return [
         `${item.category.toLocaleUpperCase()} QUESTION: ${item.question}`,
         `Interviewer focus: ${item.focus}`,
@@ -184,6 +217,7 @@ export function InterviewPrep({
               `To improve: ${feedback.improvements.join("; ")}`,
               `Answer structure: ${feedback.answerStructure}`,
               `Follow-up to practice: ${feedback.followUpQuestion}`,
+              `Rubric scores (1-5): relevance ${feedback.rubric.relevance.score}; clarity ${feedback.rubric.clarity.score}; problem-solving ${feedback.rubric.problemSolving.score}; specificity ${feedback.rubric.specificity.score}`,
             ].join("\n")
           : "",
       ]
@@ -204,6 +238,24 @@ export function InterviewPrep({
           return `${index + 1}. ${prompt}${answer ? `\n   My example: ${answer}` : ""}`;
         })
         .join("\n")}`,
+      sessionSummary
+        ? [
+            "Mock interview session debrief:",
+            `Practice points: ${sessionSummary.points}`,
+            `Answered: ${sessionSummary.answered}; coached: ${sessionSummary.reviewed}; improved on retry: ${sessionSummary.improved}`,
+            sessionSummary.averageScore === null
+              ? "No rubric score was available because no answer was reviewed with coaching."
+              : `Average answer score: ${sessionSummary.averageScore.toFixed(1)}/5 across reviewed answers.`,
+            `Average rubric ratings (1-5): relevance ${sessionSummary.dimensions.relevance?.toFixed(1) ?? "not rated"}; clarity ${sessionSummary.dimensions.clarity?.toFixed(1) ?? "not rated"}; problem-solving ${sessionSummary.dimensions.problemSolving?.toFixed(1) ?? "not rated"}; specificity ${sessionSummary.dimensions.specificity?.toFixed(1) ?? "not rated"}.`,
+            sessionSummary.strengths.length
+              ? `Strengths: ${sessionSummary.strengths.join("; ")}.`
+              : "",
+            sessionSummary.focusPoints.length
+              ? `Focus next: ${sessionSummary.focusPoints.join("; ")}.`
+              : "",
+            "Scores are practice coaching on answer content, not a hiring prediction.",
+          ].join("\n")
+        : "",
       aiPracticeNotes.length
         ? `AI interview practice:\n${aiPracticeNotes.join("\n\n")}`
         : "",
@@ -248,6 +300,10 @@ export function InterviewPrep({
         setOpen(nextOpen);
         if (!nextOpen) {
           setPracticeQuestions([]);
+          setPracticeFirstRubric({});
+          setPracticeFirstCoachedAnswers({});
+          setPracticeCoachedAnswers({});
+          setSessionSummary(null);
         }
         if (nextOpen) {
           setError(null);
@@ -256,6 +312,10 @@ export function InterviewPrep({
           setPracticeQuestions([]);
           setPracticeAnswers({});
           setPracticeFeedback({});
+          setPracticeFirstRubric({});
+          setPracticeFirstCoachedAnswers({});
+          setPracticeCoachedAnswers({});
+          setSessionSummary(null);
         }
       }}
     >
@@ -408,6 +468,9 @@ export function InterviewPrep({
                   questions={practiceQuestions}
                   answers={practiceAnswers}
                   feedback={practiceFeedback}
+                  firstRubric={practiceFirstRubric}
+                  firstCoachedAnswers={practiceFirstCoachedAnswers}
+                  coachedAnswers={practiceCoachedAnswers}
                   feedbackFor={feedbackFor}
                   onAnswerChange={(question, answer) =>
                     setPracticeAnswers((current) => ({
@@ -418,6 +481,8 @@ export function InterviewPrep({
                   onCoach={(question, answer) =>
                     void coachAnswer(question, answer)
                   }
+                  onSessionFinished={setSessionSummary}
+                  onSessionReset={() => setSessionSummary(null)}
                 />
               ) : null}
 
