@@ -10,7 +10,7 @@ from api.schemas.applications import (
     ApplicationUpdate,
     OfferDetailsRequest,
 )
-from api.schemas.assistant import InterviewAnswerFeedback
+from api.schemas.assistant import InterviewAnswerFeedback, InterviewPracticeRequest
 
 
 class ApplicationSchemaTests(unittest.TestCase):
@@ -69,6 +69,18 @@ class ApplicationSchemaTests(unittest.TestCase):
                     "specificity": {"score": 4, "evidence": "Includes a concrete example."},
                 },
             )
+
+    def test_standalone_interview_request_accepts_role_context(self):
+        request = InterviewPracticeRequest(
+            aiProcessingConsent=True,
+            action="questions",
+            role="Product Designer",
+            company="Example Co",
+            jobDescription="Own product discovery and collaborate with engineering.",
+        )
+
+        self.assertEqual(request.role, "Product Designer")
+        self.assertEqual(request.company, "Example Co")
 
 
 if __name__ == "__main__":
