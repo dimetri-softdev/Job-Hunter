@@ -15,6 +15,7 @@ import {
   FileText,
   CreditCard,
   Bot,
+  Video,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { ActionHint } from "@/components/action-hint";
@@ -43,6 +44,12 @@ const navItems = [
     description: "Saved jobs, status, and follow-ups",
     href: "/applications",
     icon: Briefcase,
+  },
+  {
+    name: "Interview practice",
+    description: "Practice any role with voice and AI coaching",
+    href: "/interview-practice",
+    icon: Video,
   },
   {
     name: "Account settings",

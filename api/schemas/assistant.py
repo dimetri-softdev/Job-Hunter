@@ -61,6 +61,9 @@ class InterviewPracticeRequest(BaseModel):
     action: Literal["questions", "feedback"]
     question: Optional[str] = Field(default=None, min_length=1, max_length=1000)
     answer: Optional[str] = Field(default=None, min_length=1, max_length=4000)
+    role: Optional[str] = Field(default=None, max_length=160)
+    company: Optional[str] = Field(default=None, max_length=160)
+    jobDescription: Optional[str] = Field(default=None, max_length=12000)
 
 
 class InterviewPracticeQuestion(BaseModel):
