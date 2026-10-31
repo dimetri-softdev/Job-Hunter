@@ -19,19 +19,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { fetcher } from "@/lib/api";
-
-interface PracticeQuestion {
-  category: "behavioral" | "role-specific" | "situational" | "fit";
-  question: string;
-  focus: string;
-}
-
-interface AnswerFeedback {
-  strengths: string[];
-  improvements: string[];
-  answerStructure: string;
-  followUpQuestion: string;
-}
+import {
+  MockInterviewRoom,
+  type MockInterviewFeedback,
+  type MockInterviewQuestion,
+} from "@/components/dashboard/mock-interview-room";
 
 function buildPracticePrompts(
   position: string,
@@ -75,10 +67,10 @@ export function InterviewPrep({
   const [aiConsent, setAiConsent] = useState(false);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [feedbackFor, setFeedbackFor] = useState<string | null>(null);
-  const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
+  const [practiceQuestions, setPracticeQuestions] = useState<MockInterviewQuestion[]>([]);
   const [practiceAnswers, setPracticeAnswers] = useState<Record<string, string>>({});
   const [practiceFeedback, setPracticeFeedback] = useState<
-    Record<string, AnswerFeedback>
+    Record<string, MockInterviewFeedback>
   >({});
   const prompts = practiceQuestions.length
     ? practiceQuestions.map((item) => item.question)
@@ -97,7 +89,7 @@ export function InterviewPrep({
     setGeneratingQuestions(true);
     setError(null);
     try {
-      const result = await fetcher<{ questions: PracticeQuestion[] }>(
+      const result = await fetcher<{ questions: MockInterviewQuestion[] }>(
         `/applications/${encodeURIComponent(applicationId)}/interview-practice`,
         {
           method: "POST",
@@ -124,8 +116,8 @@ export function InterviewPrep({
     }
   }
 
-  async function coachAnswer(question: string) {
-    const answer = practiceAnswers[question]?.trim();
+  async function coachAnswer(question: string, answerOverride?: string) {
+    const answer = (answerOverride ?? practiceAnswers[question])?.trim();
     if (!answer) {
       setError("Write an answer before requesting feedback.");
       return;
@@ -137,7 +129,7 @@ export function InterviewPrep({
     setFeedbackFor(question);
     setError(null);
     try {
-      const result = await fetcher<AnswerFeedback>(
+      const result = await fetcher<MockInterviewFeedback>(
         `/applications/${encodeURIComponent(applicationId)}/interview-practice`,
         {
           method: "POST",
@@ -254,6 +246,9 @@ export function InterviewPrep({
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
+        if (!nextOpen) {
+          setPracticeQuestions([]);
+        }
         if (nextOpen) {
           setError(null);
           setSaved(false);
@@ -405,6 +400,26 @@ export function InterviewPrep({
                   </div>
                 </div>
               </section>
+
+              {practiceQuestions.length > 0 ? (
+                <MockInterviewRoom
+                  position={position}
+                  company={company}
+                  questions={practiceQuestions}
+                  answers={practiceAnswers}
+                  feedback={practiceFeedback}
+                  feedbackFor={feedbackFor}
+                  onAnswerChange={(question, answer) =>
+                    setPracticeAnswers((current) => ({
+                      ...current,
+                      [question]: answer,
+                    }))
+                  }
+                  onCoach={(question, answer) =>
+                    void coachAnswer(question, answer)
+                  }
+                />
+              ) : null}
 
               <section className="space-y-3">
                 <div>
