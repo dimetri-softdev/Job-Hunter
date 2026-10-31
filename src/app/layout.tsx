@@ -4,6 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { RouteTransition } from "@/components/dashboard/route-transition";
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { siteUrl } from "@/lib/site-url";
+import { ADSENSE_CLIENT_ID } from "@/lib/ads";
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
@@ -16,6 +17,9 @@ export const metadata: Metadata = {
   applicationName: "JobHunter",
   ...(process.env.GOOGLE_SITE_VERIFICATION
     ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
+    : {}),
+  ...(ADSENSE_CLIENT_ID
+    ? { other: { "google-adsense-account": ADSENSE_CLIENT_ID } }
     : {}),
   openGraph: {
     type: "website",
