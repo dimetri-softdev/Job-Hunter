@@ -84,6 +84,7 @@ export function InterviewPrep({
   >({});
   const [sessionSummary, setSessionSummary] =
     useState<InterviewSessionSummary | null>(null);
+  const [roomKey, setRoomKey] = useState(0);
   const prompts = practiceQuestions.length
     ? practiceQuestions.map((item) => item.question)
     : buildPracticePrompts(
@@ -115,6 +116,7 @@ export function InterviewPrep({
         throw new Error("The interview practice response was incomplete. Try again.");
       }
       setPracticeQuestions(result.questions);
+      setRoomKey((current) => current + 1);
       setPracticeAnswers({});
       setPracticeFeedback({});
       setPracticeFirstRubric({});
@@ -463,6 +465,7 @@ export function InterviewPrep({
 
               {practiceQuestions.length > 0 ? (
                 <MockInterviewRoom
+                  key={roomKey}
                   position={position}
                   company={company}
                   questions={practiceQuestions}
@@ -482,7 +485,14 @@ export function InterviewPrep({
                     void coachAnswer(question, answer)
                   }
                   onSessionFinished={setSessionSummary}
-                  onSessionReset={() => setSessionSummary(null)}
+                  onSessionReset={() => {
+                    setPracticeAnswers({});
+                    setPracticeFeedback({});
+                    setPracticeFirstRubric({});
+                    setPracticeFirstCoachedAnswers({});
+                    setPracticeCoachedAnswers({});
+                    setSessionSummary(null);
+                  }}
                 />
               ) : null}
 

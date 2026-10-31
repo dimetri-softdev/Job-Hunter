@@ -39,6 +39,7 @@ export function StandaloneInterviewPractice() {
   );
   const [sessionSummary, setSessionSummary] =
     useState<InterviewSessionSummary | null>(null);
+  const [sessionKey, setSessionKey] = useState(0);
 
   async function generateQuestions(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,6 +73,7 @@ export function StandaloneInterviewPractice() {
         throw new Error("The interview practice response was incomplete. Try again.");
       }
       setQuestions(result.questions);
+      setSessionKey((current) => current + 1);
       setAnswers({});
       setFeedback({});
       setFirstRubric({});
@@ -188,7 +190,7 @@ export function StandaloneInterviewPractice() {
     anchor.href = url;
     anchor.download = "interview-practice-notes.txt";
     anchor.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   return (
@@ -223,8 +225,8 @@ export function StandaloneInterviewPractice() {
                 Set up your practice
               </h2>
               <p className="mt-1 text-[11px] leading-5 text-slate-400">
-                Use a saved role or prepare for something that is not in your
-                application tracker.
+                Practice a role from your tracker or prepare for an opportunity
+                you have not saved yet.
               </p>
             </div>
           </div>
@@ -328,6 +330,7 @@ export function StandaloneInterviewPractice() {
         <div className="min-w-0 space-y-4">
           {questions.length > 0 ? (
             <MockInterviewRoom
+              key={sessionKey}
               position={role.trim()}
               company={company.trim() || "your target company"}
               questions={questions}
@@ -344,7 +347,14 @@ export function StandaloneInterviewPractice() {
                 void coachAnswer(question, answer)
               }
               onSessionFinished={setSessionSummary}
-              onSessionReset={() => setSessionSummary(null)}
+              onSessionReset={() => {
+                setAnswers({});
+                setFeedback({});
+                setFirstRubric({});
+                setFirstCoachedAnswers({});
+                setCoachedAnswers({});
+                setSessionSummary(null);
+              }}
             />
           ) : (
             <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-[#101119]/60 px-6 py-10 text-center">
