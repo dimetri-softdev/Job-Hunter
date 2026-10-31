@@ -1,5 +1,5 @@
 export const ADSENSE_CLIENT_ID =
-  process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID ?? "";
+  process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || "ca-pub-2196301966456198";
 export const ADSENSE_PUBLIC_SLOT_ID =
   process.env.NEXT_PUBLIC_ADSENSE_PUBLIC_SLOT_ID ?? "";
 export const ADSENSE_DASHBOARD_SLOT_ID =
