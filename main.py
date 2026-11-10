@@ -403,6 +403,7 @@ PAYFAST_SETTINGS = PayFastSettings(
     return_url=os.getenv("PAYFAST_RETURN_URL"),
     cancel_url=os.getenv("PAYFAST_CANCEL_URL"),
     notify_url=os.getenv("PAYFAST_NOTIFY_URL"),
+    cancellation_cron_secret=os.getenv("PAYFAST_CANCELLATION_CRON_SECRET"),
 )
 
 app.include_router(create_payfast_router(db, get_current_user, PAYFAST_SETTINGS, BILLING_PRICES))
@@ -592,7 +593,9 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
     enabled = await billing_is_enabled()
     subscriptions = await db.query_raw(
         'SELECT "plan", "status", "trialEndsAt", "currentPeriodStart", "currentPeriodEnd", '
-        '"paymentFailedAt", "canceledAt", "provider", "billingInterval" '
+        '"paymentFailedAt", "canceledAt", "provider", "billingInterval", '
+        '"cancelAtPeriodEnd", "cancellationRequestedAt", "cancellationRequestSentAt", '
+        '"cancellationAttemptCount" '
         'FROM "UserSubscription" WHERE "userId" = $1',
         user_id,
     )
@@ -638,6 +641,7 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
     return {
         "billingEnabled": enabled,
         "checkoutEnabled": PAYFAST_SETTINGS.checkout_enabled,
+        "cancellationEnabled": PAYFAST_SETTINGS.cancellation_enabled,
         "checkoutMode": "sandbox" if PAYFAST_SETTINGS.checkout_enabled else None,
         "currency": "ZAR",
         "annualDiscountPercent": 20,
@@ -650,6 +654,16 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
         "currentPeriodEnd": serialize_date(subscription.get("currentPeriodEnd")) if subscription else None,
         "paymentFailedAt": serialize_date(subscription.get("paymentFailedAt")) if subscription else None,
         "canceledAt": serialize_date(subscription.get("canceledAt")) if subscription else None,
+        "cancelAtPeriodEnd": bool(subscription.get("cancelAtPeriodEnd")) if subscription else False,
+        "cancellationRequestedAt": (
+            serialize_date(subscription.get("cancellationRequestedAt")) if subscription else None
+        ),
+        "cancellationRequestSentAt": (
+            serialize_date(subscription.get("cancellationRequestSentAt")) if subscription else None
+        ),
+        "cancellationAttemptCount": (
+            int(subscription.get("cancellationAttemptCount") or 0) if subscription else 0
+        ),
         "usagePeriodStartsAt": month_start.isoformat(),
         "features": features,
         "plans": BILLING_PLANS,

@@ -71,6 +71,16 @@ class PayFastRouteTests(unittest.TestCase):
             cancel_url="https://app.example.com/billing?checkout=cancelled",
             notify_url="https://api.example.com/api/v1/billing/payfast/itn",
         )
+        self.cancellation_settings = PayFastSettings(
+            mode="sandbox",
+            merchant_id="sandbox-merchant",
+            merchant_key="sandbox-key",
+            passphrase="sandbox-passphrase",
+            return_url="https://app.example.com/billing?checkout=return",
+            cancel_url="https://app.example.com/billing?checkout=cancelled",
+            notify_url="https://api.example.com/api/v1/billing/payfast/itn",
+            cancellation_cron_secret="cron-secret",
+        )
         self.prices = {
             "starter": {
                 "monthly": Decimal("29.00"),
@@ -149,6 +159,108 @@ class PayFastRouteTests(unittest.TestCase):
             )
 
         self.assertEqual(raised.exception.status_code, 503)
+
+    def test_customer_can_schedule_period_end_cancellation(self):
+        subscription = {
+            "provider": "payfast",
+            "providerSubscriptionId": "sandbox-token",
+            "status": "ACTIVE",
+            "currentPeriodEnd": datetime(2030, 1, 1, tzinfo=timezone.utc),
+            "cancelAtPeriodEnd": False,
+            "cancellationRequestSentAt": None,
+        }
+        db = CancellationDatabase(subscription)
+        endpoint = self._endpoint(
+            db,
+            "/api/v1/billing/payfast/cancel",
+            settings=self.cancellation_settings,
+        )
+
+        result = asyncio.run(endpoint(user_id="user-123"))
+
+        self.assertTrue(result["cancelAtPeriodEnd"])
+        self.assertEqual(result["currentPeriodEnd"], "2030-01-01T00:00:00+00:00")
+        self.assertIn('"cancelAtPeriodEnd" = TRUE', db.executions[0][0])
+
+    def test_customer_can_undo_cancellation_before_payfast_request(self):
+        subscription = {
+            "provider": "payfast",
+            "cancelAtPeriodEnd": True,
+            "cancellationRequestSentAt": None,
+            "currentPeriodEnd": datetime(2030, 1, 1, tzinfo=timezone.utc),
+            "cancellationAttemptCount": 0,
+        }
+        db = CancellationDatabase(subscription)
+        endpoint = self._endpoint(
+            db,
+            "/api/v1/billing/payfast/cancel",
+            settings=self.cancellation_settings,
+            method="DELETE",
+        )
+
+        result = asyncio.run(endpoint(user_id="user-123"))
+
+        self.assertFalse(result["cancelAtPeriodEnd"])
+        self.assertIn('"cancelAtPeriodEnd" = FALSE', db.executions[0][0])
+
+    def test_cancellation_job_uses_payfast_sandbox_testing_parameter(self):
+        subscription = {
+            "id": "subscription-id",
+            "providerSubscriptionId": "sandbox-token",
+            "cancellationAttemptCount": 0,
+        }
+        db = CancellationDatabase(subscription, due=True)
+        endpoint = self._endpoint(
+            db,
+            "/api/v1/internal/payfast/cancellations/process",
+            settings=self.cancellation_settings,
+        )
+        client = _SuccessfulCancellationClient()
+        with patch("api.routes.payfast.httpx.AsyncClient", return_value=client):
+            result = asyncio.run(endpoint(request=_cron_request()))
+
+        self.assertEqual(result, {"sent": 1, "failed": 0, "skipped": 0})
+        url, kwargs = client.put_request
+        self.assertEqual(
+            url,
+            "https://api.payfast.co.za/subscriptions/sandbox-token/cancel",
+        )
+        self.assertEqual(kwargs["params"], {"testing": "true"})
+        self.assertEqual(kwargs["headers"]["merchant-id"], "sandbox-merchant")
+        signed_fields = {
+            key: value
+            for key, value in kwargs["headers"].items()
+            if key != "signature"
+        }
+        import hashlib
+        from urllib.parse import quote_plus
+
+        signed_fields["passphrase"] = "sandbox-passphrase"
+        api_parameter_string = "&".join(
+            f"{key}={quote_plus(value)}"
+            for key, value in sorted(signed_fields.items())
+        )
+        self.assertEqual(
+            kwargs["headers"]["signature"],
+            hashlib.md5(api_parameter_string.encode()).hexdigest(),
+        )
+        self.assertTrue(
+            any('"cancellationRequestSentAt" = $1' in query for query, _ in db.executions)
+        )
+        due_query = next(query for query, _ in db.queries if 'SELECT "id" FROM "UserSubscription"' in query)
+        self.assertIn('"currentPeriodStart" > "cancellationRequestedAt"', due_query)
+
+    def test_cancellation_job_rejects_invalid_cron_secret(self):
+        endpoint = self._endpoint(
+            CancellationDatabase({}, due=True),
+            "/api/v1/internal/payfast/cancellations/process",
+            settings=self.cancellation_settings,
+        )
+
+        with self.assertRaises(HTTPException) as raised:
+            asyncio.run(endpoint(request=_cron_request("wrong-secret")))
+
+        self.assertEqual(raised.exception.status_code, 401)
 
     def test_checkout_reuses_the_existing_pending_session(self):
         db = FakeDatabase(
@@ -295,6 +407,56 @@ class PayFastRouteTests(unittest.TestCase):
         self.assertEqual(result, {"received": True, "duplicate": True})
         self.assertEqual(db.executions, [])
 
+    def test_cancellation_notification_does_not_require_payment_amount_or_reference(self):
+        db = FakeDatabase(
+            subscription={
+                "userId": "user-123",
+                "plan": "starter",
+                "billingInterval": "monthly",
+                "status": "ACTIVE",
+                "currentPeriodEnd": datetime(2030, 1, 1, tzinfo=timezone.utc),
+            },
+            completed_event=True,
+        )
+        endpoint = self._endpoint(db, "/api/v1/billing/payfast/itn")
+        request = _cancellation_itn(self.settings.passphrase)
+
+        with patch("api.routes.payfast.httpx.AsyncClient", _ValidatingClient):
+            result = asyncio.run(endpoint(request=request))
+
+        self.assertEqual(result, {"received": True, "duplicate": False})
+        self.assertIn('"status" = $1', db.executions[0][0])
+        self.assertIn('"cancellationRequestSentAt"', db.executions[0][0])
+        self.assertIn("CANCELED", db.executions[0][1])
+        notification_insert = next(
+            values for query, values in db.queries
+            if 'INSERT INTO "PayfastNotification"' in query
+        )
+        self.assertEqual(notification_insert[2], "subscription:subscription-token")
+        self.assertIsNone(notification_insert[5])
+
+    def test_renewal_notification_preserves_a_pending_cancellation_request(self):
+        db = FakeDatabase(
+            subscription={
+                "userId": "user-123",
+                "plan": "starter",
+                "billingInterval": "monthly",
+                "status": "ACTIVE",
+                "currentPeriodEnd": datetime(2030, 1, 1, tzinfo=timezone.utc),
+                "cancelAtPeriodEnd": True,
+                "cancellationRequestedAt": datetime(2029, 12, 1, tzinfo=timezone.utc),
+            }
+        )
+        endpoint = self._endpoint(db, "/api/v1/billing/payfast/itn")
+
+        with patch("api.routes.payfast.httpx.AsyncClient", _ValidatingClient):
+            result = asyncio.run(endpoint(request=_signed_itn(self.settings.passphrase)))
+
+        self.assertEqual(result, {"received": True, "duplicate": False})
+        renewal = next(query for query, _ in db.executions if 'INSERT INTO "UserSubscription"' in query)
+        self.assertIn('"UserSubscription"."cancelAtPeriodEnd"', renewal)
+        self.assertIn('"cancellationRequestedAt"', renewal)
+
     def test_amount_mismatch_does_not_create_entitlement(self):
         db = FakeDatabase(
             checkout={
@@ -372,7 +534,7 @@ class PayFastRouteTests(unittest.TestCase):
             _checkout_signature(reordered_fields, "sandbox-passphrase"),
         )
 
-    def _endpoint(self, db, path, settings=None):
+    def _endpoint(self, db, path, settings=None, method="POST"):
         router = create_payfast_router(
             db,
             _get_current_user,
@@ -382,9 +544,53 @@ class PayFastRouteTests(unittest.TestCase):
         route = next(
             route
             for route in router.routes
-            if isinstance(route, APIRoute) and route.path == path
+            if isinstance(route, APIRoute)
+            and route.path == path
+            and method in route.methods
         )
         return route.endpoint
+
+
+class CancellationDatabase:
+    def __init__(self, subscription, *, due=False):
+        self.subscription = subscription
+        self.due = due
+        self.queries = []
+        self.executions = []
+
+    async def query_raw(self, query, *values):
+        self.queries.append((query, values))
+        if 'SELECT "id" FROM "UserSubscription"' in query:
+            return [{"id": self.subscription.get("id", "subscription-id")}] if self.due else []
+        if '"provider", "providerSubscriptionId"' in query:
+            return [self.subscription] if self.subscription else []
+        if '"provider", "cancelAtPeriodEnd"' in query:
+            return [self.subscription] if self.subscription else []
+        if '"providerSubscriptionId", "cancellationAttemptCount"' in query:
+            return [self.subscription] if self.subscription else []
+        raise AssertionError(f"Unexpected query: {query}")
+
+    async def execute_raw(self, query, *values):
+        self.executions.append((query, values))
+
+    @asynccontextmanager
+    async def tx(self):
+        yield self
+
+
+class _SuccessfulCancellationClient:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, _exc_type, _exc_value, _traceback):
+        return None
+
+    async def put(self, url, **kwargs):
+        self.put_request = (url, kwargs)
+        return SimpleNamespace(status_code=200, raise_for_status=lambda: None)
 
 
 class _ValidatingClient:
@@ -427,6 +633,28 @@ def _request(body):
     )
 
 
+def _cron_request(secret="cron-secret"):
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/v1/internal/payfast/cancellations/process",
+            "headers": [
+                (b"x-payfast-cancellation-cron-secret", secret.encode()),
+            ],
+            "query_string": b"",
+            "server": ("api.example.com", 443),
+            "client": ("192.0.2.1", 12345),
+            "scheme": "https",
+            "http_version": "1.1",
+        },
+        receive,
+    )
+
+
 def _signed_itn(passphrase, *, amount="29.00", status="COMPLETE"):
     pairs = [
         ("merchant_id", "sandbox-merchant"),
@@ -434,6 +662,17 @@ def _signed_itn(passphrase, *, amount="29.00", status="COMPLETE"):
         ("pf_payment_id", "payment-id"),
         ("payment_status", status),
         ("amount_gross", amount),
+        ("token", "subscription-token"),
+    ]
+    pairs.append(("signature", _signature(pairs, passphrase)))
+    return _request(urlencode(pairs).encode())
+
+
+def _cancellation_itn(passphrase):
+    pairs = [
+        ("merchant_id", "sandbox-merchant"),
+        ("pf_payment_id", "cancel-payment-id"),
+        ("payment_status", "CANCELLED"),
         ("token", "subscription-token"),
     ]
     pairs.append(("signature", _signature(pairs, passphrase)))

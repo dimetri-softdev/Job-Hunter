@@ -274,12 +274,19 @@ model UserSubscription {
   currentPeriodEnd       DateTime?
   paymentFailedAt        DateTime?
   canceledAt             DateTime?
+  cancelAtPeriodEnd      Boolean  @default(false)
+  cancellationRequestedAt DateTime?
+  cancellationRequestSentAt DateTime?
+  cancellationAttemptCount Int @default(0)
+  cancellationLastAttemptAt DateTime?
   provider               String?
   providerCustomerId     String?
   providerSubscriptionId String?  @unique
   billingInterval        String   @default("monthly")
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
+
+  @@index([cancelAtPeriodEnd, currentPeriodEnd])
 }
 
 model PayfastCheckout {
@@ -303,7 +310,7 @@ model PayfastNotification {
   merchantReference      String
   providerSubscriptionId String?
   paymentStatus          String
-  amount                 Decimal  @db.Decimal(10, 2)
+  amount                 Decimal? @db.Decimal(10, 2)
   receivedAt             DateTime @default(now())
 
   @@unique([providerPaymentId, paymentStatus])

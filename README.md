@@ -170,6 +170,7 @@ PAYFAST_PASSPHRASE=your_sandbox_subscription_passphrase
 PAYFAST_RETURN_URL=https://your-site.example/billing
 PAYFAST_CANCEL_URL=https://your-site.example/billing
 PAYFAST_NOTIFY_URL=https://your-api.example/api/v1/billing/payfast/itn
+PAYFAST_CANCELLATION_CRON_SECRET=long-random-secret
 ```
 
 Get the merchant credentials from the PayFast sandbox account and set its **Salt Passphrase** under sandbox Settings. Never paste these values into chat or commit them. The passphrase stays on the backend; the hosted checkout form is signed server-side. The notification URL must be publicly reachable over HTTPS.
@@ -181,7 +182,18 @@ npx prisma migrate deploy
 npx prisma generate
 ```
 
-Checkout stays unavailable unless sandbox mode, all credentials, and all three HTTPS URLs are configured. The return and cancel URLs only send the browser back to the app; access is granted only after the backend validates the signed PayFast notification against the sandbox validation endpoint. Keep the existing Admin billing-enforcement switch disabled during sandbox testing. Live payments and in-app subscription cancellation/plan changes are not implemented.
+Checkout stays unavailable unless sandbox mode, all credentials, and all three HTTPS URLs are configured. The return and cancel URLs only send the browser back to the app; access is granted only after the backend validates the signed PayFast notification against the sandbox validation endpoint. Keep the existing Admin billing-enforcement switch disabled during sandbox testing.
+
+Customers with a PayFast subscription can schedule cancellation for the end of their current paid period from **Settings → Plan & usage**. Access remains available through that date. The customer can undo the request until the scheduled PayFast API request begins; plan upgrades and downgrades remain support-managed. The backend only enables cancellation dispatch when `PAYFAST_MODE=sandbox` and sends the PayFast API request with `testing=true`, so it cannot cancel a live subscription.
+
+Configure `PAYFAST_CANCELLATION_CRON_SECRET` on the FastAPI service, then create a separate cron job to call the cancellation processor every five minutes. Set `JOBHUNTER_API_URL` to the API base URL ending in `/api/v1` and give the cron job the same secret:
+
+```sh
+curl --fail --silent --show-error -X POST "$JOBHUNTER_API_URL/internal/payfast/cancellations/process" \
+  -H "X-PayFast-Cancellation-Cron-Secret: $PAYFAST_CANCELLATION_CRON_SECRET"
+```
+
+The processor only sends requests for due sandbox subscriptions. Failed requests are logged, return HTTP 502 so the cron failure is visible, and become eligible for retry after 30 minutes. Review API and cron logs for repeated failures. Apply the migration above before deploying these changes; it adds cancellation scheduling state and permits cancellation notifications without a payment amount.
 
 ### Password requirements
 

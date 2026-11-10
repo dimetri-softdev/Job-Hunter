@@ -17,6 +17,7 @@ interface FeatureUsage {
 interface BillingStatus {
   billingEnabled: boolean;
   checkoutEnabled: boolean;
+  cancellationEnabled: boolean;
   checkoutMode: "sandbox" | null;
   currency: string | null;
   annualDiscountPercent: number;
@@ -29,6 +30,10 @@ interface BillingStatus {
   currentPeriodEnd: string | null;
   paymentFailedAt: string | null;
   canceledAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  cancellationRequestedAt: string | null;
+  cancellationRequestSentAt: string | null;
+  cancellationAttemptCount: number;
   usagePeriodStartsAt: string;
   features: Record<string, FeatureUsage>;
   plans: Record<string, Record<string, number | null>>;
@@ -87,6 +92,8 @@ export function BillingOverview() {
   const [error, setError] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutPending, setCheckoutPending] = useState<string | null>(null);
+  const [cancellationError, setCancellationError] = useState<string | null>(null);
+  const [cancellationPending, setCancellationPending] = useState(false);
   const [checkoutInterval, setCheckoutInterval] = useState<"monthly" | "annual">(
     "monthly",
   );
@@ -145,6 +152,34 @@ export function BillingOverview() {
           : "Unable to start PayFast sandbox checkout.",
       );
       setCheckoutPending(null);
+    }
+  }
+
+  async function updateCancellation(cancel: boolean) {
+    setCancellationError(null);
+    setCancellationPending(true);
+    try {
+      await fetcher<{ cancelAtPeriodEnd: boolean }>(
+        "/billing/payfast/cancel",
+        { method: cancel ? "POST" : "DELETE" },
+      );
+      setStatus((current) =>
+        current
+          ? {
+              ...current,
+              cancelAtPeriodEnd: cancel,
+              cancellationRequestedAt: cancel ? new Date().toISOString() : null,
+            }
+          : current,
+      );
+    } catch (requestError: unknown) {
+      setCancellationError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to update your cancellation request.",
+      );
+    } finally {
+      setCancellationPending(false);
     }
   }
 
@@ -236,10 +271,47 @@ export function BillingOverview() {
           </p>
         )}
         {status.provider === "payfast" && (
-          <p className="mt-3 text-xs text-slate-400">
-            A PayFast subscription is already linked to this account. Contact
-            support to make subscription changes.
-          </p>
+          <div className="mt-4 rounded-lg border border-[#252735] bg-[#0d0e14] p-3">
+            <p className="text-xs leading-5 text-slate-300">
+              {status.cancellationRequestSentAt
+                ? `PayFast has received your cancellation request. Your access remains available through ${periodEnd ?? "the end of your paid period"}.`
+                : status.cancelAtPeriodEnd
+                  ? !status.cancellationEnabled
+                    ? `Cancellation is scheduled for ${periodEnd ?? "the end of your paid period"}, but its processor is not currently configured. Contact support.`
+                    : status.cancellationAttemptCount > 0
+                      ? `Your cancellation is being processed with PayFast. Your access continues through ${periodEnd ?? "the end of your paid period"}; contact support if you need help.`
+                      : `Cancellation is scheduled for ${periodEnd ?? "the end of your paid period"}. Your access continues until then; you can undo the request before it is sent to PayFast.`
+                  : status.canceledAt
+                    ? `PayFast has stopped renewal. Your access remains available through ${periodEnd ?? "the end of your paid period"}.`
+                    : status.cancellationEnabled
+                      ? "Plan upgrades and downgrades are managed by support. You can schedule cancellation for the end of your paid period."
+                      : "Self-service cancellation is not configured. Contact support to cancel; plan changes are also support-managed."}
+            </p>
+            {cancellationError && (
+              <p role="alert" className="mt-2 text-xs text-rose-200">
+                {cancellationError}
+              </p>
+            )}
+            {status.cancellationEnabled &&
+              status.currentPeriodEnd &&
+              !status.canceledAt &&
+              !status.cancellationRequestSentAt &&
+              status.cancellationAttemptCount === 0 &&
+              ["ACTIVE", "PAST_DUE"].includes(status.status) && (
+                <button
+                  type="button"
+                  onClick={() => void updateCancellation(!status.cancelAtPeriodEnd)}
+                  disabled={cancellationPending}
+                  className="mt-3 rounded-lg border border-rose-400/30 px-3 py-2 text-xs font-medium text-rose-100 transition hover:bg-rose-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {cancellationPending
+                    ? "Updating…"
+                    : status.cancelAtPeriodEnd
+                      ? "Undo scheduled cancellation"
+                      : "Schedule cancellation"}
+                </button>
+              )}
+          </div>
         )}
       </section>
 
