@@ -128,6 +128,11 @@ def _api_signature(fields: dict[str, str], passphrase: str) -> str:
     return _signature(sorted(fields.items()), "")
 
 
+def _itn_rejection(status_code: int, reason: str, detail: str) -> HTTPException:
+    logger.warning("PayFast sandbox ITN rejected: %s", reason)
+    return HTTPException(status_code=status_code, detail=detail)
+
+
 def _checkout_signature(fields: Sequence[tuple[str, str]], passphrase: str) -> str:
     field_values = dict(fields)
     ordered_fields = [
@@ -505,34 +510,58 @@ def create_payfast_router(
                 raise HTTPException(status_code=413, detail="PayFast notification is too large.")
         body = bytes(body_buffer)
         if not body:
-            raise HTTPException(status_code=400, detail="PayFast notification body is invalid.")
+            raise _itn_rejection(400, "empty body", "PayFast notification body is invalid.")
         try:
             pairs = parse_qsl(body.decode("utf-8"), keep_blank_values=True, strict_parsing=True)
         except (UnicodeDecodeError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail="PayFast notification is malformed.") from exc
+            raise _itn_rejection(400, "malformed body", "PayFast notification is malformed.") from exc
 
         if not pairs or len({key for key, _ in pairs}) != len(pairs):
-            raise HTTPException(status_code=400, detail="PayFast notification contains duplicate fields.")
+            raise _itn_rejection(
+                400,
+                "empty fields or duplicate field names",
+                "PayFast notification contains duplicate fields.",
+            )
         fields = dict(pairs)
         supplied_signature = fields.get("signature", "")
         if not supplied_signature or not hmac.compare_digest(
             supplied_signature,
             _signature(pairs, settings.passphrase or ""),
         ):
-            raise HTTPException(status_code=400, detail="PayFast notification signature is invalid.")
+            raise _itn_rejection(
+                400,
+                "signature mismatch",
+                "PayFast notification signature is invalid.",
+            )
         if fields.get("merchant_id") != settings.merchant_id:
-            raise HTTPException(status_code=400, detail="PayFast merchant ID did not match.")
+            raise _itn_rejection(
+                400,
+                "merchant ID mismatch",
+                "PayFast merchant ID did not match.",
+            )
 
         payment_status = fields.get("payment_status")
         if payment_status not in {"COMPLETE", "FAILED", "CANCELLED", "PENDING"}:
-            raise HTTPException(status_code=400, detail="PayFast notification status is unsupported.")
+            raise _itn_rejection(
+                400,
+                "unsupported payment status",
+                "PayFast notification status is unsupported.",
+            )
         if not fields.get("pf_payment_id") or (
             payment_status != "CANCELLED"
             and any(not fields.get(key) for key in ("m_payment_id", "amount_gross"))
         ):
-            raise HTTPException(status_code=400, detail="PayFast notification is missing required fields.")
+            raise _itn_rejection(
+                400,
+                "missing required fields",
+                "PayFast notification is missing required fields.",
+            )
         if payment_status == "CANCELLED" and not fields.get("token"):
-            raise HTTPException(status_code=400, detail="PayFast cancellation is missing its subscription token.")
+            raise _itn_rejection(
+                400,
+                "cancellation is missing subscription token",
+                "PayFast cancellation is missing its subscription token.",
+            )
 
         try:
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
@@ -542,13 +571,20 @@ def create_payfast_router(
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                 )
         except httpx.RequestError as exc:
-            logger.error("PayFast sandbox ITN validation request failed: %s", exc)
+            logger.error(
+                "PayFast sandbox ITN validation request failed (%s).",
+                type(exc).__name__,
+            )
             raise HTTPException(
                 status_code=503,
                 detail="PayFast could not be reached to validate this notification.",
             ) from exc
         if validation.status_code != 200 or validation.text.strip() != "VALID":
-            raise HTTPException(status_code=400, detail="PayFast did not validate this notification.")
+            raise _itn_rejection(
+                400,
+                "PayFast validation endpoint rejected notification",
+                "PayFast did not validate this notification.",
+            )
 
         checkout_rows = (
             await db.query_raw(
@@ -606,9 +642,17 @@ def create_payfast_router(
         if payment_status != "CANCELLED" and (
             expected_amount is None or received_amount != expected_amount
         ):
-            raise HTTPException(status_code=400, detail="PayFast amount did not match the selected plan.")
+            raise _itn_rejection(
+                400,
+                "payment amount mismatch",
+                "PayFast amount did not match the selected plan.",
+            )
         if payment_status == "COMPLETE" and not token:
-            raise HTTPException(status_code=400, detail="PayFast did not include the subscription token.")
+            raise _itn_rejection(
+                400,
+                "completed subscription missing token",
+                "PayFast did not include the subscription token.",
+            )
 
         if token:
             token_owner = await db.query_raw(
@@ -617,7 +661,11 @@ def create_payfast_router(
                 token,
             )
             if token_owner and str(token_owner[0]["userId"]) != user_id:
-                raise HTTPException(status_code=400, detail="PayFast subscription token is already assigned.")
+                raise _itn_rejection(
+                    400,
+                    "subscription token already assigned",
+                    "PayFast subscription token is already assigned.",
+                )
 
         now = datetime.now(timezone.utc)
         async with db.tx() as transaction:

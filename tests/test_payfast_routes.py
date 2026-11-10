@@ -324,10 +324,12 @@ class PayFastRouteTests(unittest.TestCase):
             ).encode()
         )
 
-        with self.assertRaises(HTTPException) as raised:
-            asyncio.run(endpoint(request=request))
+        with self.assertLogs("api.routes.payfast", level="WARNING") as captured:
+            with self.assertRaises(HTTPException) as raised:
+                asyncio.run(endpoint(request=request))
 
         self.assertEqual(raised.exception.status_code, 400)
+        self.assertIn("signature mismatch", captured.output[0])
 
     def test_valid_notification_activates_only_the_matching_paid_subscription(self):
         db = FakeDatabase(
