@@ -48,6 +48,7 @@ export interface CreatedApplication {
   createdAt: string;
   jobUrl: string | null;
   jobSummary: string | null;
+  hasJobDescription?: boolean;
   fitAssessment?: FitAssessment | null;
   source?: ApplicationSource | null;
   nextAction?: string | null;

@@ -1,6 +1,6 @@
 import unittest
 
-from api.services.roadmaps import build_roadmap_data
+from api.services.roadmaps import build_roadmap_continuation, build_roadmap_data
 
 
 class BuildRoadmapDataTests(unittest.TestCase):
@@ -56,6 +56,46 @@ class BuildRoadmapDataTests(unittest.TestCase):
                 },
                 user_id="user-123",
             )
+
+    def test_builds_next_stage_and_increases_readiness_score(self):
+        result = build_roadmap_continuation(
+            {
+                "readinessScore": 61,
+                "projects": [
+                    {
+                        "title": "Advanced API",
+                        "description": "Extend the completed API project.",
+                        "level": "Senior",
+                        "tasks": ["Add observability"],
+                    }
+                ],
+            },
+            current_readiness_score=60,
+        )
+
+        self.assertEqual(result["readinessScore"], 61)
+        self.assertEqual(
+            result["projects"]["create"][0]["tasks"]["create"],
+            [{"label": "Add observability", "completed": False}],
+        )
+
+    def test_next_stage_does_not_reduce_readiness(self):
+        result = build_roadmap_continuation(
+            {
+                "readinessScore": 30,
+                "projects": [
+                    {
+                        "title": "Advanced API",
+                        "description": "Extend the completed API project.",
+                        "level": "Senior",
+                        "tasks": ["Add observability"],
+                    }
+                ],
+            },
+            current_readiness_score=75,
+        )
+
+        self.assertEqual(result["readinessScore"], 76)
 
 
 if __name__ == "__main__":

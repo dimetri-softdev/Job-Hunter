@@ -56,8 +56,20 @@ const verdictDetails: Record<FitVerdict, { label: string; className: string }> =
 
 export function JobFitModal({
   onApplicationSaved,
+  savedApplication,
+  onSavedJobFitUpdated,
 }: {
   onApplicationSaved: (application: CreatedApplication) => void;
+  savedApplication?: {
+    id: string;
+    company: string;
+    position: string;
+    jobUrl?: string | null;
+  };
+  onSavedJobFitUpdated?: (
+    applicationId: string,
+    assessment: FitAssessment,
+  ) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [resume, setResume] = useState<File | null>(null);
@@ -114,6 +126,9 @@ export function JobFitModal({
     body.set("resume", resume);
     body.set("job_description", jobDescription);
     body.set("ai_processing_consent", String(consent));
+    if (savedApplication) {
+      body.set("application_id", savedApplication.id);
+    }
     if (jobImage) body.set("job_image", jobImage);
     if (jobDocument) body.set("job_document", jobDocument);
 
@@ -127,7 +142,12 @@ export function JobFitModal({
       );
       setAssessment(result);
       setPosition(result.roleTitle);
-      setJobDescription(result.sourceDescription);
+      if (savedApplication) {
+        onSavedJobFitUpdated?.(savedApplication.id, result);
+        setSaved(true);
+      } else {
+        setJobDescription(result.sourceDescription);
+      }
       setJobDocument(null);
       setJobDocumentInputKey((key) => key + 1);
     } catch (matchError: unknown) {
@@ -180,13 +200,20 @@ export function JobFitModal({
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
-        if (nextOpen) resetForm();
+        if (nextOpen) {
+          resetForm();
+          if (savedApplication) {
+            setCompany(savedApplication.company);
+            setPosition(savedApplication.position);
+            setJobUrl(savedApplication.jobUrl ?? "");
+          }
+        }
       }}
     >
       <ActionHint label="Compare your resume with a job post to review relevant experience, gaps, and questions.">
         <DialogTrigger className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
           <FileSearch className="h-4 w-4" />
-          Check job fit
+          {savedApplication ? "Check saved job fit" : "Check job fit"}
         </DialogTrigger>
       </ActionHint>
       <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden rounded-2xl border-[#242736] bg-[#0d0e14] p-0 text-slate-100 shadow-2xl sm:max-w-2xl">
@@ -286,36 +313,45 @@ export function JobFitModal({
               <span className="text-xs text-rose-300">Required</span>
             </div>
             <div className="space-y-2">
-            <label
-              htmlFor="fit-job-description"
-              className="text-xs font-medium text-slate-300"
-            >
-              Job description
-            </label>
-            <Textarea
-              id="fit-job-description"
-              value={jobDescription}
-              onChange={(event) => {
-                setJobDescription(event.target.value);
-                setAssessment(null);
-              }}
-              required={!jobDocument}
-              minLength={jobDocument ? 0 : 80}
-              maxLength={20000}
-              rows={7}
-              placeholder="Paste the job description here..."
-              className="min-h-32 resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
-            />
-            <p className="flex justify-between gap-3 text-[11px] text-slate-500">
-              <span>
-                {jobDocument
-                  ? "You can combine pasted text, a document, and a poster image."
-                  : "Paste at least 80 characters or add a document. A poster image is optional."}
-              </span>
-              <span className="shrink-0">
-                {jobDescription.length.toLocaleString()} / 20,000
-              </span>
-            </p>
+            {savedApplication ? (
+              <p className="rounded-lg border border-[#252836] bg-[#101119] p-3 text-xs leading-5 text-slate-400">
+                The saved job posting for {savedApplication.position} at{" "}
+                {savedApplication.company} will be used for this check.
+              </p>
+            ) : (
+              <>
+                <label
+                  htmlFor="fit-job-description"
+                  className="text-xs font-medium text-slate-300"
+                >
+                  Job description
+                </label>
+                <Textarea
+                  id="fit-job-description"
+                  value={jobDescription}
+                  onChange={(event) => {
+                    setJobDescription(event.target.value);
+                    setAssessment(null);
+                  }}
+                  required={!jobDocument}
+                  minLength={jobDocument ? 0 : 80}
+                  maxLength={20000}
+                  rows={7}
+                  placeholder="Paste the job description here..."
+                  className="min-h-32 resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+                />
+                <p className="flex justify-between gap-3 text-[11px] text-slate-500">
+                  <span>
+                    {jobDocument
+                      ? "You can combine pasted text, a document, and a poster image."
+                      : "Paste at least 80 characters or add a document. A poster image is optional."}
+                  </span>
+                  <span className="shrink-0">
+                    {jobDescription.length.toLocaleString()} / 20,000
+                  </span>
+                </p>
+              </>
+            )}
             </div>
 
             <div className="space-y-2">
@@ -502,6 +538,14 @@ export function JobFitModal({
                 your full experience.
               </p>
               <div className="space-y-3 border-t border-[#252836] pt-4">
+                {savedApplication ? (
+                  <p role="status" className="text-xs text-emerald-300">
+                    {saved
+                      ? "Fit assessment updated on this saved job."
+                      : "This assessment will be saved to the existing job."}
+                  </p>
+                ) : (
+                  <>
                 <div>
                   <h4 className="text-sm font-semibold text-slate-100">
                     Save this role?
@@ -627,6 +671,8 @@ export function JobFitModal({
                   {saving ? "Saving application..." : "Save to applications"}
                 </Button>
               )}
+                  </>
+                )}
               </div>
             </section>
           )}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Sparkles, Trash2 } from "lucide-react";
 import { fetcher } from "@/lib/api";
 import { GeneratorModal } from "@/components/dashboard/generator-modal";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
@@ -12,7 +12,7 @@ interface Task {
 }
 
 interface ProjectTrack {
-  tasks: Task[];
+  tasks: (Task & { label: string })[];
 }
 
 interface Roadmap {
@@ -28,6 +28,8 @@ export default function RoadmapsPage() {
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [continuingId, setContinuingId] = useState<string | null>(null);
+  const [continuationMessage, setContinuationMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,6 +70,35 @@ export default function RoadmapsPage() {
   const handleRoadmapGenerated = (roadmap: Roadmap) => {
     setRoadmaps((currentRoadmaps) => [roadmap, ...currentRoadmaps]);
   };
+
+  async function handleContinueRoadmap(roadmap: Roadmap) {
+    setContinuingId(roadmap.id);
+    setContinuationMessage(null);
+    setError(null);
+    try {
+      const continued = await fetcher<Roadmap>(
+        `/roadmaps/${encodeURIComponent(roadmap.id)}/continue`,
+        { method: "POST" },
+      );
+      setRoadmaps((current) =>
+        current.map((item) => (item.id === continued.id ? continued : item)),
+      );
+      setFilter("all");
+      setContinuationMessage(
+        continued.readinessScore > roadmap.readinessScore
+          ? `Next stage added. Readiness improved from ${roadmap.readinessScore} to ${continued.readinessScore}.`
+          : "Next stage added. Your readiness score is at its maximum.",
+      );
+    } catch (continuationError: unknown) {
+      setError(
+        continuationError instanceof Error
+          ? continuationError.message
+          : "Unable to generate the next roadmap stage.",
+      );
+    } finally {
+      setContinuingId(null);
+    }
+  }
 
   async function handleDeleteRoadmap(roadmap: Roadmap) {
     const confirmed = window.confirm(
@@ -141,6 +172,7 @@ export default function RoadmapsPage() {
             const progress = tasks.length
               ? Math.round((completedTasks / tasks.length) * 100)
               : 0;
+            const isCompleted = tasks.length > 0 && completedTasks === tasks.length;
 
             return (
               <div
@@ -197,6 +229,26 @@ export default function RoadmapsPage() {
                     )}
                     {deletingId === item.id ? "Deleting..." : "Delete roadmap"}
                   </button>
+                  {isCompleted && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] leading-4 text-emerald-300">
+                        All tasks complete. Build on what you have learned with a personalized next stage.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void handleContinueRoadmap(item)}
+                        disabled={continuingId !== null}
+                        className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 text-xs font-medium text-blue-200 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {continuingId === item.id ? (
+                          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Sparkles className="size-4" aria-hidden="true" />
+                        )}
+                        {continuingId === item.id ? "Building next stage..." : "Generate next stage"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -205,6 +257,11 @@ export default function RoadmapsPage() {
       {error && (
         <p role="alert" className="rounded-lg border border-rose-500/20 bg-rose-500/[0.05] p-3 text-sm text-rose-300">
           {error}
+        </p>
+      )}
+      {continuationMessage && (
+        <p role="status" className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] p-3 text-sm text-emerald-300">
+          {continuationMessage}
         </p>
       )}
       {roadmaps.length === 0 && (

@@ -276,6 +276,17 @@ export default function ApplicationsPage() {
     setApplications((current) => [application, ...current]);
   }
 
+  function handleSavedJobFitUpdated(
+    applicationId: string,
+    fitAssessment: FitAssessment,
+  ) {
+    setApplications((current) =>
+      current.map((app) =>
+        app.id === applicationId ? { ...app, fitAssessment } : app,
+      ),
+    );
+  }
+
   async function handleApplicationsImported() {
     const refreshedApplications = await fetcher<Application[]>("/applications");
     setApplications(refreshedApplications);
@@ -1074,6 +1085,13 @@ export default function ApplicationsPage() {
                     </td>
                     <td className="p-4">
                       <div className="flex justify-end gap-1">
+                        {app.hasJobDescription && (
+                          <JobFitModal
+                            onApplicationSaved={handleApplicationCreated}
+                            savedApplication={app}
+                            onSavedJobFitUpdated={handleSavedJobFitUpdated}
+                          />
+                        )}
                         <Button
                           type="button"
                           variant="ghost"
