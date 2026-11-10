@@ -17,6 +17,54 @@ function isSectionHeading(line: string) {
   );
 }
 
+export const resumeDesigns = [
+  {
+    id: "modern",
+    name: "Modern Teal",
+    description: "Fresh color with crisp section dividers",
+    accent: "0F766E",
+    title: "102A43",
+    body: "334155",
+    divider: "D8E3E7",
+    topRule: true,
+    titleAlignment: "left",
+    titleBorder: "bottom",
+    headingBorder: "bottom",
+  },
+  {
+    id: "classic",
+    name: "Classic Navy",
+    description: "Centered name with a timeless navy palette",
+    accent: "1D4ED8",
+    title: "172554",
+    body: "334155",
+    divider: "DBE3EF",
+    topRule: false,
+    titleAlignment: "center",
+    titleBorder: "bottom",
+    headingBorder: "bottom",
+  },
+  {
+    id: "minimal",
+    name: "Minimal Slate",
+    description: "Quiet, understated styling with clean side rules",
+    accent: "475569",
+    title: "1E293B",
+    body: "334155",
+    divider: "E2E8F0",
+    topRule: true,
+    titleAlignment: "left",
+    titleBorder: "none",
+    headingBorder: "left",
+  },
+] as const;
+
+export type ResumeDesignId = (typeof resumeDesigns)[number]["id"];
+
+export function getResumeDesign(id: ResumeDesignId) {
+  return resumeDesigns.find((design) => design.id === id) ?? resumeDesigns[0];
+}
+
 function saveBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -74,6 +122,122 @@ export async function downloadResumeDocx(
       {
         properties: {
           page: {
+            margin: { top: 720, right: 900, bottom: 720, left: 900 },
+          },
+        },
+        children,
+      },
+    ],
+  });
+  const blob = await Packer.toBlob(document);
+  saveBlob(blob, `${getSafeFileName(targetRole)}.docx`);
+}
+
+export async function downloadUpdatedResumeDocx(
+  resumeText: string,
+  targetRole: string,
+  designId: ResumeDesignId,
+) {
+  const { BorderStyle, Document, Packer, Paragraph, TextRun } =
+    await import("docx");
+  const design = getResumeDesign(designId);
+  let hasTitle = false;
+  const children = resumeText.split(/\r?\n/).flatMap((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) {
+      return [new Paragraph({ text: "", spacing: { after: 100 } })];
+    }
+
+    if (!hasTitle) {
+      hasTitle = true;
+      return [
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: line,
+              bold: true,
+              color: design.title,
+              font: "Arial",
+              size: 44,
+            }),
+          ],
+          ...(design.titleAlignment === "center"
+            ? { alignment: "center" as const }
+            : {}),
+          spacing: { after: 220 },
+          border: {
+            ...(design.topRule
+              ? {
+                  top: {
+                    color: design.accent,
+                    size: 16,
+                    space: 8,
+                    style: BorderStyle.SINGLE,
+                  },
+                }
+              : {}),
+            ...(design.titleBorder === "none"
+              ? {}
+              : {
+                  [design.titleBorder]: {
+                    color: design.accent,
+                    size: 16,
+                    space: 8,
+                    style: BorderStyle.SINGLE,
+                  },
+                }),
+          },
+        }),
+      ];
+    }
+
+    if (isSectionHeading(line)) {
+      return [
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: line,
+              bold: true,
+              color: design.accent,
+              font: "Arial",
+              size: 20,
+            }),
+          ],
+          spacing: { before: 240, after: 100 },
+          border: {
+            [design.headingBorder]: {
+              color: design.divider,
+              size: 4,
+              space: 4,
+              style: BorderStyle.SINGLE,
+            },
+          },
+        }),
+      ];
+    }
+
+    const bullet = line.match(/^[-•]\s+(.+)$/);
+    return [
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: bullet ? bullet[1] : line,
+            color: design.body,
+            font: "Arial",
+            size: 20,
+          }),
+        ],
+        ...(bullet ? { bullet: { level: 0 } } : {}),
+        spacing: { after: 90, line: 276 },
+      }),
+    ];
+  });
+  const document = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            size: { width: 11906, height: 16838 },
             margin: { top: 720, right: 900, bottom: 720, left: 900 },
           },
         },

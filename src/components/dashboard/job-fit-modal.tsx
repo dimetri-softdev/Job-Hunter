@@ -211,7 +211,7 @@ export function JobFitModal({
       }}
     >
       <ActionHint label="Compare your resume with a job post to review relevant experience, gaps, and questions.">
-        <DialogTrigger className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+        <DialogTrigger className="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
           <FileSearch className="h-4 w-4" />
           {savedApplication ? "Check saved job fit" : "Check job fit"}
         </DialogTrigger>
