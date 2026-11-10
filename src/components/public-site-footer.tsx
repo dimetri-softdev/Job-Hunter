@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
-import { SupportContactLink } from "@/components/support-contact-link";
 
 export function PublicSiteFooter() {
   return (
@@ -27,10 +26,22 @@ export function PublicSiteFooter() {
             How it works
           </Link>
           <Link
+            href="/resources/job-search-planner"
+            className="text-slate-400 transition-colors hover:text-white"
+          >
+            Free job search planner
+          </Link>
+          <Link
             href="/about"
             className="text-slate-400 transition-colors hover:text-white"
           >
             About
+          </Link>
+          <Link
+            href="/contact"
+            className="text-slate-400 transition-colors hover:text-white"
+          >
+            Contact us
           </Link>
           <Link
             href="/terms"
@@ -50,11 +61,6 @@ export function PublicSiteFooter() {
           >
             Refunds & cancellation
           </Link>
-          <SupportContactLink
-            className="text-slate-400 transition-colors hover:text-white"
-          >
-            Contact support
-          </SupportContactLink>
           <Link
             href="/login"
             className="text-slate-400 transition-colors hover:text-white"

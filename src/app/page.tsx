@@ -326,6 +326,16 @@ export default function HomePage() {
                 Read the guide <ArrowRight className="size-4" aria-hidden="true" />
               </Link>
             </div>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-400">
+              Looking for a practical starting point? Use our free{" "}
+              <Link
+                href="/resources/job-search-planner"
+                className="font-medium text-blue-300 underline decoration-blue-300/40 underline-offset-4 hover:text-blue-200"
+              >
+                job search planner and downloadable application tracker
+              </Link>
+              —no account required.
+            </p>
             <ol className="mt-9 grid gap-8 md:grid-cols-3 md:gap-6">
               {steps.map((step) => (
                 <li
