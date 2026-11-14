@@ -503,10 +503,6 @@ def create_payfast_router(
                 status_code=503,
                 detail="PayFast sandbox notifications are not configured.",
             )
-        if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != (
-            "application/x-www-form-urlencoded"
-        ):
-            raise HTTPException(status_code=415, detail="Expected a URL-encoded PayFast notification.")
 
         content_length = request.headers.get("content-length")
         if content_length:

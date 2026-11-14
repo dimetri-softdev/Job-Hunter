@@ -332,7 +332,7 @@ class PayFastRouteTests(unittest.TestCase):
         self.assertEqual(raised.exception.status_code, 400)
         self.assertIn("signature mismatch", captured.output[0])
 
-    def test_valid_notification_activates_only_the_matching_paid_subscription(self):
+    def test_valid_notification_accepts_payfast_resend_content_type(self):
         db = FakeDatabase(
             checkout={
                 "id": "checkout-id",
@@ -345,7 +345,7 @@ class PayFastRouteTests(unittest.TestCase):
             }
         )
         endpoint = self._endpoint(db, "/api/v1/billing/payfast/itn")
-        request = _signed_itn(self.settings.passphrase)
+        request = _signed_itn(self.settings.passphrase, content_type="text/plain")
 
         with patch("api.routes.payfast.httpx.AsyncClient", _ValidatingClient):
             result = asyncio.run(endpoint(request=request))
@@ -633,7 +633,7 @@ async def _get_current_user():
     return "user-123"
 
 
-def _request(body):
+def _request(body, content_type="application/x-www-form-urlencoded"):
     async def receive():
         return {"type": "http.request", "body": body, "more_body": False}
 
@@ -642,7 +642,7 @@ def _request(body):
             "type": "http",
             "method": "POST",
             "path": "/api/v1/billing/payfast/itn",
-            "headers": [(b"content-type", b"application/x-www-form-urlencoded")],
+            "headers": [(b"content-type", content_type.encode("ascii"))],
             "query_string": b"",
             "server": ("api.example.com", 443),
             "client": ("192.0.2.1", 12345),
@@ -675,7 +675,13 @@ def _cron_request(secret="cron-secret"):
     )
 
 
-def _signed_itn(passphrase, *, amount="29.00", status="COMPLETE"):
+def _signed_itn(
+    passphrase,
+    *,
+    amount="29.00",
+    status="COMPLETE",
+    content_type="application/x-www-form-urlencoded",
+):
     pairs = [
         ("merchant_id", "sandbox-merchant"),
         ("m_payment_id", "checkout-id"),
@@ -685,7 +691,7 @@ def _signed_itn(passphrase, *, amount="29.00", status="COMPLETE"):
         ("token", "subscription-token"),
     ]
     pairs.append(("signature", _itn_signature(pairs, passphrase)))
-    return _request(urlencode(pairs).encode())
+    return _request(urlencode(pairs).encode(), content_type=content_type)
 
 
 def _cancellation_itn(passphrase):
