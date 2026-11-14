@@ -121,17 +121,54 @@ def _signature(fields: Sequence[tuple[str, str]], passphrase: str) -> str:
     return hashlib.md5("&".join(parameters).encode("utf-8")).hexdigest()
 
 
-def _itn_signature(fields: Sequence[tuple[str, str]], passphrase: str) -> str:
-    parameters = []
+def _itn_signature(
+    fields: Sequence[tuple[str, str]],
+    passphrase: str,
+    *,
+    sort_fields: bool = False,
+    trim_values: bool = False,
+    omit_empty: bool = False,
+) -> str:
+    signature_fields = []
     for key, value in fields:
         if key == "signature":
             break
+        if trim_values:
+            value = value.strip()
+        if omit_empty and not value:
+            continue
+        signature_fields.append((key, value))
+    if sort_fields:
+        signature_fields.sort()
+
+    parameters = []
+    for key, value in signature_fields:
         encoded_value = quote_plus(value, safe="").replace("~", "%7E")
         parameters.append(f"{key}={encoded_value}")
     if passphrase:
         encoded_passphrase = quote_plus(passphrase, safe="").replace("~", "%7E")
         parameters.append(f"passphrase={encoded_passphrase}")
     return hashlib.md5("&".join(parameters).encode("utf-8")).hexdigest()
+
+
+def _itn_signature_diagnostic(
+    fields: Sequence[tuple[str, str]],
+    passphrase: str,
+    supplied_signature: str,
+) -> str:
+    variants = (
+        ("without_passphrase", _itn_signature(fields, "")),
+        ("sorted_fields", _itn_signature(fields, passphrase, sort_fields=True)),
+        ("trimmed_values", _itn_signature(fields, passphrase, trim_values=True)),
+        (
+            "trimmed_values_omit_empty",
+            _itn_signature(fields, passphrase, trim_values=True, omit_empty=True),
+        ),
+    )
+    for name, signature in variants:
+        if hmac.compare_digest(supplied_signature, signature):
+            return name
+    return "no_alternate_match"
 
 
 def _api_signature(fields: dict[str, str], passphrase: str) -> str:
@@ -537,9 +574,14 @@ def create_payfast_router(
             supplied_signature,
             _itn_signature(pairs, settings.passphrase or ""),
         ):
+            diagnostic = (
+                _itn_signature_diagnostic(pairs, settings.passphrase or "", supplied_signature)
+                if supplied_signature
+                else "missing_signature"
+            )
             raise _itn_rejection(
                 400,
-                "signature mismatch",
+                f"signature mismatch; alternate={diagnostic}",
                 "PayFast notification signature is invalid.",
             )
         if fields.get("merchant_id") != settings.merchant_id:

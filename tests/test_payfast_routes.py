@@ -16,6 +16,7 @@ from api.routes.payfast import (
     PayFastSettings,
     _checkout_signature,
     _itn_signature,
+    _itn_signature_diagnostic,
     _next_period,
     _signature,
     create_payfast_router,
@@ -517,6 +518,18 @@ class PayFastRouteTests(unittest.TestCase):
         ).hexdigest()
 
         self.assertEqual(_itn_signature(fields, "salt~value"), expected)
+
+    def test_itn_signature_diagnostic_identifies_signature_without_passphrase(self):
+        fields = [
+            ("merchant_id", "sandbox-merchant"),
+            ("signature", "provider-signature"),
+        ]
+        supplied_signature = _itn_signature(fields, "")
+
+        self.assertEqual(
+            _itn_signature_diagnostic(fields, "configured-passphrase", supplied_signature),
+            "without_passphrase",
+        )
 
     def test_signature_trims_values_and_passphrase_before_encoding(self):
         import hashlib
