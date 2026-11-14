@@ -15,6 +15,7 @@ from api.routes.payfast import (
     PAYFAST_SANDBOX_PROCESS_URL,
     PayFastSettings,
     _checkout_signature,
+    _itn_signature,
     _next_period,
     _signature,
     create_payfast_router,
@@ -500,6 +501,23 @@ class PayFastRouteTests(unittest.TestCase):
             expected,
         )
 
+    def test_itn_signature_matches_payfast_notification_canonicalization(self):
+        import hashlib
+
+        fields = [
+            ("merchant_id", "sandbox-merchant"),
+            ("optional_field", ""),
+            ("item_name", "Job Hunter"),
+            ("signature", "provider-signature"),
+            ("ignored_after_signature", "ignored"),
+        ]
+        expected = hashlib.md5(
+            b"merchant_id=sandbox-merchant&optional_field=&item_name=Job+Hunter"
+            b"&passphrase=salt%7Evalue"
+        ).hexdigest()
+
+        self.assertEqual(_itn_signature(fields, "salt~value"), expected)
+
     def test_signature_trims_values_and_passphrase_before_encoding(self):
         import hashlib
 
@@ -666,7 +684,7 @@ def _signed_itn(passphrase, *, amount="29.00", status="COMPLETE"):
         ("amount_gross", amount),
         ("token", "subscription-token"),
     ]
-    pairs.append(("signature", _signature(pairs, passphrase)))
+    pairs.append(("signature", _itn_signature(pairs, passphrase)))
     return _request(urlencode(pairs).encode())
 
 
@@ -677,7 +695,7 @@ def _cancellation_itn(passphrase):
         ("payment_status", "CANCELLED"),
         ("token", "subscription-token"),
     ]
-    pairs.append(("signature", _signature(pairs, passphrase)))
+    pairs.append(("signature", _itn_signature(pairs, passphrase)))
     return _request(urlencode(pairs).encode())
 
 

@@ -121,6 +121,19 @@ def _signature(fields: Sequence[tuple[str, str]], passphrase: str) -> str:
     return hashlib.md5("&".join(parameters).encode("utf-8")).hexdigest()
 
 
+def _itn_signature(fields: Sequence[tuple[str, str]], passphrase: str) -> str:
+    parameters = []
+    for key, value in fields:
+        if key == "signature":
+            break
+        encoded_value = quote_plus(value, safe="").replace("~", "%7E")
+        parameters.append(f"{key}={encoded_value}")
+    if passphrase:
+        encoded_passphrase = quote_plus(passphrase, safe="").replace("~", "%7E")
+        parameters.append(f"passphrase={encoded_passphrase}")
+    return hashlib.md5("&".join(parameters).encode("utf-8")).hexdigest()
+
+
 def _api_signature(fields: dict[str, str], passphrase: str) -> str:
     normalized_passphrase = passphrase.strip()
     if normalized_passphrase:
@@ -526,7 +539,7 @@ def create_payfast_router(
         supplied_signature = fields.get("signature", "")
         if not supplied_signature or not hmac.compare_digest(
             supplied_signature,
-            _signature(pairs, settings.passphrase or ""),
+            _itn_signature(pairs, settings.passphrase or ""),
         ):
             raise _itn_rejection(
                 400,
