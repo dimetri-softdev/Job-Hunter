@@ -280,6 +280,7 @@ model UserSubscription {
   cancellationAttemptCount Int @default(0)
   cancellationLastAttemptAt DateTime?
   provider               String?
+  providerEnvironment    String?
   providerCustomerId     String?
   providerSubscriptionId String?  @unique
   billingInterval        String   @default("monthly")
@@ -296,6 +297,7 @@ model PayfastCheckout {
   billingInterval        String
   amount                 Decimal  @db.Decimal(10, 2)
   status                 String   @default("PENDING")
+  providerEnvironment    String   @default("sandbox")
   providerSubscriptionId String?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt

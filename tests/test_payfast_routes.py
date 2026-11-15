@@ -37,6 +37,10 @@ class FakeDatabase:
     ):
         self.checkout = checkout
         self.subscription = subscription
+        if self.checkout is not None:
+            self.checkout.setdefault("providerEnvironment", "sandbox")
+        if self.subscription is not None:
+            self.subscription.setdefault("providerEnvironment", "sandbox")
         self.duplicate_notification = duplicate_notification
         self.completed_event = completed_event
         self.queries = []
@@ -163,6 +167,38 @@ class PayFastRouteTests(unittest.TestCase):
 
         self.assertEqual(result["action"], PAYFAST_LIVE_PROCESS_URL)
         self.assertEqual(result["mode"], "live")
+
+    def test_live_checkout_is_allowed_when_existing_subscription_is_sandbox(self):
+        settings = PayFastSettings(
+            mode="live",
+            merchant_id="live-merchant",
+            merchant_key="live-key",
+            passphrase="live-passphrase",
+            return_url="https://app.example.com/return",
+            cancel_url="https://app.example.com/cancel",
+            notify_url="https://api.example.com/itn",
+        )
+        db = FakeDatabase(
+            subscription={
+                "provider": "payfast",
+                "providerEnvironment": "sandbox",
+                "providerSubscriptionId": "sandbox-token",
+            }
+        )
+        endpoint = self._endpoint(db, "/api/v1/billing/checkout", settings)
+
+        result = asyncio.run(
+            endpoint(
+                payload=SubscriptionCheckoutRequest(
+                    plan="starter",
+                    billingInterval="monthly",
+                ),
+                user_id="user-123",
+            )
+        )
+
+        self.assertEqual(result["mode"], "live")
+        self.assertEqual(db.executions[0][1][6], "live")
 
     def test_live_environment_does_not_fall_back_to_sandbox_credentials(self):
         settings = PayFastSettings.from_environment(
@@ -311,7 +347,7 @@ class PayFastRouteTests(unittest.TestCase):
         )
         due_query = next(query for query, _ in db.queries if 'SELECT "id" FROM "UserSubscription"' in query)
         self.assertIn('"currentPeriodStart" > "cancellationRequestedAt"', due_query)
-        self.assertIn('"cancellationLastAttemptAt" <= $2::timestamp', due_query)
+        self.assertIn('"cancellationLastAttemptAt" <= $3::timestamp', due_query)
 
     def test_cancellation_job_omits_sandbox_parameter_in_live_mode(self):
         settings = PayFastSettings(
@@ -328,6 +364,7 @@ class PayFastRouteTests(unittest.TestCase):
             {
                 "id": "subscription-id",
                 "providerSubscriptionId": "live-token",
+                "providerEnvironment": "live",
                 "cancellationAttemptCount": 0,
             },
             due=True,
@@ -453,6 +490,7 @@ class PayFastRouteTests(unittest.TestCase):
         self.assertEqual(len(db.executions), 2)
         self.assertIn('"UserSubscription"', db.executions[0][0])
         self.assertIn("$5::timestamp, $6::timestamp", db.executions[0][0])
+        self.assertEqual(db.executions[0][1][7], "sandbox")
         self.assertIn('"PayfastCheckout"', db.executions[1][0])
         notification_insert = next(
             query for query, _values in db.queries
@@ -478,6 +516,7 @@ class PayFastRouteTests(unittest.TestCase):
                 "billingInterval": "monthly",
                 "amount": Decimal("29.00"),
                 "status": "PENDING",
+                "providerEnvironment": "live",
                 "providerSubscriptionId": None,
             }
         )
@@ -493,6 +532,11 @@ class PayFastRouteTests(unittest.TestCase):
 
         self.assertEqual(result, {"received": True, "duplicate": False})
         self.assertEqual(client.validation_request[0], PAYFAST_LIVE_VALIDATE_URL)
+        subscription_insert = next(
+            values for query, values in db.executions
+            if 'INSERT INTO "UserSubscription"' in query
+        )
+        self.assertEqual(subscription_insert[7], "live")
 
     def test_duplicate_notification_does_not_repeat_subscription_updates(self):
         db = FakeDatabase(
@@ -720,6 +764,8 @@ class PayFastRouteTests(unittest.TestCase):
 class CancellationDatabase:
     def __init__(self, subscription, *, due=False):
         self.subscription = subscription
+        if self.subscription is not None:
+            self.subscription.setdefault("providerEnvironment", "sandbox")
         self.due = due
         self.queries = []
         self.executions = []
@@ -728,9 +774,9 @@ class CancellationDatabase:
         self.queries.append((query, values))
         if 'SELECT "id" FROM "UserSubscription"' in query:
             return [{"id": self.subscription.get("id", "subscription-id")}] if self.due else []
-        if '"provider", "providerSubscriptionId"' in query:
+        if '"provider", "providerEnvironment", "providerSubscriptionId"' in query:
             return [self.subscription] if self.subscription else []
-        if '"provider", "cancelAtPeriodEnd"' in query:
+        if '"provider", "providerEnvironment", "cancelAtPeriodEnd"' in query:
             return [self.subscription] if self.subscription else []
         if '"providerSubscriptionId", "cancellationAttemptCount"' in query:
             return [self.subscription] if self.subscription else []

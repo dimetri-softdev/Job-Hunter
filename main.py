@@ -227,6 +227,7 @@ async def get_current_user(
         )
         if current_user:
             request.state.billing_user_id = user_id
+            request.state.billing_user_email = email
             return user_id
 
         previous_users = await transaction.query_raw(
@@ -303,6 +304,7 @@ async def get_current_user(
             )
 
     request.state.billing_user_id = user_id
+    request.state.billing_user_email = email
     return user_id
 
 app.include_router(
@@ -409,9 +411,39 @@ async def billing_is_enabled() -> bool:
     return bool(rows and rows[0]["enabled"])
 
 
+async def is_admin_user(request: Request, user_id: str) -> bool:
+    cached_admin_status = getattr(request.state, "billing_is_admin", None)
+    if isinstance(cached_admin_status, bool):
+        return cached_admin_status
+
+    email = getattr(request.state, "billing_user_email", None)
+    admin_emails = {
+        configured_email.strip().casefold()
+        for configured_email in os.getenv("ADMIN_EMAILS", "").split(",")
+        if configured_email.strip()
+    }
+    if isinstance(email, str) and email.strip().casefold() in admin_emails:
+        request.state.billing_is_admin = True
+        return True
+
+    admin_records = await db.query_raw(
+        'SELECT "userId" FROM "AdminAccess" WHERE "userId" = $1',
+        user_id,
+    )
+    is_admin = bool(admin_records)
+    request.state.billing_is_admin = is_admin
+    return is_admin
+
+
 def _subscription_is_entitled(subscription: Optional[dict], now: datetime) -> bool:
     if not subscription:
         return True
+
+    if (
+        subscription.get("provider") == "payfast"
+        and subscription.get("providerEnvironment") != PAYFAST_SETTINGS.mode
+    ):
+        return False
 
     status = subscription.get("status")
     trial_end = _utc_datetime(subscription.get("trialEndsAt"))
@@ -429,16 +461,32 @@ def _subscription_is_entitled(subscription: Optional[dict], now: datetime) -> bo
     return False
 
 
-async def require_billing_account_access(user_id: str) -> Optional[dict]:
-    if not await billing_is_enabled():
+def _subscription_for_current_environment(
+    subscription: Optional[dict],
+) -> Optional[dict]:
+    if (
+        subscription
+        and subscription.get("provider") == "payfast"
+        and subscription.get("providerEnvironment") != PAYFAST_SETTINGS.mode
+    ):
+        return None
+    return subscription
+
+
+async def require_billing_account_access(
+    request: Request,
+    user_id: str,
+) -> Optional[dict]:
+    if not await billing_is_enabled() or await is_admin_user(request, user_id):
         return None
 
     rows = await db.query_raw(
-        'SELECT "plan", "status", "trialEndsAt", "currentPeriodEnd", "paymentFailedAt" '
+        'SELECT "plan", "status", "provider", "providerEnvironment", "trialEndsAt", '
+        '"currentPeriodEnd", "paymentFailedAt" '
         'FROM "UserSubscription" WHERE "userId" = $1',
         user_id,
     )
-    subscription = rows[0] if rows else None
+    subscription = _subscription_for_current_environment(rows[0] if rows else None)
     now = datetime.now(timezone.utc)
     if not _subscription_is_entitled(subscription, now):
         raise HTTPException(
@@ -470,6 +518,7 @@ async def reserve_billing_usage(
 ) -> Optional[dict]:
     if not await billing_is_enabled():
         return None
+    is_admin = await is_admin_user(request, user_id)
 
     now = datetime.now(timezone.utc)
     month_start = _month_start_utc(now)
@@ -479,26 +528,36 @@ async def reserve_billing_usage(
             user_id,
         )
         subscriptions = await transaction.query_raw(
-            'SELECT "plan", "status", "trialEndsAt", "currentPeriodEnd", "paymentFailedAt" '
+            'SELECT "plan", "status", "provider", "providerEnvironment", "trialEndsAt", '
+            '"currentPeriodEnd", "paymentFailedAt" '
             'FROM "UserSubscription" WHERE "userId" = $1 FOR UPDATE',
             user_id,
         )
-        subscription = subscriptions[0] if subscriptions else None
-        if subscription is not None and not _subscription_is_entitled(subscription, now):
+        subscription = _subscription_for_current_environment(
+            subscriptions[0] if subscriptions else None
+        )
+        if (
+            not is_admin
+            and subscription is not None
+            and not _subscription_is_entitled(subscription, now)
+        ):
             raise HTTPException(
                 status_code=402,
                 detail="Paid access is not active for this account.",
             )
 
-        plan = str(subscription["plan"]).lower() if subscription else "basic"
-        if not _feature_available(plan, feature):
+        if is_admin:
+            plan = "premium"
+        else:
+            plan = str(subscription["plan"]).lower() if subscription else "basic"
+        if not is_admin and not _feature_available(plan, feature):
             required_plan = FEATURE_MINIMUM_PLANS[feature].title()
             raise HTTPException(
                 status_code=403,
                 detail=f"{required_plan} is required to use {FEATURE_LABELS[feature]}.",
             )
 
-        limit = BILLING_PLANS[plan][feature]
+        limit = None if is_admin else BILLING_PLANS[plan][feature]
         used = 0
         if limit is not None:
             counts = await transaction.query_raw(
@@ -562,7 +621,7 @@ async def enforce_billing_for_writes(request: Request, call_next):
 
     try:
         user_id = await get_current_user(request, request.headers.get("authorization"))
-        await require_billing_account_access(user_id)
+        await require_billing_account_access(request, user_id)
     except HTTPException as exc:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     try:
@@ -575,19 +634,43 @@ async def enforce_billing_for_writes(request: Request, call_next):
 
 
 @app.get("/api/v1/billing/status")
-async def get_billing_status(user_id: str = Depends(get_current_user)):
+async def get_billing_status(
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    is_admin = await is_admin_user(request, user_id)
     enabled = await billing_is_enabled()
     subscriptions = await db.query_raw(
         'SELECT "plan", "status", "trialEndsAt", "currentPeriodStart", "currentPeriodEnd", '
-        '"paymentFailedAt", "canceledAt", "provider", "billingInterval", '
+        '"paymentFailedAt", "canceledAt", "provider", "providerEnvironment", "billingInterval", '
         '"cancelAtPeriodEnd", "cancellationRequestedAt", "cancellationRequestSentAt", '
         '"cancellationAttemptCount" '
         'FROM "UserSubscription" WHERE "userId" = $1',
         user_id,
     )
-    subscription = subscriptions[0] if subscriptions else None
+    stored_subscription = subscriptions[0] if subscriptions else None
+    subscription = _subscription_for_current_environment(stored_subscription)
+    environment_mismatch = (
+        stored_subscription is not None
+        and subscription is None
+        and stored_subscription.get("provider") == "payfast"
+    )
     now = datetime.now(timezone.utc)
     month_start = _month_start_utc(now)
+    plan = (
+        str(subscription["plan"]).lower()
+        if subscription
+        else ("basic" if enabled and not is_admin else None)
+    )
+    if is_admin and not subscription:
+        effective_status = "ADMIN"
+    elif environment_mismatch:
+        effective_status = "ENVIRONMENT_MISMATCH"
+    else:
+        effective_status = subscription.get("status") if subscription else ("ACTIVE" if enabled else "NONE")
+        if subscription and not _subscription_is_entitled(subscription, now):
+            effective_status = "EXPIRED"
+
     counts = await db.query_raw(
         'SELECT "feature", COUNT(*)::int AS "used" FROM "BillingUsageEvent" '
         'WHERE "userId" = $1 AND "createdAt" >= CAST($2 AS TIMESTAMP) '
@@ -597,22 +680,23 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
         "USED",
     )
     usage = {row["feature"]: int(row["used"]) for row in counts}
-    plan = str(subscription["plan"]).lower() if subscription else ("basic" if enabled else None)
-    effective_status = subscription.get("status") if subscription else ("ACTIVE" if enabled else "NONE")
-    if subscription and not _subscription_is_entitled(subscription, now):
-        effective_status = "EXPIRED"
 
     features = {}
     for feature, minimum_plan in FEATURE_MINIMUM_PLANS.items():
-        limit = BILLING_PLANS.get(plan, {}).get(feature) if plan else None
+        limit = (
+            None
+            if is_admin
+            else (BILLING_PLANS.get(plan, {}).get(feature) if plan else None)
+        )
         used = usage.get(feature, 0)
         features[feature] = {
             "label": FEATURE_LABELS[feature],
             "limit": limit,
             "used": used,
             "remaining": max(limit - used, 0) if limit is not None else None,
-            "included": _feature_available(plan or "", feature),
-            "available": bool(
+            "included": is_admin or _feature_available(plan or "", feature),
+            "available": is_admin
+            or bool(
                 enabled
                 and _subscription_is_entitled(subscription, now)
                 and _feature_available(plan or "", feature)
@@ -626,6 +710,7 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
 
     return {
         "billingEnabled": enabled,
+        "isAdmin": is_admin,
         "checkoutEnabled": PAYFAST_SETTINGS.checkout_enabled,
         "cancellationEnabled": PAYFAST_SETTINGS.cancellation_enabled,
         "checkoutMode": PAYFAST_SETTINGS.mode if PAYFAST_SETTINGS.checkout_enabled else None,
@@ -633,22 +718,48 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
         "annualDiscountPercent": 20,
         "plan": plan,
         "status": effective_status,
-        "provider": subscription.get("provider") if subscription else None,
-        "billingInterval": subscription.get("billingInterval") if subscription else None,
-        "trialEndsAt": serialize_date(subscription.get("trialEndsAt")) if subscription else None,
-        "currentPeriodStart": serialize_date(subscription.get("currentPeriodStart")) if subscription else None,
-        "currentPeriodEnd": serialize_date(subscription.get("currentPeriodEnd")) if subscription else None,
-        "paymentFailedAt": serialize_date(subscription.get("paymentFailedAt")) if subscription else None,
-        "canceledAt": serialize_date(subscription.get("canceledAt")) if subscription else None,
-        "cancelAtPeriodEnd": bool(subscription.get("cancelAtPeriodEnd")) if subscription else False,
+        "provider": stored_subscription.get("provider") if stored_subscription else None,
+        "providerEnvironment": (
+            stored_subscription.get("providerEnvironment") if stored_subscription else None
+        ),
+        "billingInterval": (
+            stored_subscription.get("billingInterval") if stored_subscription else None
+        ),
+        "trialEndsAt": (
+            serialize_date(stored_subscription.get("trialEndsAt"))
+            if stored_subscription else None
+        ),
+        "currentPeriodStart": (
+            serialize_date(stored_subscription.get("currentPeriodStart"))
+            if stored_subscription else None
+        ),
+        "currentPeriodEnd": (
+            serialize_date(stored_subscription.get("currentPeriodEnd"))
+            if stored_subscription else None
+        ),
+        "paymentFailedAt": (
+            serialize_date(stored_subscription.get("paymentFailedAt"))
+            if stored_subscription else None
+        ),
+        "canceledAt": (
+            serialize_date(stored_subscription.get("canceledAt"))
+            if stored_subscription else None
+        ),
+        "cancelAtPeriodEnd": (
+            bool(stored_subscription.get("cancelAtPeriodEnd"))
+            if stored_subscription else False
+        ),
         "cancellationRequestedAt": (
-            serialize_date(subscription.get("cancellationRequestedAt")) if subscription else None
+            serialize_date(stored_subscription.get("cancellationRequestedAt"))
+            if stored_subscription else None
         ),
         "cancellationRequestSentAt": (
-            serialize_date(subscription.get("cancellationRequestSentAt")) if subscription else None
+            serialize_date(stored_subscription.get("cancellationRequestSentAt"))
+            if stored_subscription else None
         ),
         "cancellationAttemptCount": (
-            int(subscription.get("cancellationAttemptCount") or 0) if subscription else 0
+            int(stored_subscription.get("cancellationAttemptCount") or 0)
+            if stored_subscription else 0
         ),
         "usagePeriodStartsAt": month_start.isoformat(),
         "features": features,
@@ -755,7 +866,13 @@ MAX_ASSISTANT_DOCUMENT_XML_BYTES = 10 * 1024 * 1024
 MAX_JOB_POSTING_DOCUMENT_TEXT = 20000
 
 
-async def reserve_assistant_daily_usage(user_id: str) -> str:
+async def reserve_assistant_daily_usage(
+    user_id: str,
+    request: Request,
+) -> Optional[str]:
+    if await is_admin_user(request, user_id):
+        return None
+
     now = datetime.now(timezone.utc)
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     event_id = str(uuid.uuid4())
@@ -1005,7 +1122,7 @@ async def generate_signed_in_assistant_reply(
     billing_enabled = await billing_is_enabled()
     if billing_enabled:
         await reserve_billing_usage(request, user_id, "assistant_chat")
-    daily_event_id = await reserve_assistant_daily_usage(user_id)
+    daily_event_id = await reserve_assistant_daily_usage(user_id, request)
     system_prompt = (
         "You are JobHunter's cautious career and product assistant. Be practical, "
         "supportive, and concise. Do not promise employment, invent qualifications, "
@@ -1031,18 +1148,20 @@ async def generate_signed_in_assistant_reply(
             context=context,
         )
     except Exception:
-        await db.execute_raw(
-            'UPDATE "BillingUsageEvent" SET "status" = $1 WHERE "id" = $2',
-            "FAILED",
-            daily_event_id,
-        )
+        if daily_event_id:
+            await db.execute_raw(
+                'UPDATE "BillingUsageEvent" SET "status" = $1 WHERE "id" = $2',
+                "FAILED",
+                daily_event_id,
+            )
         raise
 
-    await db.execute_raw(
-        'UPDATE "BillingUsageEvent" SET "status" = $1 WHERE "id" = $2',
-        "USED",
-        daily_event_id,
-    )
+    if daily_event_id:
+        await db.execute_raw(
+            'UPDATE "BillingUsageEvent" SET "status" = $1 WHERE "id" = $2',
+            "USED",
+            daily_event_id,
+        )
     return answer
 
 @app.post("/api/v1/assistant/public")

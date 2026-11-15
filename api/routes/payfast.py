@@ -305,13 +305,14 @@ def create_payfast_router(
                 user_id,
             )
             existing = await transaction.query_raw(
-                'SELECT "provider", "status", "providerSubscriptionId", "currentPeriodEnd" '
+                'SELECT "provider", "providerEnvironment", "status", '
+                '"providerSubscriptionId", "currentPeriodEnd" '
                 'FROM "UserSubscription" WHERE "userId" = $1 FOR UPDATE',
                 user_id,
             )
             if existing and existing[0].get("provider") == "payfast" and existing[0].get(
                 "providerSubscriptionId"
-            ):
+            ) and existing[0].get("providerEnvironment") == settings.mode:
                 raise HTTPException(
                     status_code=409,
                     detail="This account already has a PayFast subscription. Contact support to change it.",
@@ -319,9 +320,11 @@ def create_payfast_router(
 
             pending = await transaction.query_raw(
                 'SELECT "id", "plan", "billingInterval", "amount" FROM "PayfastCheckout" '
-                'WHERE "userId" = $1 AND "status" = $2 LIMIT 1 FOR UPDATE',
+                'WHERE "userId" = $1 AND "status" = $2 '
+                'AND "providerEnvironment" = $3 LIMIT 1 FOR UPDATE',
                 user_id,
                 "PENDING",
+                settings.mode,
             )
             if pending:
                 pending_checkout = pending[0]
@@ -342,14 +345,16 @@ def create_payfast_router(
                 checkout_id = str(uuid.uuid4())
                 await transaction.execute_raw(
                     'INSERT INTO "PayfastCheckout" '
-                    '("id", "userId", "plan", "billingInterval", "amount", "status", "updatedAt") '
-                    'VALUES ($1, $2, $3, $4, $5::numeric, $6, CURRENT_TIMESTAMP)',
+                    '("id", "userId", "plan", "billingInterval", "amount", "status", '
+                    '"providerEnvironment", "updatedAt") '
+                    'VALUES ($1, $2, $3, $4, $5::numeric, $6, $7, CURRENT_TIMESTAMP)',
                     checkout_id,
                     user_id,
                     payload.plan,
                     payload.billingInterval,
                     amount,
                     "PENDING",
+                    settings.mode,
                 )
 
         fields = [
@@ -388,7 +393,8 @@ def create_payfast_router(
         now = datetime.now(timezone.utc)
         async with db.tx() as transaction:
             subscriptions = await transaction.query_raw(
-                'SELECT "provider", "providerSubscriptionId", "status", "currentPeriodEnd", '
+                'SELECT "provider", "providerEnvironment", "providerSubscriptionId", '
+                '"status", "currentPeriodEnd", '
                 '"cancelAtPeriodEnd", "cancellationRequestSentAt" '
                 'FROM "UserSubscription" WHERE "userId" = $1 FOR UPDATE',
                 user_id,
@@ -396,6 +402,11 @@ def create_payfast_router(
             if not subscriptions or subscriptions[0].get("provider") != "payfast":
                 raise HTTPException(status_code=404, detail="No PayFast subscription was found.")
             subscription = subscriptions[0]
+            if subscription.get("providerEnvironment") != settings.mode:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This subscription belongs to a different PayFast environment.",
+                )
             period_end = utc_datetime(subscription.get("currentPeriodEnd"))
             if (
                 not subscription.get("providerSubscriptionId")
@@ -439,7 +450,8 @@ def create_payfast_router(
 
         async with db.tx() as transaction:
             subscriptions = await transaction.query_raw(
-                'SELECT "provider", "cancelAtPeriodEnd", "cancellationRequestSentAt", '
+                'SELECT "provider", "providerEnvironment", "cancelAtPeriodEnd", '
+                '"cancellationRequestSentAt", '
                 '"currentPeriodEnd", "cancellationAttemptCount" '
                 'FROM "UserSubscription" WHERE "userId" = $1 FOR UPDATE',
                 user_id,
@@ -447,6 +459,11 @@ def create_payfast_router(
             if not subscriptions or subscriptions[0].get("provider") != "payfast":
                 raise HTTPException(status_code=404, detail="No PayFast subscription was found.")
             subscription = subscriptions[0]
+            if subscription.get("providerEnvironment") != settings.mode:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This subscription belongs to a different PayFast environment.",
+                )
             if subscription.get("cancellationRequestSentAt"):
                 raise HTTPException(
                     status_code=409,
@@ -492,12 +509,14 @@ def create_payfast_router(
 
         due_subscriptions = await db.query_raw(
             'SELECT "id" FROM "UserSubscription" WHERE "provider" = $1 '
-            'AND "cancelAtPeriodEnd" = TRUE AND "cancellationRequestSentAt" IS NULL '
+            'AND "providerEnvironment" = $2 AND "cancelAtPeriodEnd" = TRUE '
+            'AND "cancellationRequestSentAt" IS NULL '
             'AND ("currentPeriodEnd" <= CURRENT_TIMESTAMP OR '
             '("cancellationRequestedAt" IS NOT NULL AND "currentPeriodStart" > "cancellationRequestedAt")) '
-            'AND ("cancellationLastAttemptAt" IS NULL OR "cancellationLastAttemptAt" <= $2::timestamp) '
-            'ORDER BY "currentPeriodEnd" ASC LIMIT $3',
+            'AND ("cancellationLastAttemptAt" IS NULL OR "cancellationLastAttemptAt" <= $3::timestamp) '
+            'ORDER BY "currentPeriodEnd" ASC LIMIT $4',
             "payfast",
+            settings.mode,
             datetime.now(timezone.utc) - MAX_CANCELLATION_RETRY_INTERVAL,
             MAX_CANCELLATIONS_PER_RUN,
         )
@@ -511,13 +530,15 @@ def create_payfast_router(
                     rows = await transaction.query_raw(
                         'SELECT "id", "providerSubscriptionId", "cancellationAttemptCount" '
                         'FROM "UserSubscription" WHERE "id" = $1 AND "provider" = $2 '
-                        'AND "cancelAtPeriodEnd" = TRUE AND "cancellationRequestSentAt" IS NULL '
+                        'AND "providerEnvironment" = $3 AND "cancelAtPeriodEnd" = TRUE '
+                        'AND "cancellationRequestSentAt" IS NULL '
                         'AND ("currentPeriodEnd" <= CURRENT_TIMESTAMP OR '
                         '("cancellationRequestedAt" IS NOT NULL AND "currentPeriodStart" > "cancellationRequestedAt")) '
-                        'AND ("cancellationLastAttemptAt" IS NULL OR "cancellationLastAttemptAt" <= $3::timestamp) '
+                        'AND ("cancellationLastAttemptAt" IS NULL OR "cancellationLastAttemptAt" <= $4::timestamp) '
                         'FOR UPDATE',
                         candidate["id"],
                         "payfast",
+                        settings.mode,
                         datetime.now(timezone.utc) - MAX_CANCELLATION_RETRY_INTERVAL,
                     )
                     if rows and rows[0].get("providerSubscriptionId"):
@@ -697,7 +718,8 @@ def create_payfast_router(
         checkout_rows = (
             await db.query_raw(
                 'SELECT "id", "userId", "plan", "billingInterval", "amount", "status", '
-                '"providerSubscriptionId" FROM "PayfastCheckout" WHERE "id" = $1',
+                '"providerEnvironment", "providerSubscriptionId" '
+                'FROM "PayfastCheckout" WHERE "id" = $1',
                 fields["m_payment_id"],
             )
             if fields.get("m_payment_id")
@@ -709,9 +731,11 @@ def create_payfast_router(
         if token:
             subscription_rows = await db.query_raw(
                 'SELECT "userId", "plan", "billingInterval", "status", "currentPeriodEnd" '
-                'FROM "UserSubscription" WHERE "provider" = $1 AND "providerSubscriptionId" = $2',
+                'FROM "UserSubscription" WHERE "provider" = $1 '
+                'AND "providerSubscriptionId" = $2 AND "providerEnvironment" = $3',
                 "payfast",
                 token,
+                settings.mode,
             )
             subscription = subscription_rows[0] if subscription_rows else None
         if payment_status == "CANCELLED":
@@ -731,6 +755,11 @@ def create_payfast_router(
             raise HTTPException(
                 status_code=409,
                 detail="This PayFast checkout is no longer pending.",
+            )
+        if checkout and checkout.get("providerEnvironment") != settings.mode:
+            raise HTTPException(
+                status_code=409,
+                detail="This checkout belongs to a different PayFast environment.",
             )
 
         if checkout:
@@ -812,13 +841,15 @@ def create_payfast_router(
                 await transaction.execute_raw(
                     'INSERT INTO "UserSubscription" '
                     '("id", "userId", "plan", "status", "currentPeriodStart", "currentPeriodEnd", '
-                    '"paymentFailedAt", "canceledAt", "provider", "providerSubscriptionId", '
-                    '"billingInterval", "updatedAt") '
-                    'VALUES ($1, $2, $3, $4, $5::timestamp, $6::timestamp, NULL, NULL, $7, $8, $9, CURRENT_TIMESTAMP) '
+                    '"paymentFailedAt", "canceledAt", "provider", "providerEnvironment", '
+                    '"providerSubscriptionId", "billingInterval", "updatedAt") '
+                    'VALUES ($1, $2, $3, $4, $5::timestamp, $6::timestamp, NULL, NULL, '
+                    '$7, $8, $9, $10, CURRENT_TIMESTAMP) '
                     'ON CONFLICT ("userId") DO UPDATE SET "plan" = EXCLUDED."plan", '
                     '"status" = EXCLUDED."status", "currentPeriodStart" = EXCLUDED."currentPeriodStart", '
                     '"currentPeriodEnd" = EXCLUDED."currentPeriodEnd", "paymentFailedAt" = NULL, '
                     '"canceledAt" = NULL, "provider" = EXCLUDED."provider", '
+                    '"providerEnvironment" = EXCLUDED."providerEnvironment", '
                     '"providerSubscriptionId" = EXCLUDED."providerSubscriptionId", '
                     '"billingInterval" = EXCLUDED."billingInterval", '
                     '"cancellationRequestedAt" = CASE WHEN "UserSubscription"."cancelAtPeriodEnd" '
@@ -837,6 +868,7 @@ def create_payfast_router(
                     period_start,
                     period_end,
                     "payfast",
+                    settings.mode,
                     token,
                     interval,
                 )

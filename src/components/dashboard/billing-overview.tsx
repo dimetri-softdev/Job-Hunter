@@ -16,6 +16,7 @@ interface FeatureUsage {
 
 interface BillingStatus {
   billingEnabled: boolean;
+  isAdmin: boolean;
   checkoutEnabled: boolean;
   cancellationEnabled: boolean;
   checkoutMode: "sandbox" | "live" | null;
@@ -23,6 +24,7 @@ interface BillingStatus {
   annualDiscountPercent: number;
   plan: string | null;
   provider: string | null;
+  providerEnvironment: string | null;
   billingInterval: string | null;
   status: string;
   trialEndsAt: string | null;
@@ -207,9 +209,9 @@ export function BillingOverview() {
   }
 
   const activeTrial = status.status === "TRIALING";
-  const entitled = ["TRIALING", "ACTIVE", "CANCELED", "PAST_DUE"].includes(
-    status.status,
-  );
+  const entitled =
+    status.isAdmin ||
+    ["TRIALING", "ACTIVE", "CANCELED", "PAST_DUE"].includes(status.status);
   const trialEnd = formatDate(status.trialEndsAt);
   const periodEnd = formatDate(status.currentPeriodEnd);
 
@@ -222,15 +224,23 @@ export function BillingOverview() {
               Current access
             </p>
             <h2 className="mt-2 text-xl font-semibold text-white">
-              {status.plan ? `${titleCase(status.plan)} plan` : "No plan assigned"}
+              {status.isAdmin
+                ? "Administrator access"
+                : status.plan
+                  ? `${titleCase(status.plan)} plan`
+                  : "No plan assigned"}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              {!status.billingEnabled
+              {status.isAdmin
+                ? "Administrator accounts have full product access and bypass paid-plan and usage limits."
+                : !status.billingEnabled
                 ? "Pilot mode is active. Paid access and monthly usage limits are not being enforced; the AI assistant has a separate daily cap."
                 : activeTrial
                   ? `Your Standard trial is active${trialEnd ? ` until ${trialEnd}` : ""}.`
                   : status.status === "EXPIRED"
                     ? "Your access period has ended. Your saved information remains available to view and export."
+                    : status.status === "ENVIRONMENT_MISMATCH"
+                      ? `This PayFast subscription belongs to ${titleCase(status.providerEnvironment ?? "unknown")} mode and does not provide access under the current PayFast configuration. You can use the Basic plan or start a new checkout.`
                     : entitled
                       ? `Your access is ${titleCase(status.status)}${periodEnd ? ` through ${periodEnd}` : ""}.`
                       : "No plan or trial is assigned. Your saved information remains available to view and export; ask the administrator about a tester trial."}
@@ -238,17 +248,23 @@ export function BillingOverview() {
           </div>
           <span
             className={`rounded-full px-3 py-1 text-xs font-medium ${
-              status.billingEnabled
+              status.isAdmin
+                ? "bg-emerald-400/10 text-emerald-200"
+                : status.billingEnabled
                 ? entitled
                   ? "bg-emerald-400/10 text-emerald-200"
                   : "bg-amber-400/10 text-amber-200"
                 : "bg-blue-400/10 text-blue-200"
             }`}
           >
-            {!status.billingEnabled
+            {status.isAdmin
+              ? "Administrator · unlimited"
+              : !status.billingEnabled
               ? "Free pilot"
               : entitled
                 ? titleCase(status.status)
+                : status.status === "ENVIRONMENT_MISMATCH"
+                  ? "PayFast mode mismatch"
                 : status.status === "EXPIRED"
                   ? "Expired"
                   : "Read-only"}
@@ -320,16 +336,16 @@ export function BillingOverview() {
         )}
       </section>
 
-      {status.billingEnabled && status.plan && (
+      {((status.billingEnabled && status.plan) || status.isAdmin) && (
         <section className="rounded-xl border border-[#1f212d] bg-[#12131a] p-5">
           <div className="flex items-center gap-2">
             <Clock3 className="size-4 text-violet-300" aria-hidden="true" />
             <h2 className="text-sm font-semibold text-white">This month’s usage</h2>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Usage resets on the first day of each month. Job-fit allowance also
-            covers job-post analysis and Proof Sprints. The AI assistant also
-            has a separate daily cap.
+            {status.isAdmin
+              ? "Administrator accounts have unlimited feature usage."
+              : "Usage resets on the first day of each month. Job-fit allowance also covers job-post analysis and Proof Sprints. The AI assistant also has a separate daily cap."}
           </p>
           <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURE_ORDER.map((key) => {
@@ -471,7 +487,7 @@ export function BillingOverview() {
                         ? "Adds resume updates and higher monthly allowances"
                         : "Unlimited monthly allowances for normal personal use"}
               </p>
-              {plan !== "basic" && status.checkoutEnabled && (
+              {plan !== "basic" && status.checkoutEnabled && !status.isAdmin && (
                 <button
                   type="button"
                   onClick={() => void startCheckout(plan)}

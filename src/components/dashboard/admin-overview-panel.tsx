@@ -16,6 +16,8 @@ interface SubscriptionBucket {
 interface PlanBucket extends SubscriptionBucket {
   plan: string;
   billingInterval: string;
+  provider: string | null;
+  providerEnvironment: string | null;
 }
 
 interface AdminOverviewData {
@@ -145,7 +147,13 @@ export function AdminOverviewPanel() {
   const estimatedMrr = useMemo(() => {
     if (!overview || !billing) return null;
     return overview.subscriptionsByPlan.reduce((total, subscription) => {
-      if (subscription.status !== "ACTIVE") return total;
+      if (
+        subscription.status !== "ACTIVE" ||
+        subscription.provider !== "payfast" ||
+        subscription.providerEnvironment !== "live"
+      ) {
+        return total;
+      }
       const price = billing.prices[subscription.plan.toLowerCase()]?.[
         subscription.billingInterval.toLowerCase() === "annual"
           ? "annual"
@@ -158,8 +166,15 @@ export function AdminOverviewPanel() {
   }, [billing, overview]);
 
   const activeSubscriptions =
-    overview?.subscriptionsByStatus.find((row) => row.status === "ACTIVE")
-      ?.count ?? 0;
+    overview?.subscriptionsByPlan.reduce(
+      (count, subscription) =>
+        subscription.status === "ACTIVE" &&
+        subscription.provider === "payfast" &&
+        subscription.providerEnvironment === "live"
+          ? count + subscription.count
+          : count,
+      0,
+    ) ?? 0;
   const trials =
     overview?.subscriptionsByStatus.find((row) => row.status === "TRIALING")
       ?.count ?? 0;
@@ -203,9 +218,9 @@ export function AdminOverviewPanel() {
             />
             <OverviewStat
               icon={<CreditCard className="size-4" aria-hidden="true" />}
-              label="Active subscriptions"
+              label="Live active subscriptions"
               value={activeSubscriptions}
-              detail={`${trials} trial${trials === 1 ? "" : "s"} currently active`}
+              detail={`${trials} trial${trials === 1 ? "" : "s"} currently active · sandbox rows shown separately`}
             />
           </div>
 
@@ -287,9 +302,10 @@ export function AdminOverviewPanel() {
                 />
               </dl>
               <p className="mt-4 border-t border-[#1f212d] pt-3 text-[11px] leading-5 text-slate-500">
-                MRR is an estimate based on active plan prices; annual plans are
-                divided by 12. It is not a payment ledger and excludes refunds,
-                fees, discounts, and failed collections.
+                MRR is an estimate from active live PayFast plans; annual plans
+                are divided by 12. Sandbox records are excluded. It is not a
+                payment ledger and excludes refunds, fees, discounts, and failed
+                collections.
               </p>
             </section>
           </div>

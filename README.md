@@ -109,6 +109,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to see the a
 
 The dashboard at `/admin` is available to an authenticated Supabase account whose email is listed in the server-only `ADMIN_EMAILS` environment variable, or to an account granted database-managed admin access. Set `ADMIN_EMAILS` to one or more comma-separated email addresses on the Node service (or in `.env.local` for local development), then sign in with that account. Do not expose this variable with a `NEXT_PUBLIC_` prefix.
 
+The FastAPI service also uses `ADMIN_EMAILS` to give bootstrap admins unlimited paid-feature access and bypass the signed-in assistant daily cap. Set the same comma-separated admin emails on the FastAPI service; database-managed admins are recognized from the shared `AdminAccess` table. Admin exemptions do not change payment mode or cancel any existing subscription.
+
 The overview shows account signup and sign-in metrics, subscription status, estimated recurring value, cancellation operations, and recent admin actions. The user directory supports cross-page search and filters for plan, subscription status, admin access, and suspension. Account details expose signup/sign-in dates and aggregate application, roadmap, and tracked-feature counts; they do not expose resumes, applications, chat contents, or payment credentials. Administrative account and access changes are recorded in the billing audit log.
 
 The overview and directory currently scan up to 100,000 Supabase Auth accounts per request. They return an explicit error rather than partial data above that limit; larger deployments should add a synchronized searchable account index.
@@ -192,9 +194,9 @@ PAYFAST_LIVE_PASSPHRASE=your_live_security_pass_phrase
 
 Keep the same HTTPS return, cancel, and notification URL settings. Live mode requires its own live credentials and fails closed if any are missing; it does not reuse sandbox credentials. **Live payments are real transactions:** PayFast states live test transactions are subject to transaction fees and amounts under ZAR 5 cannot be processed. Do not enable live mode until ready to accept real charges and fees. Validate the integration in sandbox first; code-level live validation uses mocked provider responses and does not submit a live payment.
 
-`PAYFAST_MODE` applies to the whole API service. Existing sandbox subscriptions are not converted into live subscriptions. Before changing a service with stored subscriptions to live mode, reconcile the sandbox test records or use separate production data so sandbox subscription tokens are not sent to live PayFast APIs.
+`PAYFAST_MODE` applies to the whole API service. Each checkout and subscription records its PayFast environment. Existing PayFast subscriptions are backfilled as sandbox by the migration, and only subscriptions from the currently configured environment grant access. A sandbox subscription does not become a live subscription when switching modes; it also does not block the account from starting a separate live checkout. The admin dashboard labels sandbox records and excludes them from its estimated live recurring value.
 
-Apply the database migration before deploying the backend and web app:
+Apply the database migration before deploying the backend and web app. It marks existing PayFast subscription rows as sandbox; new verified notifications save their environment:
 
 ```bash
 npx prisma migrate deploy

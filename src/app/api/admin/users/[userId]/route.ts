@@ -58,6 +58,7 @@ export async function GET(
         status: true,
         billingInterval: true,
         provider: true,
+        providerEnvironment: true,
         trialEndsAt: true,
         currentPeriodStart: true,
         currentPeriodEnd: true,

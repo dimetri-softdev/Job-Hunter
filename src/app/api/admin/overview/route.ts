@@ -100,6 +100,8 @@ export async function GET() {
         plan: true,
         status: true,
         billingInterval: true,
+        provider: true,
+        providerEnvironment: true,
         trialEndsAt: true,
         currentPeriodEnd: true,
         paymentFailedAt: true,
@@ -134,13 +136,23 @@ export async function GET() {
     plan: string;
     billingInterval: string;
     status: string;
+    provider: string | null;
+    providerEnvironment: string | null;
     count: number;
   }>();
   for (const subscription of subscriptions) {
-    const status =
+    const subscriptionStatus =
       getAdminSubscriptionStatus(subscription, now) ?? subscription.status;
+    const status =
+      subscription.provider === "payfast" &&
+      subscription.providerEnvironment === "sandbox"
+        ? `SANDBOX_${subscriptionStatus}`
+        : subscription.provider === "payfast" &&
+            !subscription.providerEnvironment
+          ? `ENVIRONMENT_UNKNOWN_${subscriptionStatus}`
+          : subscriptionStatus;
     statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
-    const key = `${subscription.plan}\u0000${subscription.billingInterval}\u0000${status}`;
+    const key = `${subscription.plan}\u0000${subscription.billingInterval}\u0000${status}\u0000${subscription.provider ?? ""}\u0000${subscription.providerEnvironment ?? ""}`;
     const bucket = planCounts.get(key);
     if (bucket) {
       bucket.count += 1;
@@ -149,6 +161,8 @@ export async function GET() {
         plan: subscription.plan,
         billingInterval: subscription.billingInterval,
         status,
+        provider: subscription.provider,
+        providerEnvironment: subscription.providerEnvironment,
         count: 1,
       });
     }

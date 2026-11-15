@@ -33,6 +33,7 @@ interface AdminUser {
     status: string;
     billingInterval: string;
     provider: string | null;
+    providerEnvironment: string | null;
     trialEndsAt: string | null;
     currentPeriodStart: string | null;
     currentPeriodEnd: string | null;
@@ -583,7 +584,7 @@ export function AdminUsersPanel() {
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
                         {user.subscription
-                          ? `${user.subscription.plan} · ${user.subscription.status.toLowerCase().replaceAll("_", " ")} · ${user.subscription.billingInterval}${
+                          ? `${user.subscription.plan} · ${user.subscription.status.toLowerCase().replaceAll("_", " ")}${user.subscription.provider === "payfast" ? ` · ${user.subscription.providerEnvironment ?? "environment unknown"}` : ""} · ${user.subscription.billingInterval}${
                               user.subscription.trialEndsAt
                                 ? ` · trial ends ${new Date(user.subscription.trialEndsAt).toLocaleDateString()}`
                                 : user.subscription.currentPeriodEnd
@@ -779,7 +780,7 @@ export function AdminUsersPanel() {
                                 />
                                 <DetailValue
                                   label="Billing"
-                                  value={`${accountDetails.subscription.provider ?? "Provider unavailable"} · ${accountDetails.subscription.billingInterval}`}
+                                  value={`${accountDetails.subscription.provider ?? "Provider unavailable"}${accountDetails.subscription.provider === "payfast" ? ` · ${accountDetails.subscription.providerEnvironment ?? "environment unknown"}` : ""} · ${accountDetails.subscription.billingInterval}`}
                                 />
                                 <DetailValue
                                   label="Period started"

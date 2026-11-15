@@ -9,8 +9,9 @@ from starlette.requests import Request
 
 
 class _BillingDatabase:
-    def __init__(self, subscription):
+    def __init__(self, subscription, admin_ids=None):
         self.subscription = subscription
+        self.admin_ids = set(admin_ids or [])
         self.queries = []
         self.executions = []
 
@@ -20,6 +21,8 @@ class _BillingDatabase:
 
     async def query_raw(self, query, *values):
         self.queries.append(query)
+        if 'FROM "AdminAccess"' in query:
+            return [{"userId": user_id} for user_id in values if user_id in self.admin_ids]
         if 'FROM "UserSubscription"' in query:
             return [self.subscription] if self.subscription else []
         if 'COUNT(*)' in query:
@@ -39,6 +42,7 @@ class BillingPlanTests(unittest.TestCase):
                 "plan": "standard",
                 "status": "ACTIVE",
                 "provider": "payfast",
+                "providerEnvironment": "live",
                 "billingInterval": "monthly",
                 "currentPeriodStart": period_start.isoformat().replace("+00:00", "Z"),
                 "currentPeriodEnd": period_end.isoformat().replace("+00:00", "Z"),
@@ -58,9 +62,12 @@ class BillingPlanTests(unittest.TestCase):
             main, "PAYFAST_SETTINGS", live_settings
         ):
             with patch.object(main, "billing_is_enabled", AsyncMock(return_value=True)):
-                result = asyncio.run(main.get_billing_status(user_id="user-123"))
+                result = asyncio.run(
+                    main.get_billing_status(request=_request(), user_id="user-123")
+                )
 
         self.assertEqual(result["status"], "ACTIVE")
+        self.assertFalse(result["isAdmin"])
         self.assertEqual(result["checkoutMode"], "live")
         self.assertEqual(
             datetime.fromisoformat(result["currentPeriodStart"]),
@@ -71,6 +78,48 @@ class BillingPlanTests(unittest.TestCase):
             period_end,
         )
         self.assertTrue(result["features"]["job_fit"]["available"])
+
+    def test_sandbox_subscription_does_not_grant_live_entitlement(self):
+        db = _BillingDatabase(
+            {
+                "plan": "standard",
+                "status": "ACTIVE",
+                "provider": "payfast",
+                "providerEnvironment": "sandbox",
+                "currentPeriodEnd": datetime.now(timezone.utc) + timedelta(days=30),
+            }
+        )
+        request = _request()
+        live_settings = main.PayFastSettings(
+            mode="live",
+            merchant_id="live-merchant",
+            merchant_key="live-key",
+            passphrase="live-passphrase",
+            return_url="https://app.example.com/return",
+            cancel_url="https://app.example.com/cancel",
+            notify_url="https://api.example.com/itn",
+        )
+
+        with patch.object(main, "db", db), patch.object(
+            main, "PAYFAST_SETTINGS", live_settings
+        ), patch.object(main, "billing_is_enabled", AsyncMock(return_value=True)):
+            account_access = asyncio.run(
+                main.require_billing_account_access(request, "user-123")
+            )
+            usage = asyncio.run(
+                main.reserve_billing_usage(request, "user-123", "job_fit")
+            )
+            status = asyncio.run(
+                main.get_billing_status(request=request, user_id="user-123")
+            )
+
+        self.assertIsNone(account_access)
+        self.assertEqual(usage, {"plan": "basic", "used": 1, "limit": 5})
+        self.assertEqual(status["status"], "ENVIRONMENT_MISMATCH")
+        self.assertEqual(status["plan"], "basic")
+        self.assertEqual(status["providerEnvironment"], "sandbox")
+        self.assertTrue(status["features"]["job_fit"]["available"])
+        self.assertFalse(status["features"]["role_suggestions"]["available"])
 
     def test_feature_floors_include_starter_and_lite_tiers(self):
         self.assertTrue(main._feature_available("starter", "job_fit"))
@@ -132,6 +181,63 @@ class BillingPlanTests(unittest.TestCase):
             self.fail("Basic usage should be reserved while billing is enabled.")
         self.assertEqual(result, {"plan": "basic", "used": 1, "limit": 5})
         self.assertTrue(any("COUNT(*)" in query for query in db.queries))
+
+    def test_environment_admin_has_unlimited_billing_status_without_subscription(self):
+        db = _BillingDatabase(subscription=None)
+        request = _request()
+        request.state.billing_user_email = "Admin@Example.com"
+
+        with patch.object(main, "db", db), patch.dict(
+            "os.environ", {"ADMIN_EMAILS": "admin@example.com,owner@example.com"}
+        ):
+            with patch.object(main, "billing_is_enabled", AsyncMock(return_value=True)):
+                result = asyncio.run(
+                    main.get_billing_status(request=request, user_id="admin-user")
+                )
+
+        self.assertTrue(result["isAdmin"])
+        self.assertEqual(result["status"], "ADMIN")
+        self.assertIsNone(result["plan"])
+        self.assertTrue(all(feature["available"] for feature in result["features"].values()))
+        self.assertTrue(all(feature["included"] for feature in result["features"].values()))
+        self.assertTrue(all(feature["limit"] is None for feature in result["features"].values()))
+        self.assertFalse(any('FROM "AdminAccess"' in query for query in db.queries))
+
+    def test_database_admin_bypasses_feature_and_assistant_limits(self):
+        db = _BillingDatabase(
+            subscription={
+                "plan": "basic",
+                "status": "CANCELED",
+                "currentPeriodEnd": datetime.now(timezone.utc) - timedelta(days=1),
+            },
+            admin_ids={"admin-user"},
+        )
+        request = _request()
+
+        with patch.object(main, "db", db), patch.object(
+            main, "billing_is_enabled", AsyncMock(return_value=True)
+        ):
+            self.assertTrue(
+                asyncio.run(main.is_admin_user(request, "admin-user"))
+            )
+            result = asyncio.run(
+                main.reserve_billing_usage(request, "admin-user", "job_fit")
+            )
+            daily_event_id = asyncio.run(
+                main.reserve_assistant_daily_usage("admin-user", request)
+            )
+            account_access = asyncio.run(
+                main.require_billing_account_access(request, "admin-user")
+            )
+
+        if result is None:
+            self.fail("Admin usage should be reserved while billing is enabled.")
+        self.assertEqual(result["plan"], "premium")
+        self.assertIsNone(result["limit"])
+        self.assertIsNone(daily_event_id)
+        self.assertIsNone(account_access)
+        self.assertFalse(any("COUNT(*)" in query for query in db.queries))
+        self.assertEqual(len(db.executions), 1)
 
 
 def _request():
