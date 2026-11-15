@@ -105,11 +105,15 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
-### Admin feedback
+### Admin dashboard
 
-Feedback responses are anonymous and can be reviewed at `/admin` by an authenticated Supabase account whose email is listed in the server-only `ADMIN_EMAILS` environment variable. Set it to one or more comma-separated email addresses on the Node service (or in `.env.local` for local development), then sign in with that account. Do not expose this variable with a `NEXT_PUBLIC_` prefix.
+The dashboard at `/admin` is available to an authenticated Supabase account whose email is listed in the server-only `ADMIN_EMAILS` environment variable, or to an account granted database-managed admin access. Set `ADMIN_EMAILS` to one or more comma-separated email addresses on the Node service (or in `.env.local` for local development), then sign in with that account. Do not expose this variable with a `NEXT_PUBLIC_` prefix.
 
-The dashboard includes feedback analytics and filtering, CSV export, feedback review notes, and account controls for suspending accounts, deleting accounts, and granting or removing administrator access. Only accounts in `ADMIN_EMAILS` or in the database-managed admin list can use these controls. Bootstrap admins from `ADMIN_EMAILS` cannot be removed or deleted in the dashboard; change that environment variable deliberately to change bootstrap access.
+The overview shows account signup and sign-in metrics, subscription status, estimated recurring value, cancellation operations, and recent admin actions. The user directory supports cross-page search and filters for plan, subscription status, admin access, and suspension. Account details expose signup/sign-in dates and aggregate application, roadmap, and tracked-feature counts; they do not expose resumes, applications, chat contents, or payment credentials. Administrative account and access changes are recorded in the billing audit log.
+
+The overview and directory currently scan up to 100,000 Supabase Auth accounts per request. They return an explicit error rather than partial data above that limit; larger deployments should add a synchronized searchable account index.
+
+The dashboard also includes feedback analytics and filtering, CSV export, feedback review notes, and account controls for suspending accounts, deleting accounts, and granting or removing administrator access. Bootstrap admins from `ADMIN_EMAILS` cannot be removed or deleted in the dashboard; change that environment variable deliberately to change bootstrap access. The billing section reports checkout mode and readiness from the billing service but cannot change PayFast mode or credentials. Live checkout can create real recurring charges.
 
 Set `SUPABASE_SERVICE_ROLE_KEY` on the Node service to enable user and administrator management. This is a server-only secret: never add a `NEXT_PUBLIC_` prefix or commit the key. Without it, feedback review still works, but the Users & admins section cannot manage accounts.
 

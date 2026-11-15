@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
+import { fetcher } from "@/lib/api";
 import {
   getApiErrorMessage,
   getUserFacingError,
@@ -17,6 +18,14 @@ interface BillingSettingsResponse {
   configuration: BillingConfiguration;
 }
 
+interface BillingOperationsStatus {
+  checkoutEnabled: boolean;
+  cancellationEnabled: boolean;
+  checkoutMode: "sandbox" | "live" | null;
+  currency: string | null;
+  annualDiscountPercent: number;
+}
+
 async function readJson(response: Response): Promise<unknown> {
   try {
     return await response.json();
@@ -30,6 +39,8 @@ export function AdminBillingPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [operationsStatus, setOperationsStatus] =
+    useState<BillingOperationsStatus | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -70,13 +81,34 @@ export function AdminBillingPanel() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    fetcher<BillingOperationsStatus>("/billing/status")
+      .then((status) => {
+        if (active) setOperationsStatus(status);
+      })
+      .catch((statusError: unknown) => {
+        if (active) {
+          setError(
+            getUserFacingError(
+              statusError,
+              "Unable to load payment-operation status.",
+            ),
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   async function toggleBilling() {
     if (!settings) return;
     const enabled = !settings.configuration.enabled;
     if (
       enabled &&
       !window.confirm(
-        "Enable paid-access enforcement? Basic accounts keep Basic access, while expired paid accounts become read-only. This switch does not enable checkout or change PayFast mode. Keep it off until sandbox payments are verified.",
+        "Enable paid-access enforcement? Basic accounts keep Basic access, while expired paid accounts become read-only. This switch does not enable checkout or change PayFast mode. Enable it only after payment and access behavior have been verified.",
       )
     ) {
       return;
@@ -175,28 +207,51 @@ export function AdminBillingPanel() {
       </section>
 
       <section className="rounded-xl border border-[#1f212d] bg-[#12131a] p-5">
-        <h2 className="text-sm font-semibold text-white">PayFast sandbox setup</h2>
+        <h2 className="text-sm font-semibold text-white">Payment operations</h2>
         <p className="mt-2 text-sm leading-6 text-slate-400">
-          Sandbox subscriptions are available from the user-facing Plans &amp;
-          usage page when the FastAPI service has all PayFast sandbox settings.
-          This switch controls entitlement enforcement only. It does not enable
-          checkout or permit live payments. Grant testers a 14-day Standard
-          trial from the Users &amp; admins tab.
+          Checkout mode and readiness are reported by the billing service and
+          cannot be changed here. A live mode means checkout can make real
+          recurring charges. This switch controls access enforcement only; it
+          does not configure PayFast credentials or change payment mode.
         </p>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
           <div className="rounded-lg border border-[#252735] p-3">
-            <dt className="text-xs text-slate-500">Payment provider</dt>
-            <dd className="mt-1 text-slate-200">PayFast sandbox only</dd>
+            <dt className="text-xs text-slate-500">Checkout mode</dt>
+            <dd className="mt-1 text-slate-200">
+              {operationsStatus?.checkoutEnabled
+                ? operationsStatus.checkoutMode === "live"
+                  ? "PayFast live"
+                  : operationsStatus.checkoutMode === "sandbox"
+                    ? "PayFast sandbox"
+                    : "Unknown"
+                : "Not configured"}
+            </dd>
           </div>
           <div className="rounded-lg border border-[#252735] p-3">
-            <dt className="text-xs text-slate-500">Currency and prices</dt>
-            <dd className="mt-1 text-slate-200">ZAR · R29–R179.99 monthly</dd>
+            <dt className="text-xs text-slate-500">Checkout readiness</dt>
+            <dd className="mt-1 text-slate-200">
+              {operationsStatus
+                ? operationsStatus.checkoutEnabled
+                  ? "Configured"
+                  : "Unavailable"
+                : "Loading"}
+            </dd>
           </div>
           <div className="rounded-lg border border-[#252735] p-3">
-            <dt className="text-xs text-slate-500">Annual discount</dt>
-            <dd className="mt-1 text-slate-200">20%</dd>
+            <dt className="text-xs text-slate-500">Operations</dt>
+            <dd className="mt-1 text-slate-200">
+              {operationsStatus
+                ? `${operationsStatus.currency ?? "Currency unavailable"} · cancellation ${operationsStatus.cancellationEnabled ? "enabled" : "disabled"}`
+                : "Loading"}
+            </dd>
           </div>
         </dl>
+        {operationsStatus && (
+          <p className="mt-3 text-xs text-slate-500">
+            Annual plan discount: {operationsStatus.annualDiscountPercent}%.
+            No credentials or payment identifiers are shown here.
+          </p>
+        )}
       </section>
     </section>
   );

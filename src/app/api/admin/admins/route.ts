@@ -88,22 +88,37 @@ export async function POST(request: Request) {
   if (isBootstrapAdmin(email)) {
     return adminJson({ error: "This account already has protected admin access." }, 409);
   }
+  const actorEmail = authorization.user.email?.trim().toLowerCase();
+  if (!actorEmail) {
+    return adminJson({ error: "The administrator account has no email address." }, 400);
+  }
 
-  const admin = await db.adminAccess.upsert({
-    where: { userId },
-    update: { email, addedBy: authorization.user.id },
-    create: {
-      userId,
-      email,
-      addedBy: authorization.user.id,
-    },
-    select: {
-      userId: true,
-      email: true,
-      addedBy: true,
-      createdAt: true,
-    },
-  });
+  const [admin] = await db.$transaction([
+    db.adminAccess.upsert({
+      where: { userId },
+      update: { email, addedBy: authorization.user.id },
+      create: {
+        userId,
+        email,
+        addedBy: authorization.user.id,
+      },
+      select: {
+        userId: true,
+        email: true,
+        addedBy: true,
+        createdAt: true,
+      },
+    }),
+    db.billingAuditLog.create({
+      data: {
+        actorId: authorization.user.id,
+        actorEmail,
+        subjectUserId: userId,
+        action: "ADMIN_ACCESS_GRANTED",
+        details: { email },
+      },
+    }),
+  ]);
 
   return adminJson(admin, 201);
 }

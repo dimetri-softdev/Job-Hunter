@@ -9,6 +9,7 @@ import {
   Shield,
   ShieldOff,
   Trash2,
+  Eye,
   UserRound,
   UserRoundX,
 } from "lucide-react";
@@ -26,11 +27,20 @@ interface AdminUser {
   isSuspended: boolean;
   isAdmin: boolean;
   isBootstrapAdmin: boolean;
+  featureUsesLast30Days: number;
   subscription: {
     plan: string;
     status: string;
+    billingInterval: string;
+    provider: string | null;
     trialEndsAt: string | null;
+    currentPeriodStart: string | null;
     currentPeriodEnd: string | null;
+    paymentFailedAt: string | null;
+    canceledAt: string | null;
+    cancelAtPeriodEnd: boolean;
+    cancellationRequestedAt: string | null;
+    cancellationRequestSentAt: string | null;
   } | null;
 }
 
@@ -38,9 +48,36 @@ interface UserPage {
   users: AdminUser[];
   page: number;
   pageSize: number;
+  total: number;
   hasMore: boolean;
   totalAdmins: number;
   currentUserId: string;
+}
+
+interface AccountDetails {
+  account: {
+    id: string;
+    email: string;
+    createdAt: string;
+    localProfileCreatedAt: string | null;
+    lastSignInAt: string | null;
+    bannedUntil: string | null;
+    isSuspended: boolean;
+  };
+  subscription: AdminUser["subscription"];
+  usage: {
+    featureUsesTotal: number;
+    firstFeatureUseAt: string | null;
+    lastFeatureUseAt: string | null;
+    featureUsesLast30Days: { feature: string; count: number }[];
+    trackedApplications: number;
+    savedRoadmaps: number;
+  };
+  recentAdminActions: {
+    actorEmail: string;
+    action: string;
+    createdAt: string;
+  }[];
 }
 
 interface AdminRecord {
@@ -63,12 +100,19 @@ export function AdminUsersPanel() {
   const [page, setPage] = useState(1);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [planFilter, setPlanFilter] = useState("");
+  const [adminFilter, setAdminFilter] = useState("");
+  const [suspendedFilter, setSuspendedFilter] = useState("");
   const [users, setUsers] = useState<UserPage | null>(null);
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [selectedDetailsId, setSelectedDetailsId] = useState<string | null>(null);
+  const [accountDetails, setAccountDetails] = useState<AccountDetails | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState<{
     id: string;
     email: string;
@@ -87,6 +131,10 @@ export function AdminUsersPanel() {
       const params = new URLSearchParams({
         page: String(page),
         ...(search ? { q: search } : {}),
+        ...(statusFilter ? { status: statusFilter } : {}),
+        ...(planFilter ? { plan: planFilter } : {}),
+        ...(adminFilter ? { admin: adminFilter } : {}),
+        ...(suspendedFilter ? { suspended: suspendedFilter } : {}),
       });
       try {
         const [userResponse, adminResponse] = await Promise.all([
@@ -134,12 +182,64 @@ export function AdminUsersPanel() {
     }
     void loadUsers();
     return () => controller.abort();
-  }, [page, refreshToken, search]);
+  }, [
+    adminFilter,
+    page,
+    planFilter,
+    refreshToken,
+    search,
+    statusFilter,
+    suspendedFilter,
+  ]);
+
+  useEffect(() => {
+    const userId = selectedDetailsId;
+    if (typeof userId !== "string") return;
+    const controller = new AbortController();
+    async function loadAccountDetails() {
+      setDetailsLoading(true);
+      try {
+        const response = await fetch(
+          `/api/admin/users/${encodeURIComponent(String(userId))}`,
+          { cache: "no-store", signal: controller.signal },
+        );
+        const payload = await readJson(response);
+        if (!response.ok) {
+          throw new Error(getApiErrorMessage(payload, response.status));
+        }
+        if (
+          !payload ||
+          typeof payload !== "object" ||
+          !("account" in payload) ||
+          !("usage" in payload)
+        ) {
+          throw new Error("The server returned unexpected account details.");
+        }
+        setAccountDetails(payload as AccountDetails);
+      } catch (loadError: unknown) {
+        if (!controller.signal.aborted) {
+          setError(getUserFacingError(loadError, "Unable to load account details."));
+        }
+      } finally {
+        if (!controller.signal.aborted) setDetailsLoading(false);
+      }
+    }
+    void loadAccountDetails();
+    return () => controller.abort();
+  }, [refreshToken, selectedDetailsId]);
 
   function applySearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPage(1);
     setSearch(searchDraft.trim());
+  }
+
+  function updateFilter(
+    setter: (value: string) => void,
+    value: string,
+  ) {
+    setPage(1);
+    setter(value);
   }
 
   async function updateAccount(
@@ -262,8 +362,8 @@ export function AdminUsersPanel() {
       <div className="grid gap-3 sm:grid-cols-3">
         <AccountStat label="Administrators" value={users?.totalAdmins ?? "—"} />
         <AccountStat
-          label="Accounts on this page"
-          value={users?.users.length ?? "—"}
+          label="Matching accounts"
+          value={users?.total ?? "—"}
         />
         <AccountStat
           label="Page"
@@ -343,12 +443,12 @@ export function AdminUsersPanel() {
             User accounts
           </h2>
           <p className="mt-1 text-xs leading-5 text-slate-400">
-            Browse accounts by page. Search filters the accounts on the current identity-provider page.
+            Search across accounts and review signup, sign-in, subscription, and tracked feature-use metadata.
           </p>
         </div>
         <form onSubmit={applySearch} className="mb-4 flex flex-col gap-2 sm:flex-row">
           <label className="sr-only" htmlFor="admin-user-search">
-            Search users on this page
+            Search all accounts
           </label>
           <div className="relative flex-1">
             <Search
@@ -360,7 +460,7 @@ export function AdminUsersPanel() {
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
               maxLength={200}
-              placeholder="Filter by email or user ID on this page"
+              placeholder="Search by email or user ID"
               className="min-h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#0d0e14] pl-9 pr-3 text-sm text-white placeholder:text-slate-600"
             />
           </div>
@@ -369,9 +469,66 @@ export function AdminUsersPanel() {
             disabled={loading}
             className="min-h-10 rounded-lg bg-violet-500 px-4 text-sm font-semibold text-white hover:bg-violet-400 disabled:opacity-50"
           >
-            Search page
+            Search accounts
           </button>
         </form>
+        <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="text-xs text-slate-500">
+            Subscription status
+            <select
+              value={statusFilter}
+              onChange={(event) => updateFilter(setStatusFilter, event.target.value)}
+              className="mt-1 min-h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#0d0e14] px-3 text-sm text-slate-200"
+            >
+              <option value="">All statuses</option>
+              <option value="NONE">No subscription</option>
+              <option value="ACTIVE">Active</option>
+              <option value="TRIALING">Trialing</option>
+              <option value="PAST_DUE">Past due</option>
+              <option value="CANCELED">Canceled</option>
+              <option value="EXPIRED">Expired</option>
+            </select>
+          </label>
+          <label className="text-xs text-slate-500">
+            Plan
+            <select
+              value={planFilter}
+              onChange={(event) => updateFilter(setPlanFilter, event.target.value)}
+              className="mt-1 min-h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#0d0e14] px-3 text-sm text-slate-200"
+            >
+              <option value="">All plans</option>
+              <option value="basic">Basic</option>
+              <option value="starter">Starter</option>
+              <option value="standard">Standard</option>
+              <option value="lite">Lite</option>
+              <option value="premium">Premium</option>
+            </select>
+          </label>
+          <label className="text-xs text-slate-500">
+            Administrator
+            <select
+              value={adminFilter}
+              onChange={(event) => updateFilter(setAdminFilter, event.target.value)}
+              className="mt-1 min-h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#0d0e14] px-3 text-sm text-slate-200"
+            >
+              <option value="">All accounts</option>
+              <option value="true">Admins only</option>
+              <option value="false">Non-admins</option>
+            </select>
+          </label>
+          <label className="text-xs text-slate-500">
+            Account access
+            <select
+              value={suspendedFilter}
+              onChange={(event) => updateFilter(setSuspendedFilter, event.target.value)}
+              className="mt-1 min-h-10 w-full rounded-lg border border-[#2b2e3b] bg-[#0d0e14] px-3 text-sm text-slate-200"
+            >
+              <option value="">All access states</option>
+              <option value="false">Not suspended</option>
+              <option value="true">Suspended</option>
+            </select>
+          </label>
+        </div>
 
         {error && (
           <p role="alert" className="mb-4 rounded-lg bg-rose-500/10 p-3 text-sm text-rose-200">
@@ -385,7 +542,7 @@ export function AdminUsersPanel() {
           </p>
         ) : users?.users.length === 0 ? (
           <p className="py-6 text-center text-sm text-slate-400">
-            No accounts match this filter on page {page}.
+            No accounts match the selected search and filters.
           </p>
         ) : (
           <ul className="divide-y divide-[#1f212d]">
@@ -420,18 +577,26 @@ export function AdminUsersPanel() {
                         {user.id}
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
-                        Joined {new Date(user.createdAt).toLocaleDateString()}
+                        Signed up {new Date(user.createdAt).toLocaleDateString()}
                         {user.lastSignInAt &&
-                          ` · Last active ${new Date(user.lastSignInAt).toLocaleDateString()}`}
+                          ` · Last sign-in ${new Date(user.lastSignInAt).toLocaleDateString()}`}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
                         {user.subscription
-                          ? `${user.subscription.plan} · ${user.subscription.status.toLowerCase().replaceAll("_", " ")}${
+                          ? `${user.subscription.plan} · ${user.subscription.status.toLowerCase().replaceAll("_", " ")} · ${user.subscription.billingInterval}${
                               user.subscription.trialEndsAt
                                 ? ` · trial ends ${new Date(user.subscription.trialEndsAt).toLocaleDateString()}`
+                                : user.subscription.currentPeriodEnd
+                                  ? ` · period ends ${new Date(user.subscription.currentPeriodEnd).toLocaleDateString()}`
                                 : ""
                             }`
-                          : "No trial or subscription assigned"}
+                          : "No subscription"}
+                        {user.subscription?.cancelAtPeriodEnd
+                          ? " · cancellation scheduled"
+                          : ""}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {user.featureUsesLast30Days} tracked feature uses in the last 30 days
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -496,6 +661,20 @@ export function AdminUsersPanel() {
                       )}
                       <button
                         type="button"
+                        onClick={() => {
+                          setAccountDetails(null);
+                          setSelectedDetailsId((current) =>
+                            current === user.id ? null : user.id,
+                          );
+                        }}
+                        className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#2b2e3b] px-3 text-xs text-slate-300 hover:bg-white/5"
+                        aria-expanded={selectedDetailsId === user.id}
+                      >
+                        <Eye className="size-4" aria-hidden="true" />
+                        {selectedDetailsId === user.id ? "Hide details" : "Account details"}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() =>
                           void updateAccount(
                             user.id,
@@ -537,6 +716,149 @@ export function AdminUsersPanel() {
                       )}
                     </div>
                   </div>
+                  {selectedDetailsId === user.id && (
+                    <div className="mt-4 rounded-lg border border-[#252735] bg-[#0d0e14] p-4">
+                      {detailsLoading ? (
+                        <p className="flex items-center gap-2 text-xs text-slate-400">
+                          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                          Loading account metadata…
+                        </p>
+                      ) : accountDetails?.account.id === user.id ? (
+                        <div className="space-y-4">
+                          <dl className="grid gap-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
+                            <DetailValue
+                              label="Signup date"
+                              value={new Date(accountDetails.account.createdAt).toLocaleDateString()}
+                            />
+                            <DetailValue
+                              label="Last sign-in"
+                              value={accountDetails.account.lastSignInAt
+                                ? new Date(accountDetails.account.lastSignInAt).toLocaleString()
+                                : "Never"}
+                            />
+                            <DetailValue
+                              label="Tracked applications"
+                              value={accountDetails.usage.trackedApplications}
+                            />
+                            <DetailValue
+                              label="Saved roadmaps"
+                              value={accountDetails.usage.savedRoadmaps}
+                            />
+                            <DetailValue
+                              label="Tracked feature uses"
+                              value={accountDetails.usage.featureUsesTotal}
+                            />
+                            <DetailValue
+                              label="First tracked feature use"
+                              value={accountDetails.usage.firstFeatureUseAt
+                                ? new Date(accountDetails.usage.firstFeatureUseAt).toLocaleDateString()
+                                : "No usage recorded"}
+                            />
+                            <DetailValue
+                              label="Latest tracked feature use"
+                              value={accountDetails.usage.lastFeatureUseAt
+                                ? new Date(accountDetails.usage.lastFeatureUseAt).toLocaleString()
+                                : "No usage recorded"}
+                            />
+                            <DetailValue
+                              label="Local profile created"
+                              value={accountDetails.account.localProfileCreatedAt
+                                ? new Date(accountDetails.account.localProfileCreatedAt).toLocaleDateString()
+                                : "Profile not created"}
+                            />
+                          </dl>
+                          {accountDetails.subscription && (
+                            <div>
+                              <p className="text-xs font-medium text-slate-300">
+                                Subscription details
+                              </p>
+                              <dl className="mt-2 grid gap-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
+                                <DetailValue
+                                  label="Plan and status"
+                                  value={`${accountDetails.subscription.plan} · ${accountDetails.subscription.status.toLowerCase().replaceAll("_", " ")}`}
+                                />
+                                <DetailValue
+                                  label="Billing"
+                                  value={`${accountDetails.subscription.provider ?? "Provider unavailable"} · ${accountDetails.subscription.billingInterval}`}
+                                />
+                                <DetailValue
+                                  label="Period started"
+                                  value={accountDetails.subscription.currentPeriodStart
+                                    ? new Date(accountDetails.subscription.currentPeriodStart).toLocaleDateString()
+                                    : "Not recorded"}
+                                />
+                                <DetailValue
+                                  label="Period ends"
+                                  value={accountDetails.subscription.currentPeriodEnd
+                                    ? new Date(accountDetails.subscription.currentPeriodEnd).toLocaleDateString()
+                                    : "Not recorded"}
+                                />
+                                <DetailValue
+                                  label="Payment issue recorded"
+                                  value={accountDetails.subscription.paymentFailedAt
+                                    ? new Date(accountDetails.subscription.paymentFailedAt).toLocaleDateString()
+                                    : "None"}
+                                />
+                                <DetailValue
+                                  label="Cancellation"
+                                  value={accountDetails.subscription.cancelAtPeriodEnd
+                                    ? "At period end"
+                                    : "Not scheduled"}
+                                />
+                                <DetailValue
+                                  label="Cancellation requested"
+                                  value={accountDetails.subscription.cancellationRequestedAt
+                                    ? new Date(accountDetails.subscription.cancellationRequestedAt).toLocaleDateString()
+                                    : "Not requested"}
+                                />
+                                <DetailValue
+                                  label="Cancellation request sent"
+                                  value={accountDetails.subscription.cancellationRequestSentAt
+                                    ? new Date(accountDetails.subscription.cancellationRequestSentAt).toLocaleDateString()
+                                    : "Not sent"}
+                                />
+                              </dl>
+                            </div>
+                          )}
+                          {accountDetails.usage.featureUsesLast30Days.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-slate-300">
+                                Tracked feature use · last 30 days
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {accountDetails.usage.featureUsesLast30Days
+                                  .map(({ feature, count }) => `${feature.replaceAll("_", " ")}: ${count}`)
+                                  .join(" · ")}
+                              </p>
+                            </div>
+                          )}
+                          {accountDetails.recentAdminActions.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-slate-300">
+                                Recent admin actions
+                              </p>
+                              <ul className="mt-2 space-y-1">
+                                {accountDetails.recentAdminActions.map((action, index) => (
+                                  <li
+                                    key={`${action.createdAt}-${action.action}-${index}`}
+                                    className="text-xs text-slate-500"
+                                  >
+                                    {action.action.toLowerCase().replaceAll("_", " ")} by{" "}
+                                    {action.actorEmail} ·{" "}
+                                    {new Date(action.createdAt).toLocaleString()}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          Account details are unavailable. See the error above and try again.
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {deleteCandidate?.id === user.id && (
                     <div className="mt-4 rounded-lg border border-rose-500/20 bg-rose-500/[0.04] p-3">
                       <p className="text-sm font-medium text-rose-100">
@@ -627,5 +949,20 @@ function AccountStat({ label, value }: { label: string; value: string | number }
       <p className="text-xs font-medium text-slate-400">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
     </article>
+  );
+}
+
+function DetailValue({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div>
+      <dt className="text-slate-500">{label}</dt>
+      <dd className="mt-1 break-words font-medium text-slate-200">{value}</dd>
+    </div>
   );
 }

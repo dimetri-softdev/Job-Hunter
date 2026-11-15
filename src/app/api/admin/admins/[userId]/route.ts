@@ -39,6 +39,22 @@ export async function DELETE(
     );
   }
 
-  await db.adminAccess.delete({ where: { userId } });
+  const actorEmail = authorization.user.email?.trim().toLowerCase();
+  if (!actorEmail) {
+    return adminJson({ error: "The administrator account has no email address." }, 400);
+  }
+
+  await db.$transaction([
+    db.adminAccess.delete({ where: { userId } }),
+    db.billingAuditLog.create({
+      data: {
+        actorId: authorization.user.id,
+        actorEmail,
+        subjectUserId: userId,
+        action: "ADMIN_ACCESS_REMOVED",
+        details: { email: admin.email },
+      },
+    }),
+  ]);
   return adminJson({ removed: true });
 }

@@ -7,8 +7,10 @@ import { AdminSupportPanel } from "@/components/dashboard/admin-support-panel";
 import { AdminUsersPanel } from "@/components/dashboard/admin-users-panel";
 import { AdminRemindersPanel } from "@/components/dashboard/admin-reminders-panel";
 import { AdminAdsPanel } from "@/components/dashboard/admin-ads-panel";
+import { AdminOverviewPanel } from "@/components/dashboard/admin-overview-panel";
 
 type AdminSectionWithSupport =
+  | "overview"
   | "feedback"
   | "users"
   | "billing"
@@ -17,6 +19,7 @@ type AdminSectionWithSupport =
   | "ads";
 
 const ADMIN_SECTIONS: { value: AdminSectionWithSupport; label: string }[] = [
+  { value: "overview", label: "Overview" },
   { value: "feedback", label: "Feedback" },
   { value: "users", label: "Users & admins" },
   { value: "billing", label: "Billing" },
@@ -26,7 +29,7 @@ const ADMIN_SECTIONS: { value: AdminSectionWithSupport; label: string }[] = [
 ];
 
 export function AdminDashboard() {
-  const [section, setSection] = useState<AdminSectionWithSupport>("feedback");
+  const [section, setSection] = useState<AdminSectionWithSupport>("overview");
 
   return (
     <div className="space-y-5">
@@ -81,7 +84,9 @@ export function AdminDashboard() {
         aria-labelledby={`admin-tab-${section}`}
         tabIndex={0}
       >
-        {section === "feedback" ? (
+        {section === "overview" ? (
+          <AdminOverviewPanel />
+        ) : section === "feedback" ? (
           <AdminFeedbackPanel />
         ) : section === "users" ? (
           <AdminUsersPanel />
