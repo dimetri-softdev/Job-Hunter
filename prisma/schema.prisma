@@ -279,6 +279,8 @@ model UserSubscription {
   cancellationRequestSentAt DateTime?
   cancellationAttemptCount Int @default(0)
   cancellationLastAttemptAt DateTime?
+  scheduledPlan           String?
+  scheduledBillingInterval String?
   provider               String?
   providerEnvironment    String?
   providerCustomerId     String?
@@ -299,6 +301,14 @@ model PayfastCheckout {
   status                 String   @default("PENDING")
   providerEnvironment    String   @default("sandbox")
   providerSubscriptionId String?
+  changeType             String   @default("NEW")
+  replacedSubscriptionToken String? @unique
+  replacedSubscriptionPlan String?
+  replacedSubscriptionBillingInterval String?
+  replacedSubscriptionCancellationSentAt DateTime?
+  replacedSubscriptionCanceledAt DateTime?
+  replacedSubscriptionCancellationAttemptCount Int @default(0)
+  replacedSubscriptionCancellationLastAttemptAt DateTime?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 

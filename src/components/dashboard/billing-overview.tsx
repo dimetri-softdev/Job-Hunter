@@ -36,6 +36,8 @@ interface BillingStatus {
   cancellationRequestedAt: string | null;
   cancellationRequestSentAt: string | null;
   cancellationAttemptCount: number;
+  scheduledPlan: string | null;
+  scheduledBillingInterval: string | null;
   usagePeriodStartsAt: string;
   features: Record<string, FeatureUsage>;
   plans: Record<string, Record<string, number | null>>;
@@ -96,6 +98,8 @@ export function BillingOverview() {
   const [checkoutPending, setCheckoutPending] = useState<string | null>(null);
   const [cancellationError, setCancellationError] = useState<string | null>(null);
   const [cancellationPending, setCancellationPending] = useState(false);
+  const [planChangeError, setPlanChangeError] = useState<string | null>(null);
+  const [planChangePending, setPlanChangePending] = useState<string | null>(null);
   const [checkoutInterval, setCheckoutInterval] = useState<"monthly" | "annual">(
     "monthly",
   );
@@ -104,7 +108,15 @@ export function BillingOverview() {
     let active = true;
     fetcher<BillingStatus>("/billing/status")
       .then((result) => {
-        if (active) setStatus(result);
+        if (active) {
+          setStatus(result);
+          if (
+            result.scheduledBillingInterval === "monthly" ||
+            result.scheduledBillingInterval === "annual"
+          ) {
+            setCheckoutInterval(result.scheduledBillingInterval);
+          }
+        }
       })
       .catch((loadError: unknown) => {
         if (active) {
@@ -189,6 +201,78 @@ export function BillingOverview() {
     }
   }
 
+  async function scheduleDowngrade(plan: string) {
+    if (!window.confirm(
+      `Schedule a change to ${titleCase(plan)} at renewal? Your current plan stays active until then. You'll need to return at renewal and complete checkout for the new plan; no new payment is authorized now.`,
+    )) {
+      return;
+    }
+
+    setPlanChangeError(null);
+    setPlanChangePending(plan);
+    try {
+      const result = await fetcher<{
+        cancelAtPeriodEnd: boolean;
+        scheduledPlan: string;
+        scheduledBillingInterval: string;
+        currentPeriodEnd: string;
+      }>("/billing/payfast/change", {
+        method: "POST",
+        body: JSON.stringify({ plan, billingInterval: checkoutInterval }),
+      });
+      setStatus((current) =>
+        current
+          ? {
+              ...current,
+              cancelAtPeriodEnd: result.cancelAtPeriodEnd,
+              scheduledPlan: result.scheduledPlan,
+              scheduledBillingInterval: result.scheduledBillingInterval,
+              currentPeriodEnd: result.currentPeriodEnd,
+              cancellationRequestedAt: new Date().toISOString(),
+            }
+          : current,
+      );
+    } catch (requestError: unknown) {
+      setPlanChangeError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to schedule this plan change.",
+      );
+    } finally {
+      setPlanChangePending(null);
+    }
+  }
+
+  async function undoScheduledDowngrade() {
+    setPlanChangeError(null);
+    setPlanChangePending("undo");
+    try {
+      await fetcher<{ cancelAtPeriodEnd: boolean; scheduledPlan: null }>(
+        "/billing/payfast/change",
+        { method: "DELETE" },
+      );
+      setStatus((current) =>
+        current
+          ? {
+              ...current,
+              cancelAtPeriodEnd: false,
+              scheduledPlan: null,
+              scheduledBillingInterval: null,
+              cancellationRequestedAt: null,
+            }
+          : current,
+      );
+    } catch (requestError: unknown) {
+      setPlanChangeError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to undo the scheduled plan change.",
+      );
+    } finally {
+      setPlanChangePending(null);
+    }
+  }
+
   if (error) {
     return (
       <p
@@ -214,6 +298,15 @@ export function BillingOverview() {
     ["TRIALING", "ACTIVE", "CANCELED", "PAST_DUE"].includes(status.status);
   const trialEnd = formatDate(status.trialEndsAt);
   const periodEnd = formatDate(status.currentPeriodEnd);
+  const currentPayfastSubscription =
+    status.provider === "payfast" && status.status !== "ENVIRONMENT_MISMATCH";
+  const currentPeriodIsActive =
+    currentPayfastSubscription &&
+    ["ACTIVE", "PAST_DUE", "CANCELED"].includes(status.status);
+  const scheduledDowngradeReady =
+    Boolean(status.scheduledPlan) &&
+    status.cancelAtPeriodEnd &&
+    status.status === "EXPIRED";
 
   return (
     <div className="space-y-5">
@@ -295,7 +388,11 @@ export function BillingOverview() {
           <div className="mt-4 rounded-lg border border-[#252735] bg-[#0d0e14] p-3">
             <p className="text-xs leading-5 text-slate-300">
               {status.cancellationRequestSentAt
-                ? `PayFast has received your cancellation request. Your access remains available through ${periodEnd ?? "the end of your paid period"}.`
+                ? status.scheduledPlan
+                  ? `Your ${titleCase(status.plan ?? "current")} plan remains active through ${periodEnd ?? "the end of your paid period"}. It is scheduled to end then; return at renewal to complete checkout for ${titleCase(status.scheduledPlan)}.`
+                  : `PayFast has received your cancellation request. Your access remains available through ${periodEnd ?? "the end of your paid period"}.`
+                : status.scheduledPlan
+                  ? `Your ${titleCase(status.plan ?? "current")} plan remains active through ${periodEnd ?? "the end of your paid period"}. At renewal it will end, and you’ll need to return and complete checkout for ${titleCase(status.scheduledPlan)}. No future payment is authorized now.`
                 : status.cancelAtPeriodEnd
                   ? !status.cancellationEnabled
                     ? `Cancellation is scheduled for ${periodEnd ?? "the end of your paid period"}, but its processor is not currently configured. Contact support.`
@@ -305,15 +402,37 @@ export function BillingOverview() {
                   : status.canceledAt
                     ? `PayFast has stopped renewal. Your access remains available through ${periodEnd ?? "the end of your paid period"}.`
                     : status.cancellationEnabled
-                      ? "Plan upgrades and downgrades are managed by support. You can schedule cancellation for the end of your paid period."
-                      : "Self-service cancellation is not configured. Contact support to cancel; plan changes are also support-managed."}
+                      ? "Upgrades take effect after the new PayFast payment succeeds. Downgrades take effect at renewal; you’ll return then to complete checkout."
+                      : "Self-service cancellation and plan changes are not configured. Contact support for help."}
             </p>
             {cancellationError && (
               <p role="alert" className="mt-2 text-xs text-rose-200">
                 {cancellationError}
               </p>
             )}
+            {planChangeError && (
+              <p role="alert" className="mt-2 text-xs text-rose-200">
+                {planChangeError}
+              </p>
+            )}
+            {status.scheduledPlan && status.cancellationEnabled && (
+              <button
+                type="button"
+                onClick={() => void undoScheduledDowngrade()}
+                disabled={
+                  planChangePending !== null ||
+                  status.cancellationRequestSentAt !== null ||
+                  status.cancellationAttemptCount > 0
+                }
+                className="mt-3 rounded-lg border border-violet-400/30 px-3 py-2 text-xs font-medium text-violet-100 transition hover:bg-violet-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {planChangePending === "undo"
+                  ? "Updating…"
+                  : "Undo scheduled downgrade"}
+              </button>
+            )}
             {status.cancellationEnabled &&
+              !status.scheduledPlan &&
               status.currentPeriodEnd &&
               !status.canceledAt &&
               !status.cancellationRequestSentAt &&
@@ -386,7 +505,9 @@ export function BillingOverview() {
           <h2 className="text-sm font-semibold text-white">Plan allowances</h2>
           <p className="mt-1 text-xs text-slate-500">
             Monthly AI allowances. Premium includes unlimited monthly usage for
-            the listed features.
+            the listed features. Upgrades start after the new payment succeeds;
+            downgrades keep your current plan through renewal and require checkout
+            then, with no future payment authorized now.
           </p>
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -409,24 +530,68 @@ export function BillingOverview() {
             </button>
           ))}
         </div>
-        {checkoutError && (
+        {(checkoutError || planChangeError) && (
           <p
             role="alert"
             className="mb-3 rounded-lg border border-rose-400/20 bg-rose-500/10 p-3 text-xs text-rose-200"
           >
-            {checkoutError}
+            {checkoutError ?? planChangeError}
           </p>
         )}
         <div className="grid gap-3 lg:grid-cols-3">
-          {Object.entries(status.plans).map(([plan, limits]) => (
-            <article
-              key={plan}
-              className={`rounded-xl border bg-[#12131a] p-4 ${
-                status.plan === plan
-                  ? "border-violet-400/50"
-                  : "border-[#1f212d]"
-              }`}
-            >
+          {Object.entries(status.plans).map(([plan, limits]) => {
+            const currentPlanRank = PLAN_ORDER[status.plan ?? "basic"] ?? 0;
+            const planRank = PLAN_ORDER[plan] ?? -1;
+            const activePlan =
+              currentPeriodIsActive &&
+              ["ACTIVE", "PAST_DUE"].includes(status.status) &&
+              !status.cancelAtPeriodEnd;
+            const canUpgrade =
+              activePlan &&
+              currentPayfastSubscription &&
+              status.cancellationEnabled &&
+              planRank > currentPlanRank;
+            const canDowngrade =
+              activePlan &&
+              currentPayfastSubscription &&
+              status.cancellationEnabled &&
+              planRank >= 0 &&
+              planRank < currentPlanRank;
+            const canCompleteScheduledDowngrade =
+              scheduledDowngradeReady && status.scheduledPlan === plan;
+            const canSubscribe =
+              !currentPayfastSubscription ||
+              (status.status === "CANCELED" && !currentPeriodIsActive);
+            const canStartCheckout =
+              status.checkoutEnabled &&
+              !status.isAdmin &&
+              plan !== "basic" &&
+              (canUpgrade || canCompleteScheduledDowngrade || canSubscribe);
+            const buttonLabel = canUpgrade
+              ? `Upgrade to ${titleCase(plan)}`
+              : canDowngrade
+                ? `Schedule ${titleCase(plan)}`
+                : canCompleteScheduledDowngrade
+                  ? `Complete ${titleCase(plan)} checkout`
+                  : canSubscribe
+                    ? status.checkoutMode === "live"
+                      ? "Subscribe with PayFast"
+                      : "Subscribe in sandbox"
+                    : status.scheduledPlan === plan
+                      ? `Scheduled for ${periodEnd ?? "renewal"}`
+                      : currentPeriodIsActive
+                        ? "Available after this period"
+                        : "Plan change unavailable";
+
+            return (
+              <article
+                key={plan}
+                className={`rounded-xl border bg-[#12131a] p-4 ${
+                  status.plan === plan
+                    ? "border-violet-400/50"
+                    : "border-[#1f212d]"
+                }`}
+              >
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-base font-semibold text-white">
                   {titleCase(plan)}
@@ -487,26 +652,31 @@ export function BillingOverview() {
                         ? "Adds resume updates and higher monthly allowances"
                         : "Unlimited monthly allowances for normal personal use"}
               </p>
-              {plan !== "basic" && status.checkoutEnabled && !status.isAdmin && (
+              {plan !== "basic" && (status.checkoutEnabled || canDowngrade) && !status.isAdmin && (
                 <button
                   type="button"
-                  onClick={() => void startCheckout(plan)}
+                  onClick={() =>
+                    canDowngrade
+                      ? void scheduleDowngrade(plan)
+                      : void startCheckout(plan)
+                  }
                   disabled={
-                    checkoutPending !== null || status.provider === "payfast"
+                    (!canStartCheckout && !canDowngrade) ||
+                    checkoutPending !== null ||
+                    planChangePending !== null
                   }
                   className="mt-4 w-full rounded-lg bg-violet-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {checkoutPending === plan
                     ? "Opening PayFast…"
-                    : status.provider === "payfast"
-                      ? "Subscription already active"
-                      : status.checkoutMode === "live"
-                        ? "Subscribe with PayFast"
-                        : "Subscribe in sandbox"}
+                    : planChangePending === plan
+                      ? "Scheduling…"
+                      : buttonLabel}
                 </button>
               )}
             </article>
-          ))}
+            );
+          })}
         </div>
         <p className="mt-3 text-xs text-slate-500">
           Annual billing is {status.annualDiscountPercent}% off.{" "}

@@ -400,7 +400,15 @@ FEATURE_LABELS = {
 
 PAYFAST_SETTINGS = PayFastSettings.from_environment(os.environ)
 
-app.include_router(create_payfast_router(db, get_current_user, PAYFAST_SETTINGS, BILLING_PRICES))
+app.include_router(
+    create_payfast_router(
+        db,
+        get_current_user,
+        PAYFAST_SETTINGS,
+        BILLING_PRICES,
+        PLAN_ORDER,
+    )
+)
 
 
 async def billing_is_enabled() -> bool:
@@ -644,7 +652,7 @@ async def get_billing_status(
         'SELECT "plan", "status", "trialEndsAt", "currentPeriodStart", "currentPeriodEnd", '
         '"paymentFailedAt", "canceledAt", "provider", "providerEnvironment", "billingInterval", '
         '"cancelAtPeriodEnd", "cancellationRequestedAt", "cancellationRequestSentAt", '
-        '"cancellationAttemptCount" '
+        '"cancellationAttemptCount", "scheduledPlan", "scheduledBillingInterval" '
         'FROM "UserSubscription" WHERE "userId" = $1',
         user_id,
     )
@@ -760,6 +768,13 @@ async def get_billing_status(
         "cancellationAttemptCount": (
             int(stored_subscription.get("cancellationAttemptCount") or 0)
             if stored_subscription else 0
+        ),
+        "scheduledPlan": (
+            stored_subscription.get("scheduledPlan") if stored_subscription else None
+        ),
+        "scheduledBillingInterval": (
+            stored_subscription.get("scheduledBillingInterval")
+            if stored_subscription else None
         ),
         "usagePeriodStartsAt": month_start.isoformat(),
         "features": features,

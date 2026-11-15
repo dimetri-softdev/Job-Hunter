@@ -205,7 +205,7 @@ npx prisma generate
 
 Checkout stays unavailable unless a supported mode, its credentials, and all three HTTPS URLs are configured. The return and cancel URLs only send the browser back to the app; access is granted only after the backend validates the signed PayFast notification against the matching sandbox or live validation endpoint. Keep the existing Admin billing-enforcement switch disabled during sandbox testing.
 
-Customers with a PayFast subscription can schedule cancellation for the end of their current paid period from **Settings → Plan & usage**. Access remains available through that date. The customer can undo the request until the scheduled PayFast API request begins; plan upgrades and downgrades remain support-managed. Sandbox cancellation requests use the PayFast API `testing=true` parameter; live requests omit it and cancel the matching live subscription.
+Customers with a PayFast subscription can change plans from **Settings → Plan & usage**. Upgrades to a higher paid plan start a new recurring checkout; the existing plan remains active unless PayFast confirms payment for the new plan. After confirmation, the backend immediately requests cancellation of the old renewal and retries failures from the existing cancellation cron. Downgrades are scheduled for renewal: the current plan remains active through its paid period, its renewal is canceled in advance, and the customer must return at renewal and complete checkout for the selected lower paid plan. No prorated credit or refund is issued, and scheduling a downgrade does not authorize a future payment. A scheduled downgrade can be undone until PayFast cancellation processing begins. Customers can also schedule cancellation without a replacement plan. Sandbox cancellation requests use the PayFast API `testing=true` parameter; live requests omit it and cancel only the matching live subscription.
 
 Configure `PAYFAST_CANCELLATION_CRON_SECRET` on the FastAPI service, then create a separate cron job to call the cancellation processor every five minutes. Set `JOBHUNTER_API_URL` to the API base URL ending in `/api/v1` and give the cron job the same secret:
 
@@ -214,7 +214,14 @@ curl --fail --silent --show-error -X POST "$JOBHUNTER_API_URL/internal/payfast/c
   -H "X-PayFast-Cancellation-Cron-Secret: $PAYFAST_CANCELLATION_CRON_SECRET"
 ```
 
-The processor only sends requests for due subscriptions in the configured PayFast mode. Failed requests are logged, return HTTP 502 so the cron failure is visible, and become eligible for retry after 30 minutes. Review API and cron logs for repeated failures. Apply the migration above before deploying these changes; it adds cancellation scheduling state and permits cancellation notifications without a payment amount.
+The processor only sends requests for subscriptions in the configured PayFast mode. Scheduled downgrades are canceled up to one day before renewal so the old plan is not intentionally renewed; access remains available through the paid period end. Failed subscription cancellations, including the old subscription after a successful upgrade, are logged, return HTTP 502 so the cron failure is visible, and become eligible for retry after 30 minutes. Review API and cron logs for repeated failures.
+
+Before deploying self-service plan changes, apply the new `20261115220000_add_self_service_subscription_changes` migration and regenerate Prisma Client:
+
+```bash
+npx prisma migrate deploy
+npx prisma generate
+```
 
 ### Password requirements
 

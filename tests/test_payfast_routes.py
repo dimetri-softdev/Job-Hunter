@@ -1,10 +1,10 @@
 import asyncio
 import unittest
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from urllib.parse import urlencode
 
 from fastapi import HTTPException
@@ -23,7 +23,7 @@ from api.routes.payfast import (
     _signature,
     create_payfast_router,
 )
-from api.schemas.payfast import SubscriptionCheckoutRequest
+from api.schemas.payfast import SubscriptionChangeRequest, SubscriptionCheckoutRequest
 
 
 class FakeDatabase:
@@ -52,9 +52,23 @@ class FakeDatabase:
             return [] if self.duplicate_notification else [{"id": "notification-id"}]
         if 'FROM "PayfastNotification"' in query:
             return [{"id": "notification-id"}] if self.completed_event else []
+        if '"replacedSubscriptionToken" = $1' in query:
+            return (
+                [self.checkout]
+                if self.checkout
+                and self.checkout.get("replacedSubscriptionToken") == values[0]
+                else []
+            )
         if 'FROM "PayfastCheckout"' in query:
             return [self.checkout] if self.checkout else []
         if 'FROM "UserSubscription"' in query:
+            if (
+                '"providerSubscriptionId" = $2' in query
+                and self.subscription
+                and self.subscription.get("providerSubscriptionId")
+                and self.subscription.get("providerSubscriptionId") != values[1]
+            ):
+                return []
             return [self.subscription] if self.subscription else []
         if 'FROM "User"' in query:
             return [{"email": "person@example.com"}]
@@ -93,7 +107,19 @@ class PayFastRouteTests(unittest.TestCase):
             "starter": {
                 "monthly": Decimal("29.00"),
                 "annual": Decimal("278.40"),
-            }
+            },
+            "standard": {
+                "monthly": Decimal("79.00"),
+                "annual": Decimal("758.40"),
+            },
+            "lite": {
+                "monthly": Decimal("120.00"),
+                "annual": Decimal("1152.00"),
+            },
+            "premium": {
+                "monthly": Decimal("179.99"),
+                "annual": Decimal("1727.90"),
+            },
         }
 
     def test_checkout_builds_a_signed_annual_sandbox_subscription(self):
@@ -199,6 +225,112 @@ class PayFastRouteTests(unittest.TestCase):
 
         self.assertEqual(result["mode"], "live")
         self.assertEqual(db.executions[0][1][6], "live")
+
+    def test_upgrade_checkout_retains_existing_subscription_until_payment(self):
+        db = FakeDatabase(
+            subscription={
+                "id": "subscription-id",
+                "provider": "payfast",
+                "providerEnvironment": "sandbox",
+                "providerSubscriptionId": "old-token",
+                "plan": "starter",
+                "billingInterval": "monthly",
+                "status": "ACTIVE",
+                "currentPeriodEnd": datetime.now(timezone.utc) + timedelta(days=20),
+                "cancelAtPeriodEnd": False,
+            }
+        )
+        endpoint = self._endpoint(
+            db,
+            "/api/v1/billing/checkout",
+            settings=self.cancellation_settings,
+        )
+
+        result = asyncio.run(
+            endpoint(
+                payload=SubscriptionCheckoutRequest(
+                    plan="standard",
+                    billingInterval="annual",
+                ),
+                user_id="user-123",
+            )
+        )
+
+        self.assertEqual(result["mode"], "sandbox")
+        self.assertEqual(len(db.executions), 1)
+        insert_sql, insert_values = db.executions[0]
+        self.assertIn('"replacedSubscriptionToken"', insert_sql)
+        self.assertEqual(insert_values[7], "UPGRADE")
+        self.assertEqual(insert_values[8], "old-token")
+        self.assertEqual(insert_values[9], "starter")
+        self.assertEqual(insert_values[10], "monthly")
+        self.assertFalse(any("UPDATE" in query for query, _ in db.executions))
+
+    def test_lower_plan_is_scheduled_at_renewal_without_starting_checkout(self):
+        db = FakeDatabase(
+            subscription={
+                "provider": "payfast",
+                "providerEnvironment": "sandbox",
+                "providerSubscriptionId": "current-token",
+                "plan": "standard",
+                "status": "ACTIVE",
+                "currentPeriodEnd": datetime.now(timezone.utc) + timedelta(days=20),
+                "cancelAtPeriodEnd": False,
+                "cancellationRequestSentAt": None,
+                "cancellationAttemptCount": 0,
+            }
+        )
+        endpoint = self._endpoint(
+            db,
+            "/api/v1/billing/payfast/change",
+            settings=self.cancellation_settings,
+        )
+
+        result = asyncio.run(
+            endpoint(
+                payload=SubscriptionChangeRequest(
+                    plan="starter",
+                    billingInterval="annual",
+                ),
+                user_id="user-123",
+            )
+        )
+
+        self.assertTrue(result["cancelAtPeriodEnd"])
+        self.assertEqual(result["scheduledPlan"], "starter")
+        self.assertEqual(result["scheduledBillingInterval"], "annual")
+        self.assertEqual(len(db.executions), 1)
+        self.assertIn('"scheduledPlan" = $2', db.executions[0][0])
+        self.assertEqual(db.executions[0][1][1:3], ("starter", "annual"))
+
+    def test_scheduled_downgrade_checkout_is_available_after_renewal(self):
+        db = FakeDatabase(
+            subscription={
+                "provider": "payfast",
+                "providerEnvironment": "sandbox",
+                "providerSubscriptionId": "current-token",
+                "plan": "standard",
+                "status": "CANCELED",
+                "currentPeriodEnd": datetime.now(timezone.utc) - timedelta(days=1),
+                "cancelAtPeriodEnd": True,
+                "scheduledPlan": "starter",
+                "scheduledBillingInterval": "annual",
+            }
+        )
+        endpoint = self._endpoint(db, "/api/v1/billing/checkout")
+
+        asyncio.run(
+            endpoint(
+                payload=SubscriptionCheckoutRequest(
+                    plan="starter",
+                    billingInterval="monthly",
+                ),
+                user_id="user-123",
+            )
+        )
+
+        self.assertEqual(db.executions[0][1][7], "DOWNGRADE")
+        self.assertIsNone(db.executions[0][1][8])
 
     def test_live_environment_does_not_fall_back_to_sandbox_credentials(self):
         settings = PayFastSettings.from_environment(
@@ -387,6 +519,38 @@ class PayFastRouteTests(unittest.TestCase):
         self.assertNotIn("params", kwargs)
         self.assertEqual(kwargs["headers"]["merchant-id"], "live-merchant")
 
+    def test_cancellation_job_retries_the_replaced_subscription_token(self):
+        db = CancellationDatabase(
+            None,
+            replacement={
+                "id": "upgrade-checkout",
+                "replacedSubscriptionToken": "old-token",
+            },
+        )
+        endpoint = self._endpoint(
+            db,
+            "/api/v1/internal/payfast/cancellations/process",
+            settings=self.cancellation_settings,
+        )
+        client = _SuccessfulCancellationClient()
+
+        with patch("api.routes.payfast.httpx.AsyncClient", return_value=client):
+            result = asyncio.run(endpoint(request=_cron_request()))
+
+        self.assertEqual(result, {"sent": 1, "failed": 0, "skipped": 0})
+        url, kwargs = client.put_request
+        self.assertEqual(
+            url,
+            "https://api.payfast.co.za/subscriptions/old-token/cancel",
+        )
+        self.assertEqual(kwargs["params"], {"testing": "true"})
+        self.assertTrue(
+            any(
+                '"replacedSubscriptionCancellationSentAt" = $1::timestamp' in query
+                for query, _ in db.executions
+            )
+        )
+
     def test_cancellation_job_rejects_invalid_cron_secret(self):
         endpoint = self._endpoint(
             CancellationDatabase({}, due=True),
@@ -497,6 +661,91 @@ class PayFastRouteTests(unittest.TestCase):
             if 'INSERT INTO "PayfastNotification"' in query
         )
         self.assertIn("$6::numeric", notification_insert)
+
+    def test_failed_upgrade_checkout_does_not_replace_or_cancel_existing_plan(self):
+        db = FakeDatabase(
+            checkout={
+                "id": "checkout-id",
+                "userId": "user-123",
+                "plan": "standard",
+                "billingInterval": "monthly",
+                "amount": Decimal("79.00"),
+                "status": "PENDING",
+                "providerEnvironment": "sandbox",
+                "changeType": "UPGRADE",
+                "replacedSubscriptionToken": "old-token",
+                "replacedSubscriptionPlan": "starter",
+                "replacedSubscriptionBillingInterval": "monthly",
+            },
+            subscription={
+                "userId": "user-123",
+                "provider": "payfast",
+                "providerEnvironment": "sandbox",
+                "providerSubscriptionId": "old-token",
+                "plan": "starter",
+                "billingInterval": "monthly",
+                "status": "ACTIVE",
+            },
+        )
+        endpoint = self._endpoint(db, "/api/v1/billing/payfast/itn")
+        request = _signed_itn(
+            self.settings.passphrase,
+            amount="79.00",
+            status="FAILED",
+        )
+
+        with patch("api.routes.payfast.httpx.AsyncClient", _ValidatingClient):
+            result = asyncio.run(endpoint(request=request))
+
+        self.assertEqual(result, {"received": True, "duplicate": False})
+        self.assertFalse(
+            any('UPDATE "UserSubscription"' in query for query, _ in db.executions)
+        )
+        self.assertTrue(any('UPDATE "PayfastCheckout"' in query for query, _ in db.executions))
+
+    def test_successful_upgrade_replaces_plan_and_attempts_old_subscription_cancellation(self):
+        db = FakeDatabase(
+            checkout={
+                "id": "checkout-id",
+                "userId": "user-123",
+                "plan": "standard",
+                "billingInterval": "monthly",
+                "amount": Decimal("79.00"),
+                "status": "PENDING",
+                "providerEnvironment": "sandbox",
+                "changeType": "UPGRADE",
+                "replacedSubscriptionToken": "old-token",
+            },
+            subscription={
+                "userId": "user-123",
+                "provider": "payfast",
+                "providerEnvironment": "sandbox",
+                "providerSubscriptionId": "old-token",
+                "plan": "starter",
+                "billingInterval": "monthly",
+                "status": "ACTIVE",
+                "cancelAtPeriodEnd": False,
+            },
+        )
+        endpoint = self._endpoint(db, "/api/v1/billing/payfast/itn")
+        request = _signed_itn(self.settings.passphrase, amount="79.00")
+        process_replacement = AsyncMock(return_value=True)
+
+        with patch("api.routes.payfast.httpx.AsyncClient", _ValidatingClient), patch(
+            "api.routes.payfast._process_replaced_subscription_cancellation",
+            process_replacement,
+        ):
+            result = asyncio.run(endpoint(request=request))
+
+        self.assertEqual(result, {"received": True, "duplicate": False})
+        subscription_upsert = next(
+            (query, values)
+            for query, values in db.executions
+            if 'INSERT INTO "UserSubscription"' in query
+        )
+        self.assertEqual(subscription_upsert[1][2], "standard")
+        self.assertTrue(subscription_upsert[1][10])
+        process_replacement.assert_awaited_once()
 
     def test_live_notification_uses_live_validation_endpoint(self):
         settings = PayFastSettings(
@@ -615,6 +864,38 @@ class PayFastRouteTests(unittest.TestCase):
         )
         self.assertEqual(notification_insert[2], "subscription:subscription-token")
         self.assertIsNone(notification_insert[5])
+
+    def test_cancellation_notification_for_replaced_subscription_is_acknowledged(self):
+        db = FakeDatabase(
+            checkout={
+                "id": "upgrade-checkout",
+                "userId": "user-123",
+                "plan": "standard",
+                "billingInterval": "monthly",
+                "amount": Decimal("79.00"),
+                "status": "COMPLETE",
+                "providerEnvironment": "sandbox",
+                "providerSubscriptionId": "new-token",
+                "replacedSubscriptionToken": "subscription-token",
+                "replacedSubscriptionPlan": "starter",
+                "replacedSubscriptionBillingInterval": "monthly",
+            }
+        )
+        endpoint = self._endpoint(db, "/api/v1/billing/payfast/itn")
+
+        with patch("api.routes.payfast.httpx.AsyncClient", _ValidatingClient):
+            result = asyncio.run(endpoint(request=_cancellation_itn(self.settings.passphrase)))
+
+        self.assertEqual(result, {"received": True, "duplicate": False})
+        self.assertTrue(
+            any(
+                '"replacedSubscriptionCanceledAt" = $1::timestamp' in query
+                for query, _ in db.executions
+            )
+        )
+        self.assertFalse(
+            any('UPDATE "UserSubscription"' in query for query, _ in db.executions)
+        )
 
     def test_renewal_notification_preserves_a_pending_cancellation_request(self):
         db = FakeDatabase(
@@ -762,16 +1043,23 @@ class PayFastRouteTests(unittest.TestCase):
 
 
 class CancellationDatabase:
-    def __init__(self, subscription, *, due=False):
+    def __init__(self, subscription, *, due=False, replacement=None):
         self.subscription = subscription
         if self.subscription is not None:
             self.subscription.setdefault("providerEnvironment", "sandbox")
         self.due = due
+        self.replacement = replacement
         self.queries = []
         self.executions = []
 
     async def query_raw(self, query, *values):
         self.queries.append((query, values))
+        if 'SELECT "id" FROM "PayfastCheckout"' in query:
+            return [{"id": self.replacement.get("id")}] if self.replacement else []
+        if 'SELECT "id", "replacedSubscriptionToken" FROM "PayfastCheckout"' in query:
+            return [self.replacement] if self.replacement else []
+        if 'FROM "PayfastCheckout"' in query:
+            return [self.replacement] if self.replacement else []
         if 'SELECT "id" FROM "UserSubscription"' in query:
             return [{"id": self.subscription.get("id", "subscription-id")}] if self.due else []
         if '"provider", "providerEnvironment", "providerSubscriptionId"' in query:

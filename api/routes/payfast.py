@@ -13,7 +13,7 @@ from urllib.parse import parse_qsl, quote, quote_plus
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from api.schemas.payfast import SubscriptionCheckoutRequest
+from api.schemas.payfast import SubscriptionChangeRequest, SubscriptionCheckoutRequest
 from api.services.dates import utc_datetime
 
 logger = logging.getLogger(__name__)
@@ -270,13 +270,95 @@ def _as_decimal(value: Any) -> Optional[Decimal]:
         return None
 
 
+async def _process_replaced_subscription_cancellation(
+    db: Any,
+    client: httpx.AsyncClient,
+    settings: PayFastSettings,
+    checkout_id: str,
+) -> Optional[bool]:
+    attempted_at = datetime.now(timezone.utc)
+    async with db.tx() as transaction:
+        rows = await transaction.query_raw(
+            'SELECT "id", "replacedSubscriptionToken" FROM "PayfastCheckout" '
+            'WHERE "id" = $1 AND "status" = $2 AND "providerEnvironment" = $3 '
+            'AND "replacedSubscriptionToken" IS NOT NULL '
+            'AND "replacedSubscriptionCancellationSentAt" IS NULL '
+            'AND "replacedSubscriptionCanceledAt" IS NULL '
+            'AND ("replacedSubscriptionCancellationLastAttemptAt" IS NULL OR '
+            '"replacedSubscriptionCancellationLastAttemptAt" <= $4::timestamp) '
+            'FOR UPDATE',
+            checkout_id,
+            "COMPLETE",
+            settings.mode,
+            attempted_at - MAX_CANCELLATION_RETRY_INTERVAL,
+        )
+        if not rows or not rows[0].get("replacedSubscriptionToken"):
+            return None
+        replacement = rows[0]
+        await transaction.execute_raw(
+            'UPDATE "PayfastCheckout" SET '
+            '"replacedSubscriptionCancellationAttemptCount" = '
+            '"replacedSubscriptionCancellationAttemptCount" + 1, '
+            '"replacedSubscriptionCancellationLastAttemptAt" = $1::timestamp, '
+            '"updatedAt" = CURRENT_TIMESTAMP WHERE "id" = $2',
+            attempted_at,
+            checkout_id,
+        )
+
+    timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    api_fields = {
+        "merchant-id": settings.merchant_id or "",
+        "timestamp": timestamp,
+        "version": "v1",
+    }
+    headers = {
+        **api_fields,
+        "signature": _api_signature(api_fields, settings.passphrase or ""),
+    }
+    token = str(replacement["replacedSubscriptionToken"])
+    try:
+        response = await client.put(
+            f"{PAYFAST_API_URL}/subscriptions/{quote(token, safe='')}/cancel",
+            **({"params": {"testing": "true"}} if settings.mode == "sandbox" else {}),
+            headers=headers,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        logger.error(
+            "PayFast replacement cancellation failed with HTTP %s.",
+            exc.response.status_code,
+        )
+        return False
+    except httpx.RequestError as exc:
+        logger.error(
+            "PayFast replacement cancellation failed (%s).",
+            type(exc).__name__,
+        )
+        return False
+
+    await db.execute_raw(
+        'UPDATE "PayfastCheckout" SET '
+        '"replacedSubscriptionCancellationSentAt" = $1::timestamp, '
+        '"updatedAt" = CURRENT_TIMESTAMP WHERE "id" = $2 '
+        'AND "replacedSubscriptionCancellationSentAt" IS NULL',
+        datetime.now(timezone.utc),
+        checkout_id,
+    )
+    return True
+
+
 def create_payfast_router(
     db: Any,
     get_current_user: Callable[..., Awaitable[str]],
     settings: PayFastSettings,
     prices: dict[str, dict[str, Decimal]],
+    plan_order: Optional[dict[str, int]] = None,
 ) -> APIRouter:
     router = APIRouter()
+    ranks = plan_order or {
+        "basic": 0,
+        **{plan: index + 1 for index, plan in enumerate(prices)},
+    }
 
     @router.post("/api/v1/billing/checkout")
     async def create_checkout(
@@ -299,27 +381,88 @@ def create_payfast_router(
         plan = payload.plan
         interval = payload.billingInterval
         amount = prices[plan][interval]
+        now = datetime.now(timezone.utc)
         async with db.tx() as transaction:
             await transaction.query_raw(
                 'SELECT "id" FROM "User" WHERE "id" = $1 FOR UPDATE',
                 user_id,
             )
             existing = await transaction.query_raw(
-                'SELECT "provider", "providerEnvironment", "status", '
-                '"providerSubscriptionId", "currentPeriodEnd" '
+                'SELECT "id", "provider", "providerEnvironment", "status", "plan", '
+                '"billingInterval", "providerSubscriptionId", "currentPeriodEnd", '
+                '"cancelAtPeriodEnd", "cancellationRequestSentAt", '
+                '"cancellationAttemptCount", "scheduledPlan", "scheduledBillingInterval" '
                 'FROM "UserSubscription" WHERE "userId" = $1 FOR UPDATE',
                 user_id,
             )
-            if existing and existing[0].get("provider") == "payfast" and existing[0].get(
-                "providerSubscriptionId"
-            ) and existing[0].get("providerEnvironment") == settings.mode:
-                raise HTTPException(
-                    status_code=409,
-                    detail="This account already has a PayFast subscription. Contact support to change it.",
-                )
+            change_type = "NEW"
+            replaced_subscription = None
+            if (
+                existing
+                and existing[0].get("provider") == "payfast"
+                and existing[0].get("providerSubscriptionId")
+                and existing[0].get("providerEnvironment") == settings.mode
+            ):
+                current = existing[0]
+                period_end = utc_datetime(current.get("currentPeriodEnd"))
+                current_is_paid = period_end is not None and period_end > now
+                if current.get("cancelAtPeriodEnd"):
+                    if (
+                        current.get("scheduledPlan")
+                        and period_end
+                        and period_end <= now
+                        and plan == current.get("scheduledPlan")
+                    ):
+                        change_type = "DOWNGRADE"
+                    elif (
+                        current.get("status") == "CANCELED"
+                        and period_end
+                        and period_end <= now
+                    ):
+                        change_type = "NEW"
+                    else:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=(
+                                "This subscription is scheduled to end. Undo the scheduled "
+                                "cancellation or wait until the paid period ends before checkout."
+                            ),
+                        )
+                elif current.get("status") in {"ACTIVE", "PAST_DUE"} and current_is_paid:
+                    current_rank = ranks.get(str(current.get("plan", "")).lower())
+                    target_rank = ranks.get(plan)
+                    if current_rank is None or target_rank is None or target_rank <= current_rank:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=(
+                                "Choose a higher plan for immediate checkout. Lower plans "
+                                "must be scheduled for renewal, and the current plan cannot be re-purchased."
+                            ),
+                        )
+                    change_type = "UPGRADE"
+                    replaced_subscription = current
+                    if not settings.cancellation_enabled:
+                        raise HTTPException(
+                            status_code=503,
+                            detail=(
+                                "The PayFast cancellation processor must be configured "
+                                "before upgrading an existing subscription."
+                            ),
+                        )
+                elif current.get("status") in {"ACTIVE", "PAST_DUE"}:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="The existing PayFast subscription must be canceled before starting another checkout.",
+                    )
+                elif current_is_paid:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Wait until the current paid period ends before starting another checkout.",
+                    )
 
             pending = await transaction.query_raw(
-                'SELECT "id", "plan", "billingInterval", "amount" FROM "PayfastCheckout" '
+                'SELECT "id", "plan", "billingInterval", "amount", "changeType", '
+                '"replacedSubscriptionToken" FROM "PayfastCheckout" '
                 'WHERE "userId" = $1 AND "status" = $2 '
                 'AND "providerEnvironment" = $3 LIMIT 1 FOR UPDATE',
                 user_id,
@@ -331,6 +474,13 @@ def create_payfast_router(
                 if (
                     pending_checkout["plan"] != plan
                     or pending_checkout["billingInterval"] != interval
+                    or pending_checkout.get("changeType", change_type) != change_type
+                    or pending_checkout.get("replacedSubscriptionToken")
+                    != (
+                        replaced_subscription.get("providerSubscriptionId")
+                        if replaced_subscription
+                        else None
+                    )
                 ):
                     raise HTTPException(
                         status_code=409,
@@ -346,8 +496,9 @@ def create_payfast_router(
                 await transaction.execute_raw(
                     'INSERT INTO "PayfastCheckout" '
                     '("id", "userId", "plan", "billingInterval", "amount", "status", '
-                    '"providerEnvironment", "updatedAt") '
-                    'VALUES ($1, $2, $3, $4, $5::numeric, $6, $7, CURRENT_TIMESTAMP)',
+                    '"providerEnvironment", "changeType", "replacedSubscriptionToken", '
+                    '"replacedSubscriptionPlan", "replacedSubscriptionBillingInterval", "updatedAt") '
+                    'VALUES ($1, $2, $3, $4, $5::numeric, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)',
                     checkout_id,
                     user_id,
                     payload.plan,
@@ -355,6 +506,14 @@ def create_payfast_router(
                     amount,
                     "PENDING",
                     settings.mode,
+                    change_type,
+                    replaced_subscription.get("providerSubscriptionId")
+                    if replaced_subscription
+                    else None,
+                    replaced_subscription.get("plan") if replaced_subscription else None,
+                    replaced_subscription.get("billingInterval")
+                    if replaced_subscription
+                    else None,
                 )
 
         fields = [
@@ -379,6 +538,155 @@ def create_payfast_router(
             "fields": dict(fields),
             "mode": settings.mode,
         }
+
+    @router.post("/api/v1/billing/payfast/change")
+    async def schedule_downgrade(
+        payload: SubscriptionChangeRequest,
+        user_id: str = Depends(get_current_user),
+    ):
+        if not settings.cancellation_enabled:
+            raise HTTPException(
+                status_code=503,
+                detail="PayFast cancellation is not configured.",
+            )
+
+        now = datetime.now(timezone.utc)
+        async with db.tx() as transaction:
+            await transaction.query_raw(
+                'SELECT "id" FROM "User" WHERE "id" = $1 FOR UPDATE',
+                user_id,
+            )
+            subscriptions = await transaction.query_raw(
+                'SELECT "provider", "providerEnvironment", "providerSubscriptionId", '
+                '"plan", "status", "currentPeriodEnd", "cancelAtPeriodEnd", '
+                '"scheduledPlan", "scheduledBillingInterval", '
+                '"cancellationRequestSentAt", "cancellationAttemptCount" '
+                'FROM "UserSubscription" WHERE "userId" = $1 FOR UPDATE',
+                user_id,
+            )
+            if (
+                not subscriptions
+                or subscriptions[0].get("provider") != "payfast"
+                or not subscriptions[0].get("providerSubscriptionId")
+            ):
+                raise HTTPException(status_code=404, detail="No PayFast subscription was found.")
+            subscription = subscriptions[0]
+            if subscription.get("providerEnvironment") != settings.mode:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This subscription belongs to a different PayFast environment.",
+                )
+            period_end = utc_datetime(subscription.get("currentPeriodEnd"))
+            current_rank = ranks.get(str(subscription.get("plan", "")).lower())
+            target_rank = ranks.get(payload.plan)
+            if (
+                subscription.get("status") not in {"ACTIVE", "PAST_DUE"}
+                or not period_end
+                or period_end <= now
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="This subscription cannot be scheduled for a plan change.",
+                )
+            if current_rank is None or target_rank is None or target_rank >= current_rank:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Choose a lower plan to schedule a change at renewal.",
+                )
+            if (
+                subscription.get("cancellationRequestSentAt")
+                or subscription.get("cancellationAttemptCount", 0) > 0
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="This cancellation is already being processed and cannot be changed here.",
+                )
+            pending = await transaction.query_raw(
+                'SELECT "id" FROM "PayfastCheckout" WHERE "userId" = $1 '
+                'AND "status" = $2 AND "providerEnvironment" = $3 LIMIT 1',
+                user_id,
+                "PENDING",
+                settings.mode,
+            )
+            if pending:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Finish or cancel the pending checkout before scheduling a plan change.",
+                )
+
+            if (
+                not subscription.get("cancelAtPeriodEnd")
+                or subscription.get("scheduledPlan") != payload.plan
+                or subscription.get("scheduledBillingInterval") != payload.billingInterval
+            ):
+                await transaction.execute_raw(
+                    'UPDATE "UserSubscription" SET "cancelAtPeriodEnd" = TRUE, '
+                    '"cancellationRequestedAt" = $1::timestamp, "scheduledPlan" = $2, '
+                    '"scheduledBillingInterval" = $3, "updatedAt" = CURRENT_TIMESTAMP '
+                    'WHERE "userId" = $4 AND "provider" = $5',
+                    now,
+                    payload.plan,
+                    payload.billingInterval,
+                    user_id,
+                    "payfast",
+                )
+
+        return {
+            "cancelAtPeriodEnd": True,
+            "scheduledPlan": payload.plan,
+            "scheduledBillingInterval": payload.billingInterval,
+            "currentPeriodEnd": period_end.isoformat(),
+        }
+
+    @router.delete("/api/v1/billing/payfast/change")
+    async def undo_scheduled_downgrade(
+        user_id: str = Depends(get_current_user),
+    ):
+        if not settings.cancellation_enabled:
+            raise HTTPException(
+                status_code=503,
+                detail="PayFast cancellation is not configured.",
+            )
+
+        async with db.tx() as transaction:
+            subscriptions = await transaction.query_raw(
+                'SELECT "provider", "providerEnvironment", "cancelAtPeriodEnd", '
+                '"scheduledPlan", "cancellationRequestSentAt", '
+                '"currentPeriodEnd", "cancellationAttemptCount" '
+                'FROM "UserSubscription" WHERE "userId" = $1 FOR UPDATE',
+                user_id,
+            )
+            if not subscriptions or subscriptions[0].get("provider") != "payfast":
+                raise HTTPException(status_code=404, detail="No PayFast subscription was found.")
+            subscription = subscriptions[0]
+            if subscription.get("providerEnvironment") != settings.mode:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This subscription belongs to a different PayFast environment.",
+                )
+            period_end = utc_datetime(subscription.get("currentPeriodEnd"))
+            if (
+                not subscription.get("scheduledPlan")
+                or subscription.get("cancellationRequestSentAt")
+                or subscription.get("cancellationAttemptCount", 0) > 0
+                or not period_end
+                or period_end <= datetime.now(timezone.utc)
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="This scheduled plan change can no longer be undone here.",
+                )
+            if subscription.get("cancelAtPeriodEnd"):
+                await transaction.execute_raw(
+                    'UPDATE "UserSubscription" SET "cancelAtPeriodEnd" = FALSE, '
+                    '"cancellationRequestedAt" = NULL, "scheduledPlan" = NULL, '
+                    '"scheduledBillingInterval" = NULL, "updatedAt" = CURRENT_TIMESTAMP '
+                    'WHERE "userId" = $1 AND "provider" = $2',
+                    user_id,
+                    "payfast",
+                )
+
+        return {"cancelAtPeriodEnd": False, "scheduledPlan": None}
 
     @router.post("/api/v1/billing/payfast/cancel")
     async def request_period_end_cancellation(
@@ -423,6 +731,19 @@ def create_payfast_router(
                     status_code=409,
                     detail="PayFast has already received the cancellation request.",
                 )
+            if not subscription.get("cancelAtPeriodEnd"):
+                pending = await transaction.query_raw(
+                    'SELECT "id" FROM "PayfastCheckout" WHERE "userId" = $1 '
+                    'AND "status" = $2 AND "providerEnvironment" = $3 LIMIT 1',
+                    user_id,
+                    "PENDING",
+                    settings.mode,
+                )
+                if pending:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Finish or cancel the pending checkout before scheduling cancellation.",
+                    )
             if not subscription.get("cancelAtPeriodEnd"):
                 await transaction.execute_raw(
                     'UPDATE "UserSubscription" SET "cancelAtPeriodEnd" = TRUE, '
@@ -482,7 +803,8 @@ def create_payfast_router(
             if subscription.get("cancelAtPeriodEnd"):
                 await transaction.execute_raw(
                     'UPDATE "UserSubscription" SET "cancelAtPeriodEnd" = FALSE, '
-                    '"cancellationRequestedAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP '
+                    '"cancellationRequestedAt" = NULL, "scheduledPlan" = NULL, '
+                    '"scheduledBillingInterval" = NULL, "updatedAt" = CURRENT_TIMESTAMP '
                     'WHERE "userId" = $1 AND "provider" = $2',
                     user_id,
                     "payfast",
@@ -512,6 +834,8 @@ def create_payfast_router(
             'AND "providerEnvironment" = $2 AND "cancelAtPeriodEnd" = TRUE '
             'AND "cancellationRequestSentAt" IS NULL '
             'AND ("currentPeriodEnd" <= CURRENT_TIMESTAMP OR '
+            '("scheduledPlan" IS NOT NULL AND "currentPeriodEnd" <= '
+            'CURRENT_TIMESTAMP + INTERVAL \'1 day\') OR '
             '("cancellationRequestedAt" IS NOT NULL AND "currentPeriodStart" > "cancellationRequestedAt")) '
             'AND ("cancellationLastAttemptAt" IS NULL OR "cancellationLastAttemptAt" <= $3::timestamp) '
             'ORDER BY "currentPeriodEnd" ASC LIMIT $4',
@@ -519,6 +843,19 @@ def create_payfast_router(
             settings.mode,
             datetime.now(timezone.utc) - MAX_CANCELLATION_RETRY_INTERVAL,
             MAX_CANCELLATIONS_PER_RUN,
+        )
+        due_replacements = await db.query_raw(
+            'SELECT "id" FROM "PayfastCheckout" WHERE "status" = $1 '
+            'AND "providerEnvironment" = $2 AND "replacedSubscriptionToken" IS NOT NULL '
+            'AND "replacedSubscriptionCancellationSentAt" IS NULL '
+            'AND "replacedSubscriptionCanceledAt" IS NULL '
+            'AND ("replacedSubscriptionCancellationLastAttemptAt" IS NULL OR '
+            '"replacedSubscriptionCancellationLastAttemptAt" <= $3::timestamp) '
+            'ORDER BY "createdAt" ASC LIMIT $4',
+            "COMPLETE",
+            settings.mode,
+            datetime.now(timezone.utc) - MAX_CANCELLATION_RETRY_INTERVAL,
+            max(0, MAX_CANCELLATIONS_PER_RUN - len(due_subscriptions)),
         )
         sent = 0
         failed = 0
@@ -533,6 +870,8 @@ def create_payfast_router(
                         'AND "providerEnvironment" = $3 AND "cancelAtPeriodEnd" = TRUE '
                         'AND "cancellationRequestSentAt" IS NULL '
                         'AND ("currentPeriodEnd" <= CURRENT_TIMESTAMP OR '
+                        '("scheduledPlan" IS NOT NULL AND "currentPeriodEnd" <= '
+                        'CURRENT_TIMESTAMP + INTERVAL \'1 day\') OR '
                         '("cancellationRequestedAt" IS NOT NULL AND "currentPeriodStart" > "cancellationRequestedAt")) '
                         'AND ("cancellationLastAttemptAt" IS NULL OR "cancellationLastAttemptAt" <= $4::timestamp) '
                         'FOR UPDATE',
@@ -599,6 +938,20 @@ def create_payfast_router(
                     subscription["id"],
                 )
                 sent += 1
+
+            for candidate in due_replacements:
+                replacement_result = await _process_replaced_subscription_cancellation(
+                    db,
+                    client,
+                    settings,
+                    str(candidate["id"]),
+                )
+                if replacement_result is True:
+                    sent += 1
+                elif replacement_result is False:
+                    failed += 1
+                else:
+                    skipped += 1
 
         result = {"sent": sent, "failed": failed, "skipped": skipped}
         if failed:
@@ -718,7 +1071,9 @@ def create_payfast_router(
         checkout_rows = (
             await db.query_raw(
                 'SELECT "id", "userId", "plan", "billingInterval", "amount", "status", '
-                '"providerEnvironment", "providerSubscriptionId" '
+                '"providerEnvironment", "providerSubscriptionId", "changeType", '
+                '"replacedSubscriptionToken", "replacedSubscriptionPlan", '
+                '"replacedSubscriptionBillingInterval" '
                 'FROM "PayfastCheckout" WHERE "id" = $1',
                 fields["m_payment_id"],
             )
@@ -730,7 +1085,8 @@ def create_payfast_router(
         subscription = None
         if token:
             subscription_rows = await db.query_raw(
-                'SELECT "userId", "plan", "billingInterval", "status", "currentPeriodEnd" '
+                'SELECT "userId", "plan", "billingInterval", "status", "currentPeriodEnd", '
+                '"providerSubscriptionId" '
                 'FROM "UserSubscription" WHERE "provider" = $1 '
                 'AND "providerSubscriptionId" = $2 AND "providerEnvironment" = $3',
                 "payfast",
@@ -738,8 +1094,23 @@ def create_payfast_router(
                 settings.mode,
             )
             subscription = subscription_rows[0] if subscription_rows else None
+        replaced_subscription = None
+        if token and not subscription:
+            replacement_rows = await db.query_raw(
+                'SELECT "id", "userId", "replacedSubscriptionPlan", '
+                '"replacedSubscriptionBillingInterval" FROM "PayfastCheckout" '
+                'WHERE "replacedSubscriptionToken" = $1 AND "providerEnvironment" = $2 '
+                'AND "status" = $3 LIMIT 1',
+                token,
+                settings.mode,
+                "COMPLETE",
+            )
+            replaced_subscription = replacement_rows[0] if replacement_rows else None
+        replaced_notification = bool(replaced_subscription and not subscription)
+        if replaced_notification:
+            checkout = None
         if payment_status == "CANCELLED":
-            if not subscription:
+            if not subscription and not replaced_notification:
                 raise HTTPException(status_code=404, detail="PayFast subscription was not found.")
             checkout = None
 
@@ -771,6 +1142,11 @@ def create_payfast_router(
             user_id = str(subscription["userId"])
             plan = str(subscription["plan"])
             interval = str(subscription["billingInterval"])
+            expected_amount = prices.get(plan, {}).get(interval)
+        elif replaced_notification:
+            user_id = str(replaced_subscription["userId"])
+            plan = str(replaced_subscription["replacedSubscriptionPlan"])
+            interval = str(replaced_subscription["replacedSubscriptionBillingInterval"])
             expected_amount = prices.get(plan, {}).get(interval)
         else:
             raise HTTPException(status_code=404, detail="PayFast checkout or subscription was not found.")
@@ -805,6 +1181,7 @@ def create_payfast_router(
                 )
 
         now = datetime.now(timezone.utc)
+        replacement_to_cancel = None
         async with db.tx() as transaction:
             completed_event = await transaction.query_raw(
                 'SELECT "id" FROM "PayfastNotification" '
@@ -831,7 +1208,62 @@ def create_payfast_router(
             if not inserted:
                 return {"received": True, "duplicate": True}
 
+            if replaced_notification:
+                if payment_status == "CANCELLED":
+                    await transaction.execute_raw(
+                        'UPDATE "PayfastCheckout" SET "replacedSubscriptionCanceledAt" = $1::timestamp, '
+                        '"updatedAt" = CURRENT_TIMESTAMP WHERE "id" = $2 '
+                        'AND "replacedSubscriptionCanceledAt" IS NULL',
+                        now,
+                        replaced_subscription["id"],
+                    )
+                return {"received": True, "duplicate": False}
+
             if payment_status == "COMPLETE":
+                if checkout and checkout.get("changeType") in {"UPGRADE", "DOWNGRADE"}:
+                    await transaction.query_raw(
+                        'SELECT "id" FROM "User" WHERE "id" = $1 FOR UPDATE',
+                        user_id,
+                    )
+                    current_rows = await transaction.query_raw(
+                        'SELECT "provider", "providerEnvironment", "providerSubscriptionId", '
+                        '"status", "currentPeriodEnd", "cancelAtPeriodEnd", '
+                        '"scheduledPlan", "scheduledBillingInterval" '
+                        'FROM "UserSubscription" WHERE "userId" = $1 FOR UPDATE',
+                        user_id,
+                    )
+                    current = current_rows[0] if current_rows else None
+                    if checkout["changeType"] == "UPGRADE":
+                        if (
+                            not current
+                            or current.get("provider") != "payfast"
+                            or current.get("providerEnvironment") != settings.mode
+                            or current.get("providerSubscriptionId")
+                            != checkout.get("replacedSubscriptionToken")
+                            or current.get("status") not in {"ACTIVE", "PAST_DUE"}
+                            or current.get("cancelAtPeriodEnd")
+                        ):
+                            raise HTTPException(
+                                status_code=409,
+                                detail="The existing subscription changed before the upgrade completed. Contact support.",
+                            )
+                    else:
+                        current_period_end = utc_datetime(
+                            current.get("currentPeriodEnd") if current else None
+                        )
+                        if (
+                            not current
+                            or current.get("provider") != "payfast"
+                            or current.get("providerEnvironment") != settings.mode
+                            or current.get("scheduledPlan") != plan
+                            or not current_period_end
+                            or current_period_end > now
+                        ):
+                            raise HTTPException(
+                                status_code=409,
+                                detail="The scheduled downgrade is not ready to complete. Contact support if this persists.",
+                            )
+
                 period_start = now
                 if subscription and subscription.get("currentPeriodEnd"):
                     existing_period_end = utc_datetime(subscription["currentPeriodEnd"])
@@ -852,14 +1284,20 @@ def create_payfast_router(
                     '"providerEnvironment" = EXCLUDED."providerEnvironment", '
                     '"providerSubscriptionId" = EXCLUDED."providerSubscriptionId", '
                     '"billingInterval" = EXCLUDED."billingInterval", '
-                    '"cancellationRequestedAt" = CASE WHEN "UserSubscription"."cancelAtPeriodEnd" '
-                    'THEN "UserSubscription"."cancellationRequestedAt" ELSE NULL END, '
-                    '"cancellationRequestSentAt" = CASE WHEN "UserSubscription"."cancelAtPeriodEnd" '
-                    'THEN "UserSubscription"."cancellationRequestSentAt" ELSE NULL END, '
-                    '"cancellationAttemptCount" = CASE WHEN "UserSubscription"."cancelAtPeriodEnd" '
-                    'THEN "UserSubscription"."cancellationAttemptCount" ELSE 0 END, '
-                    '"cancellationLastAttemptAt" = CASE WHEN "UserSubscription"."cancelAtPeriodEnd" '
-                    'THEN "UserSubscription"."cancellationLastAttemptAt" ELSE NULL END, '
+                    '"cancelAtPeriodEnd" = CASE WHEN $11 THEN FALSE '
+                    'ELSE "UserSubscription"."cancelAtPeriodEnd" END, '
+                    '"cancellationRequestedAt" = CASE WHEN $11 THEN NULL '
+                    'ELSE "UserSubscription"."cancellationRequestedAt" END, '
+                    '"cancellationRequestSentAt" = CASE WHEN $11 THEN NULL '
+                    'ELSE "UserSubscription"."cancellationRequestSentAt" END, '
+                    '"cancellationAttemptCount" = CASE WHEN $11 THEN 0 '
+                    'ELSE "UserSubscription"."cancellationAttemptCount" END, '
+                    '"cancellationLastAttemptAt" = CASE WHEN $11 THEN NULL '
+                    'ELSE "UserSubscription"."cancellationLastAttemptAt" END, '
+                    '"scheduledPlan" = CASE WHEN $11 THEN NULL '
+                    'ELSE "UserSubscription"."scheduledPlan" END, '
+                    '"scheduledBillingInterval" = CASE WHEN $11 THEN NULL '
+                    'ELSE "UserSubscription"."scheduledBillingInterval" END, '
                     '"updatedAt" = CURRENT_TIMESTAMP',
                     str(uuid.uuid4()),
                     user_id,
@@ -871,6 +1309,7 @@ def create_payfast_router(
                     settings.mode,
                     token,
                     interval,
+                    bool(checkout),
                 )
                 if checkout:
                     await transaction.execute_raw(
@@ -881,6 +1320,8 @@ def create_payfast_router(
                         token,
                         fields["m_payment_id"],
                     )
+                    if checkout.get("changeType") == "UPGRADE":
+                        replacement_to_cancel = str(checkout["id"])
             elif payment_status in {"FAILED", "CANCELLED"}:
                 if checkout:
                     await transaction.execute_raw(
@@ -907,6 +1348,15 @@ def create_payfast_router(
                         token,
                         "PAST_DUE",
                     )
+
+        if replacement_to_cancel:
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=False) as client:
+                await _process_replaced_subscription_cancellation(
+                    db,
+                    client,
+                    settings,
+                    replacement_to_cancel,
+                )
 
         return {"received": True, "duplicate": False}
 
