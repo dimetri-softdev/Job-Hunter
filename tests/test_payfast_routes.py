@@ -183,6 +183,7 @@ class PayFastRouteTests(unittest.TestCase):
         self.assertTrue(result["cancelAtPeriodEnd"])
         self.assertEqual(result["currentPeriodEnd"], "2030-01-01T00:00:00+00:00")
         self.assertIn('"cancelAtPeriodEnd" = TRUE', db.executions[0][0])
+        self.assertIn('"cancellationRequestedAt" = $1::timestamp', db.executions[0][0])
 
     def test_customer_can_undo_cancellation_before_payfast_request(self):
         subscription = {
@@ -247,10 +248,11 @@ class PayFastRouteTests(unittest.TestCase):
             hashlib.md5(api_parameter_string.encode()).hexdigest(),
         )
         self.assertTrue(
-            any('"cancellationRequestSentAt" = $1' in query for query, _ in db.executions)
+            any('"cancellationRequestSentAt" = $1::timestamp' in query for query, _ in db.executions)
         )
         due_query = next(query for query, _ in db.queries if 'SELECT "id" FROM "UserSubscription"' in query)
         self.assertIn('"currentPeriodStart" > "cancellationRequestedAt"', due_query)
+        self.assertIn('"cancellationLastAttemptAt" <= $2::timestamp', due_query)
 
     def test_cancellation_job_rejects_invalid_cron_secret(self):
         endpoint = self._endpoint(
@@ -354,6 +356,7 @@ class PayFastRouteTests(unittest.TestCase):
         self.assertEqual(result, {"received": True, "duplicate": False})
         self.assertEqual(len(db.executions), 2)
         self.assertIn('"UserSubscription"', db.executions[0][0])
+        self.assertIn("$5::timestamp, $6::timestamp", db.executions[0][0])
         self.assertIn('"PayfastCheckout"', db.executions[1][0])
         notification_insert = next(
             query for query, _values in db.queries

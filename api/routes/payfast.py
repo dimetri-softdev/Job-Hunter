@@ -360,7 +360,7 @@ def create_payfast_router(
             if not subscription.get("cancelAtPeriodEnd"):
                 await transaction.execute_raw(
                     'UPDATE "UserSubscription" SET "cancelAtPeriodEnd" = TRUE, '
-                    '"cancellationRequestedAt" = $1, "updatedAt" = CURRENT_TIMESTAMP '
+                    '"cancellationRequestedAt" = $1::timestamp, "updatedAt" = CURRENT_TIMESTAMP '
                     'WHERE "userId" = $2 AND "provider" = $3',
                     now,
                     user_id,
@@ -442,7 +442,7 @@ def create_payfast_router(
             'AND "cancelAtPeriodEnd" = TRUE AND "cancellationRequestSentAt" IS NULL '
             'AND ("currentPeriodEnd" <= CURRENT_TIMESTAMP OR '
             '("cancellationRequestedAt" IS NOT NULL AND "currentPeriodStart" > "cancellationRequestedAt")) '
-            'AND ("cancellationLastAttemptAt" IS NULL OR "cancellationLastAttemptAt" <= $2) '
+            'AND ("cancellationLastAttemptAt" IS NULL OR "cancellationLastAttemptAt" <= $2::timestamp) '
             'ORDER BY "currentPeriodEnd" ASC LIMIT $3',
             "payfast",
             datetime.now(timezone.utc) - MAX_CANCELLATION_RETRY_INTERVAL,
@@ -461,7 +461,7 @@ def create_payfast_router(
                         'AND "cancelAtPeriodEnd" = TRUE AND "cancellationRequestSentAt" IS NULL '
                         'AND ("currentPeriodEnd" <= CURRENT_TIMESTAMP OR '
                         '("cancellationRequestedAt" IS NOT NULL AND "currentPeriodStart" > "cancellationRequestedAt")) '
-                        'AND ("cancellationLastAttemptAt" IS NULL OR "cancellationLastAttemptAt" <= $3) '
+                        'AND ("cancellationLastAttemptAt" IS NULL OR "cancellationLastAttemptAt" <= $3::timestamp) '
                         'FOR UPDATE',
                         candidate["id"],
                         "payfast",
@@ -471,7 +471,7 @@ def create_payfast_router(
                         subscription = rows[0]
                         await transaction.execute_raw(
                             'UPDATE "UserSubscription" SET "cancellationAttemptCount" = '
-                            '"cancellationAttemptCount" + 1, "cancellationLastAttemptAt" = $1, '
+                            '"cancellationAttemptCount" + 1, "cancellationLastAttemptAt" = $1::timestamp, '
                             '"updatedAt" = CURRENT_TIMESTAMP WHERE "id" = $2',
                             datetime.now(timezone.utc),
                             subscription["id"],
@@ -514,7 +514,7 @@ def create_payfast_router(
                     continue
 
                 await db.execute_raw(
-                    'UPDATE "UserSubscription" SET "cancellationRequestSentAt" = $1, '
+                    'UPDATE "UserSubscription" SET "cancellationRequestSentAt" = $1::timestamp, '
                     '"updatedAt" = CURRENT_TIMESTAMP WHERE "id" = $2 '
                     'AND "cancelAtPeriodEnd" = TRUE AND "cancellationRequestSentAt" IS NULL',
                     datetime.now(timezone.utc),
@@ -759,7 +759,7 @@ def create_payfast_router(
                     '("id", "userId", "plan", "status", "currentPeriodStart", "currentPeriodEnd", '
                     '"paymentFailedAt", "canceledAt", "provider", "providerSubscriptionId", '
                     '"billingInterval", "updatedAt") '
-                    'VALUES ($1, $2, $3, $4, $5, $6, NULL, NULL, $7, $8, $9, CURRENT_TIMESTAMP) '
+                    'VALUES ($1, $2, $3, $4, $5::timestamp, $6::timestamp, NULL, NULL, $7, $8, $9, CURRENT_TIMESTAMP) '
                     'ON CONFLICT ("userId") DO UPDATE SET "plan" = EXCLUDED."plan", '
                     '"status" = EXCLUDED."status", "currentPeriodStart" = EXCLUDED."currentPeriodStart", '
                     '"currentPeriodEnd" = EXCLUDED."currentPeriodEnd", "paymentFailedAt" = NULL, '
@@ -806,10 +806,10 @@ def create_payfast_router(
                 elif subscription:
                     await transaction.execute_raw(
                         'UPDATE "UserSubscription" SET "status" = $1, '
-                        '"paymentFailedAt" = CASE WHEN $1 = $6 THEN $2 ELSE NULL END, '
-                        '"canceledAt" = CASE WHEN $1 = $3 THEN $2 ELSE "canceledAt" END, '
+                        '"paymentFailedAt" = CASE WHEN $1 = $6 THEN $2::timestamp ELSE NULL END, '
+                        '"canceledAt" = CASE WHEN $1 = $3 THEN $2::timestamp ELSE "canceledAt" END, '
                         '"cancellationRequestSentAt" = CASE WHEN $1 = $3 '
-                        'THEN COALESCE("cancellationRequestSentAt", $2) '
+                        'THEN COALESCE("cancellationRequestSentAt", $2::timestamp) '
                         'ELSE "cancellationRequestSentAt" END, '
                         '"updatedAt" = CURRENT_TIMESTAMP WHERE "provider" = $4 '
                         'AND "providerSubscriptionId" = $5',
