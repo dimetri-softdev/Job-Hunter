@@ -44,12 +44,24 @@ class BillingPlanTests(unittest.TestCase):
                 "currentPeriodEnd": period_end.isoformat().replace("+00:00", "Z"),
             }
         )
+        live_settings = main.PayFastSettings(
+            mode="live",
+            merchant_id="live-merchant",
+            merchant_key="live-key",
+            passphrase="live-passphrase",
+            return_url="https://app.example.com/return",
+            cancel_url="https://app.example.com/cancel",
+            notify_url="https://api.example.com/itn",
+        )
 
-        with patch.object(main, "db", db):
+        with patch.object(main, "db", db), patch.object(
+            main, "PAYFAST_SETTINGS", live_settings
+        ):
             with patch.object(main, "billing_is_enabled", AsyncMock(return_value=True)):
                 result = asyncio.run(main.get_billing_status(user_id="user-123"))
 
         self.assertEqual(result["status"], "ACTIVE")
+        self.assertEqual(result["checkoutMode"], "live")
         self.assertEqual(
             datetime.fromisoformat(result["currentPeriodStart"]),
             period_start,

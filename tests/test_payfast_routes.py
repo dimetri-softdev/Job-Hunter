@@ -12,6 +12,8 @@ from fastapi.routing import APIRoute
 from starlette.requests import Request
 
 from api.routes.payfast import (
+    PAYFAST_LIVE_PROCESS_URL,
+    PAYFAST_LIVE_VALIDATE_URL,
     PAYFAST_SANDBOX_PROCESS_URL,
     PayFastSettings,
     _checkout_signature,
@@ -137,7 +139,7 @@ class PayFastRouteTests(unittest.TestCase):
         self.assertEqual(len(db.executions), 1)
         self.assertIn("$5::numeric", db.executions[0][0])
 
-    def test_checkout_is_disabled_when_live_mode_is_selected(self):
+    def test_checkout_uses_live_process_url_when_live_mode_is_selected(self):
         settings = PayFastSettings(
             mode="live",
             merchant_id="merchant",
@@ -149,25 +151,81 @@ class PayFastRouteTests(unittest.TestCase):
         )
         endpoint = self._endpoint(FakeDatabase(), "/api/v1/billing/checkout", settings)
 
-        with self.assertRaises(HTTPException) as raised:
-            asyncio.run(
-                endpoint(
-                    payload=SubscriptionCheckoutRequest(
-                        plan="starter",
-                        billingInterval="monthly",
-                    ),
-                    user_id="user-123",
-                )
+        result = asyncio.run(
+            endpoint(
+                payload=SubscriptionCheckoutRequest(
+                    plan="starter",
+                    billingInterval="monthly",
+                ),
+                user_id="user-123",
             )
+        )
 
-        self.assertEqual(raised.exception.status_code, 503)
+        self.assertEqual(result["action"], PAYFAST_LIVE_PROCESS_URL)
+        self.assertEqual(result["mode"], "live")
+
+    def test_live_environment_does_not_fall_back_to_sandbox_credentials(self):
+        settings = PayFastSettings.from_environment(
+            {
+                "PAYFAST_MODE": "live",
+                "PAYFAST_MERCHANT_ID": "sandbox-merchant",
+                "PAYFAST_MERCHANT_KEY": "sandbox-key",
+                "PAYFAST_PASSPHRASE": "sandbox-passphrase",
+                "PAYFAST_RETURN_URL": "https://app.example.com/return",
+                "PAYFAST_CANCEL_URL": "https://app.example.com/cancel",
+                "PAYFAST_NOTIFY_URL": "https://api.example.com/itn",
+                "PAYFAST_CANCELLATION_CRON_SECRET": "cron-secret",
+            }
+        )
+
+        self.assertIsNone(settings.merchant_id)
+        self.assertIsNone(settings.merchant_key)
+        self.assertIsNone(settings.passphrase)
+        self.assertFalse(settings.checkout_enabled)
+        self.assertFalse(settings.cancellation_enabled)
+
+    def test_live_environment_uses_live_credentials(self):
+        settings = PayFastSettings.from_environment(
+            {
+                "PAYFAST_MODE": "live",
+                "PAYFAST_LIVE_MERCHANT_ID": "live-merchant",
+                "PAYFAST_LIVE_MERCHANT_KEY": "live-key",
+                "PAYFAST_LIVE_PASSPHRASE": "live-passphrase",
+                "PAYFAST_RETURN_URL": "https://app.example.com/return",
+                "PAYFAST_CANCEL_URL": "https://app.example.com/cancel",
+                "PAYFAST_NOTIFY_URL": "https://api.example.com/itn",
+                "PAYFAST_CANCELLATION_CRON_SECRET": "cron-secret",
+            }
+        )
+
+        self.assertEqual(settings.merchant_id, "live-merchant")
+        self.assertEqual(settings.merchant_key, "live-key")
+        self.assertEqual(settings.passphrase, "live-passphrase")
+        self.assertTrue(settings.checkout_enabled)
+        self.assertTrue(settings.cancellation_enabled)
+
+    def test_sandbox_environment_keeps_legacy_credentials_working_by_default(self):
+        settings = PayFastSettings.from_environment(
+            {
+                "PAYFAST_MERCHANT_ID": "sandbox-merchant",
+                "PAYFAST_MERCHANT_KEY": "sandbox-key",
+                "PAYFAST_PASSPHRASE": "sandbox-passphrase",
+                "PAYFAST_RETURN_URL": "https://app.example.com/return",
+                "PAYFAST_CANCEL_URL": "https://app.example.com/cancel",
+                "PAYFAST_NOTIFY_URL": "https://api.example.com/itn",
+            }
+        )
+
+        self.assertEqual(settings.mode, "sandbox")
+        self.assertEqual(settings.merchant_id, "sandbox-merchant")
+        self.assertTrue(settings.checkout_enabled)
 
     def test_customer_can_schedule_period_end_cancellation(self):
         subscription = {
             "provider": "payfast",
             "providerSubscriptionId": "sandbox-token",
             "status": "ACTIVE",
-            "currentPeriodEnd": datetime(2030, 1, 1, tzinfo=timezone.utc),
+            "currentPeriodEnd": "2030-01-01T00:00:00Z",
             "cancelAtPeriodEnd": False,
             "cancellationRequestSentAt": None,
         }
@@ -190,7 +248,7 @@ class PayFastRouteTests(unittest.TestCase):
             "provider": "payfast",
             "cancelAtPeriodEnd": True,
             "cancellationRequestSentAt": None,
-            "currentPeriodEnd": datetime(2030, 1, 1, tzinfo=timezone.utc),
+            "currentPeriodEnd": "2030-01-01T00:00:00Z",
             "cancellationAttemptCount": 0,
         }
         db = CancellationDatabase(subscription)
@@ -230,6 +288,7 @@ class PayFastRouteTests(unittest.TestCase):
         )
         self.assertEqual(kwargs["params"], {"testing": "true"})
         self.assertEqual(kwargs["headers"]["merchant-id"], "sandbox-merchant")
+        self.assertTrue(kwargs["headers"]["timestamp"].endswith("+00:00"))
         signed_fields = {
             key: value
             for key, value in kwargs["headers"].items()
@@ -253,6 +312,43 @@ class PayFastRouteTests(unittest.TestCase):
         due_query = next(query for query, _ in db.queries if 'SELECT "id" FROM "UserSubscription"' in query)
         self.assertIn('"currentPeriodStart" > "cancellationRequestedAt"', due_query)
         self.assertIn('"cancellationLastAttemptAt" <= $2::timestamp', due_query)
+
+    def test_cancellation_job_omits_sandbox_parameter_in_live_mode(self):
+        settings = PayFastSettings(
+            mode="live",
+            merchant_id="live-merchant",
+            merchant_key="live-key",
+            passphrase="live-passphrase",
+            return_url="https://app.example.com/billing?checkout=return",
+            cancel_url="https://app.example.com/billing?checkout=cancelled",
+            notify_url="https://api.example.com/api/v1/billing/payfast/itn",
+            cancellation_cron_secret="cron-secret",
+        )
+        db = CancellationDatabase(
+            {
+                "id": "subscription-id",
+                "providerSubscriptionId": "live-token",
+                "cancellationAttemptCount": 0,
+            },
+            due=True,
+        )
+        endpoint = self._endpoint(
+            db,
+            "/api/v1/internal/payfast/cancellations/process",
+            settings=settings,
+        )
+        client = _SuccessfulCancellationClient()
+        with patch("api.routes.payfast.httpx.AsyncClient", return_value=client):
+            result = asyncio.run(endpoint(request=_cron_request()))
+
+        self.assertEqual(result, {"sent": 1, "failed": 0, "skipped": 0})
+        url, kwargs = client.put_request
+        self.assertEqual(
+            url,
+            "https://api.payfast.co.za/subscriptions/live-token/cancel",
+        )
+        self.assertNotIn("params", kwargs)
+        self.assertEqual(kwargs["headers"]["merchant-id"], "live-merchant")
 
     def test_cancellation_job_rejects_invalid_cron_secret(self):
         endpoint = self._endpoint(
@@ -364,6 +460,40 @@ class PayFastRouteTests(unittest.TestCase):
         )
         self.assertIn("$6::numeric", notification_insert)
 
+    def test_live_notification_uses_live_validation_endpoint(self):
+        settings = PayFastSettings(
+            mode="live",
+            merchant_id="sandbox-merchant",
+            merchant_key="live-key",
+            passphrase=self.settings.passphrase,
+            return_url=self.settings.return_url,
+            cancel_url=self.settings.cancel_url,
+            notify_url=self.settings.notify_url,
+        )
+        db = FakeDatabase(
+            checkout={
+                "id": "checkout-id",
+                "userId": "user-123",
+                "plan": "starter",
+                "billingInterval": "monthly",
+                "amount": Decimal("29.00"),
+                "status": "PENDING",
+                "providerSubscriptionId": None,
+            }
+        )
+        endpoint = self._endpoint(
+            db,
+            "/api/v1/billing/payfast/itn",
+            settings=settings,
+        )
+        client = _ValidatingClient()
+
+        with patch("api.routes.payfast.httpx.AsyncClient", return_value=client):
+            result = asyncio.run(endpoint(request=_signed_itn(settings.passphrase)))
+
+        self.assertEqual(result, {"received": True, "duplicate": False})
+        self.assertEqual(client.validation_request[0], PAYFAST_LIVE_VALIDATE_URL)
+
     def test_duplicate_notification_does_not_repeat_subscription_updates(self):
         db = FakeDatabase(
             checkout={
@@ -421,7 +551,7 @@ class PayFastRouteTests(unittest.TestCase):
                 "plan": "starter",
                 "billingInterval": "monthly",
                 "status": "ACTIVE",
-                "currentPeriodEnd": datetime(2030, 1, 1, tzinfo=timezone.utc),
+                "currentPeriodEnd": "2030-01-01T00:00:00Z",
             },
             completed_event=True,
         )
@@ -449,7 +579,7 @@ class PayFastRouteTests(unittest.TestCase):
                 "plan": "starter",
                 "billingInterval": "monthly",
                 "status": "ACTIVE",
-                "currentPeriodEnd": datetime(2030, 1, 1, tzinfo=timezone.utc),
+                "currentPeriodEnd": "2030-01-01T00:00:00Z",
                 "cancelAtPeriodEnd": True,
                 "cancellationRequestedAt": datetime(2029, 12, 1, tzinfo=timezone.utc),
             }

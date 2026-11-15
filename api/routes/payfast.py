@@ -3,7 +3,7 @@ import hmac
 import logging
 import uuid
 from calendar import monthrange
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
@@ -14,11 +14,14 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.schemas.payfast import SubscriptionCheckoutRequest
+from api.services.dates import utc_datetime
 
 logger = logging.getLogger(__name__)
 
 PAYFAST_SANDBOX_PROCESS_URL = "https://sandbox.payfast.co.za/eng/process"
 PAYFAST_SANDBOX_VALIDATE_URL = "https://sandbox.payfast.co.za/eng/query/validate"
+PAYFAST_LIVE_PROCESS_URL = "https://www.payfast.co.za/eng/process"
+PAYFAST_LIVE_VALIDATE_URL = "https://www.payfast.co.za/eng/query/validate"
 PAYFAST_API_URL = "https://api.payfast.co.za"
 MAX_ITN_BODY_BYTES = 16_384
 MAX_CANCELLATIONS_PER_RUN = 50
@@ -74,10 +77,64 @@ class PayFastSettings:
     notify_url: Optional[str]
     cancellation_cron_secret: Optional[str] = None
 
+    @classmethod
+    def from_environment(cls, environment: Mapping[str, str]) -> "PayFastSettings":
+        def configured_value(name: str) -> Optional[str]:
+            value = environment.get(name)
+            return value.strip() if value else None
+
+        mode = (configured_value("PAYFAST_MODE") or "sandbox").lower()
+        if mode == "live":
+            merchant_id = configured_value("PAYFAST_LIVE_MERCHANT_ID")
+            merchant_key = configured_value("PAYFAST_LIVE_MERCHANT_KEY")
+            passphrase = configured_value("PAYFAST_LIVE_PASSPHRASE")
+        elif mode == "sandbox":
+            merchant_id = (
+                configured_value("PAYFAST_SANDBOX_MERCHANT_ID")
+                or configured_value("PAYFAST_MERCHANT_ID")
+            )
+            merchant_key = (
+                configured_value("PAYFAST_SANDBOX_MERCHANT_KEY")
+                or configured_value("PAYFAST_MERCHANT_KEY")
+            )
+            passphrase = (
+                configured_value("PAYFAST_SANDBOX_PASSPHRASE")
+                or configured_value("PAYFAST_PASSPHRASE")
+            )
+        else:
+            merchant_id = merchant_key = passphrase = None
+
+        return cls(
+            mode=mode,
+            merchant_id=merchant_id,
+            merchant_key=merchant_key,
+            passphrase=passphrase,
+            return_url=configured_value("PAYFAST_RETURN_URL"),
+            cancel_url=configured_value("PAYFAST_CANCEL_URL"),
+            notify_url=configured_value("PAYFAST_NOTIFY_URL"),
+            cancellation_cron_secret=configured_value("PAYFAST_CANCELLATION_CRON_SECRET"),
+        )
+
+    @property
+    def checkout_url(self) -> Optional[str]:
+        if self.mode == "sandbox":
+            return PAYFAST_SANDBOX_PROCESS_URL
+        if self.mode == "live":
+            return PAYFAST_LIVE_PROCESS_URL
+        return None
+
+    @property
+    def validation_url(self) -> Optional[str]:
+        if self.mode == "sandbox":
+            return PAYFAST_SANDBOX_VALIDATE_URL
+        if self.mode == "live":
+            return PAYFAST_LIVE_VALIDATE_URL
+        return None
+
     @property
     def checkout_enabled(self) -> bool:
         return (
-            self.mode == "sandbox"
+            self.mode in {"sandbox", "live"}
             and all(
                 value and value.strip()
                 for value in (
@@ -98,7 +155,7 @@ class PayFastSettings:
     @property
     def cancellation_enabled(self) -> bool:
         return (
-            self.mode == "sandbox"
+            self.mode in {"sandbox", "live"}
             and all(
                 value and value.strip()
                 for value in (self.merchant_id, self.passphrase)
@@ -179,7 +236,7 @@ def _api_signature(fields: dict[str, str], passphrase: str) -> str:
 
 
 def _itn_rejection(status_code: int, reason: str, detail: str) -> HTTPException:
-    logger.warning("PayFast sandbox ITN rejected: %s", reason)
+    logger.warning("PayFast ITN rejected: %s", reason)
     return HTTPException(status_code=status_code, detail=detail)
 
 
@@ -229,7 +286,7 @@ def create_payfast_router(
         if not settings.checkout_enabled:
             raise HTTPException(
                 status_code=503,
-                detail="PayFast sandbox checkout is not configured.",
+                detail="PayFast checkout is not configured.",
             )
 
         users = await db.query_raw(
@@ -313,9 +370,9 @@ def create_payfast_router(
         fields.append(("signature", _checkout_signature(fields, settings.passphrase or "")))
 
         return {
-            "action": PAYFAST_SANDBOX_PROCESS_URL,
+            "action": settings.checkout_url,
             "fields": dict(fields),
-            "mode": "sandbox",
+            "mode": settings.mode,
         }
 
     @router.post("/api/v1/billing/payfast/cancel")
@@ -325,7 +382,7 @@ def create_payfast_router(
         if not settings.cancellation_enabled:
             raise HTTPException(
                 status_code=503,
-                detail="PayFast sandbox cancellation is not configured.",
+                detail="PayFast cancellation is not configured.",
             )
 
         now = datetime.now(timezone.utc)
@@ -339,9 +396,7 @@ def create_payfast_router(
             if not subscriptions or subscriptions[0].get("provider") != "payfast":
                 raise HTTPException(status_code=404, detail="No PayFast subscription was found.")
             subscription = subscriptions[0]
-            period_end = subscription.get("currentPeriodEnd")
-            if isinstance(period_end, datetime) and period_end.tzinfo is None:
-                period_end = period_end.replace(tzinfo=timezone.utc)
+            period_end = utc_datetime(subscription.get("currentPeriodEnd"))
             if (
                 not subscription.get("providerSubscriptionId")
                 or subscription.get("status") not in {"ACTIVE", "PAST_DUE"}
@@ -379,7 +434,7 @@ def create_payfast_router(
         if not settings.cancellation_enabled:
             raise HTTPException(
                 status_code=503,
-                detail="PayFast sandbox cancellation is not configured.",
+                detail="PayFast cancellation is not configured.",
             )
 
         async with db.tx() as transaction:
@@ -397,9 +452,7 @@ def create_payfast_router(
                     status_code=409,
                     detail="PayFast has already received the cancellation request.",
                 )
-            period_end = subscription.get("currentPeriodEnd")
-            if isinstance(period_end, datetime) and period_end.tzinfo is None:
-                period_end = period_end.replace(tzinfo=timezone.utc)
+            period_end = utc_datetime(subscription.get("currentPeriodEnd"))
             if (
                 subscription.get("cancellationAttemptCount", 0) > 0
                 or not period_end
@@ -434,7 +487,7 @@ def create_payfast_router(
         if not settings.cancellation_enabled:
             raise HTTPException(
                 status_code=503,
-                detail="PayFast sandbox cancellation is not configured.",
+                detail="PayFast cancellation is not configured.",
             )
 
         due_subscriptions = await db.query_raw(
@@ -480,7 +533,7 @@ def create_payfast_router(
                     skipped += 1
                     continue
 
-                timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S%z")
+                timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
                 api_fields = {
                     "merchant-id": settings.merchant_id or "",
                     "timestamp": timestamp,
@@ -494,21 +547,25 @@ def create_payfast_router(
                 try:
                     response = await client.put(
                         f"{PAYFAST_API_URL}/subscriptions/{quote(token, safe='')}/cancel",
-                        params={"testing": "true"},
+                        **(
+                            {"params": {"testing": "true"}}
+                            if settings.mode == "sandbox"
+                            else {}
+                        ),
                         headers=headers,
                     )
                     response.raise_for_status()
                 except httpx.HTTPStatusError as exc:
                     failed += 1
                     logger.error(
-                        "PayFast sandbox cancellation request failed with HTTP %s.",
+                        "PayFast cancellation request failed with HTTP %s.",
                         exc.response.status_code,
                     )
                     continue
                 except httpx.RequestError as exc:
                     failed += 1
                     logger.error(
-                        "PayFast sandbox cancellation request failed (%s).",
+                        "PayFast cancellation request failed (%s).",
                         type(exc).__name__,
                     )
                     continue
@@ -538,7 +595,7 @@ def create_payfast_router(
         if not settings.checkout_enabled:
             raise HTTPException(
                 status_code=503,
-                detail="PayFast sandbox notifications are not configured.",
+                detail="PayFast notifications are not configured.",
             )
 
         content_length = request.headers.get("content-length")
@@ -617,13 +674,13 @@ def create_payfast_router(
         try:
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
                 validation = await client.post(
-                    PAYFAST_SANDBOX_VALIDATE_URL,
+                    settings.validation_url,
                     content=body,
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                 )
         except httpx.RequestError as exc:
             logger.error(
-                "PayFast sandbox ITN validation request failed (%s).",
+                "PayFast ITN validation request failed (%s).",
                 type(exc).__name__,
             )
             raise HTTPException(
@@ -748,11 +805,9 @@ def create_payfast_router(
             if payment_status == "COMPLETE":
                 period_start = now
                 if subscription and subscription.get("currentPeriodEnd"):
-                    period_end = subscription["currentPeriodEnd"]
-                    if period_end.tzinfo is None:
-                        period_end = period_end.replace(tzinfo=timezone.utc)
-                    if period_end > now:
-                        period_start = period_end
+                    existing_period_end = utc_datetime(subscription["currentPeriodEnd"])
+                    if existing_period_end and existing_period_end > now:
+                        period_start = existing_period_end
                 period_end = _next_period(period_start, interval)
                 await transaction.execute_raw(
                     'INSERT INTO "UserSubscription" '

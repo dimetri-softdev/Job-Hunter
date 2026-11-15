@@ -18,7 +18,7 @@ interface BillingStatus {
   billingEnabled: boolean;
   checkoutEnabled: boolean;
   cancellationEnabled: boolean;
-  checkoutMode: "sandbox" | null;
+  checkoutMode: "sandbox" | "live" | null;
   currency: string | null;
   annualDiscountPercent: number;
   plan: string | null;
@@ -43,7 +43,7 @@ interface BillingStatus {
 interface CheckoutResponse {
   action: string;
   fields: Record<string, string>;
-  mode: "sandbox";
+  mode: "sandbox" | "live";
 }
 
 const PLAN_ORDER: Record<string, number> = {
@@ -126,11 +126,15 @@ export function BillingOverview() {
         method: "POST",
         body: JSON.stringify({ plan, billingInterval: checkoutInterval }),
       });
+      const expectedAction =
+        checkout.mode === "live"
+          ? "https://www.payfast.co.za/eng/process"
+          : "https://sandbox.payfast.co.za/eng/process";
       if (
-        checkout.mode !== "sandbox" ||
-        checkout.action !== "https://sandbox.payfast.co.za/eng/process"
+        checkout.mode !== status?.checkoutMode ||
+        checkout.action !== expectedAction
       ) {
-        throw new Error("The checkout response did not use the PayFast sandbox.");
+        throw new Error("The checkout response did not match the configured PayFast mode.");
       }
 
       const form = document.createElement("form");
@@ -149,7 +153,7 @@ export function BillingOverview() {
       setCheckoutError(
         checkoutLoadError instanceof Error
           ? checkoutLoadError.message
-          : "Unable to start PayFast sandbox checkout.",
+          : "Unable to start PayFast checkout.",
       );
       setCheckoutPending(null);
     }
@@ -255,19 +259,20 @@ export function BillingOverview() {
             <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             {!status.checkoutEnabled
               ? "Checkout is not configured. An administrator must grant a tester trial."
-              : "Complete sandbox checkout to test the payment flow. Access changes only after PayFast's server-verified notification."}
+              : status.checkoutMode === "live"
+                ? "Complete live checkout to subscribe. PayFast will charge the selected amount and recurring payments."
+                : "Complete sandbox checkout to test the payment flow. Access changes only after PayFast's server-verified notification."}
           </p>
         )}
         {status.checkoutEnabled ? (
           <p className="mt-3 text-xs text-emerald-200">
-            Sandbox checkout is enabled. No real charge will be made, and paid
-            feature enforcement remains separate. Access changes only after the
-            backend verifies PayFast&apos;s notification, not from the return page.
+            {status.checkoutMode === "live"
+              ? "Live checkout is enabled. PayFast will process real payments and recurring charges; feature enforcement remains separate. Access changes only after the backend verifies PayFast's notification, not from the return page."
+              : "Sandbox checkout is enabled. No real charge will be made, and paid feature enforcement remains separate. Access changes only after the backend verifies PayFast's notification, not from the return page."}
           </p>
         ) : (
           <p className="mt-3 text-xs text-slate-500">
-            Sandbox checkout is not configured. No live PayFast payment mode is
-            available in this release.
+            PayFast checkout is not configured. No payment will be started.
           </p>
         )}
         {status.provider === "payfast" && (
@@ -479,16 +484,19 @@ export function BillingOverview() {
                     ? "Opening PayFast…"
                     : status.provider === "payfast"
                       ? "Subscription already active"
-                      : "Subscribe in sandbox"}
+                      : status.checkoutMode === "live"
+                        ? "Subscribe with PayFast"
+                        : "Subscribe in sandbox"}
                 </button>
               )}
             </article>
           ))}
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Annual billing is {status.annualDiscountPercent}% off. Payments in
-          this stage use PayFast sandbox only; no live payment details are
-          collected.
+          Annual billing is {status.annualDiscountPercent}% off.{" "}
+          {status.checkoutMode === "live"
+            ? "Live checkout will collect real payments and create a recurring subscription."
+            : "Sandbox checkout does not collect real payments."}
         </p>
       </section>
     </div>

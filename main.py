@@ -63,6 +63,7 @@ from api.routes.application_profiles import create_application_profiles_router
 from api.routes.feedback import create_feedback_router
 from api.routes.identity import create_identity_router
 from api.routes.payfast import PayFastSettings, create_payfast_router
+from api.services.dates import utc_datetime as _utc_datetime
 from api.routes.profiles import create_profiles_router
 from api.routes.roadmaps import create_roadmaps_router
 from api.schemas.roadmaps import ProjectProofUpdate, TaskUpdate
@@ -395,16 +396,7 @@ FEATURE_LABELS = {
     "assistant_chat": "AI assistant messages",
 }
 
-PAYFAST_SETTINGS = PayFastSettings(
-    mode=os.getenv("PAYFAST_MODE"),
-    merchant_id=os.getenv("PAYFAST_MERCHANT_ID"),
-    merchant_key=os.getenv("PAYFAST_MERCHANT_KEY"),
-    passphrase=os.getenv("PAYFAST_PASSPHRASE"),
-    return_url=os.getenv("PAYFAST_RETURN_URL"),
-    cancel_url=os.getenv("PAYFAST_CANCEL_URL"),
-    notify_url=os.getenv("PAYFAST_NOTIFY_URL"),
-    cancellation_cron_secret=os.getenv("PAYFAST_CANCELLATION_CRON_SECRET"),
-)
+PAYFAST_SETTINGS = PayFastSettings.from_environment(os.environ)
 
 app.include_router(create_payfast_router(db, get_current_user, PAYFAST_SETTINGS, BILLING_PRICES))
 
@@ -415,17 +407,6 @@ async def billing_is_enabled() -> bool:
         "global",
     )
     return bool(rows and rows[0]["enabled"])
-
-
-def _utc_datetime(value: Any) -> Optional[datetime]:
-    if isinstance(value, str):
-        try:
-            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    if not isinstance(value, datetime):
-        return None
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
 
 
 def _subscription_is_entitled(subscription: Optional[dict], now: datetime) -> bool:
@@ -647,7 +628,7 @@ async def get_billing_status(user_id: str = Depends(get_current_user)):
         "billingEnabled": enabled,
         "checkoutEnabled": PAYFAST_SETTINGS.checkout_enabled,
         "cancellationEnabled": PAYFAST_SETTINGS.cancellation_enabled,
-        "checkoutMode": "sandbox" if PAYFAST_SETTINGS.checkout_enabled else None,
+        "checkoutMode": PAYFAST_SETTINGS.mode if PAYFAST_SETTINGS.checkout_enabled else None,
         "currency": "ZAR",
         "annualDiscountPercent": 20,
         "plan": plan,

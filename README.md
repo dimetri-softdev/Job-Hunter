@@ -158,22 +158,37 @@ npx prisma migrate deploy
 npx prisma generate
 ```
 
-### PayFast sandbox subscriptions
+### PayFast subscriptions
 
-The current checkout integration is sandbox-only. Configure these variables on the FastAPI service (for Render, use the service's private environment settings):
+The integration supports sandbox and live PayFast subscriptions. Sandbox is the default. Configure these variables on the FastAPI service (for Render, use the service's private environment settings):
 
 ```env
 PAYFAST_MODE=sandbox
-PAYFAST_MERCHANT_ID=your_sandbox_merchant_id
-PAYFAST_MERCHANT_KEY=your_sandbox_merchant_key
-PAYFAST_PASSPHRASE=your_sandbox_subscription_passphrase
+PAYFAST_SANDBOX_MERCHANT_ID=your_sandbox_merchant_id
+PAYFAST_SANDBOX_MERCHANT_KEY=your_sandbox_merchant_key
+PAYFAST_SANDBOX_PASSPHRASE=your_sandbox_subscription_passphrase
 PAYFAST_RETURN_URL=https://your-site.example/billing
 PAYFAST_CANCEL_URL=https://your-site.example/billing
 PAYFAST_NOTIFY_URL=https://your-api.example/api/v1/billing/payfast/itn
 PAYFAST_CANCELLATION_CRON_SECRET=long-random-secret
 ```
 
-Get the merchant credentials from the PayFast sandbox account and set its **Salt Passphrase** under sandbox Settings. Never paste these values into chat or commit them. The passphrase stays on the backend; the hosted checkout form is signed server-side. The notification URL must be publicly reachable over HTTPS.
+For backwards compatibility, sandbox mode also accepts the existing `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, and `PAYFAST_PASSPHRASE` variables. Live mode never falls back to those sandbox-compatible names.
+
+Get sandbox credentials from the PayFast sandbox account and set its **Salt Passphrase** under sandbox Settings. Never paste credentials into chat or commit them. The passphrase stays on the backend; the hosted checkout form is signed server-side. The notification URL must be publicly reachable over HTTPS.
+
+To configure live mode, first obtain the live Merchant ID, Merchant Key, and Security Pass Phrase from the live PayFast account, then set them privately on the API service:
+
+```env
+PAYFAST_MODE=live
+PAYFAST_LIVE_MERCHANT_ID=your_live_merchant_id
+PAYFAST_LIVE_MERCHANT_KEY=your_live_merchant_key
+PAYFAST_LIVE_PASSPHRASE=your_live_security_pass_phrase
+```
+
+Keep the same HTTPS return, cancel, and notification URL settings. Live mode requires its own live credentials and fails closed if any are missing; it does not reuse sandbox credentials. **Live payments are real transactions:** PayFast states live test transactions are subject to transaction fees and amounts under ZAR 5 cannot be processed. Do not enable live mode until ready to accept real charges and fees. Validate the integration in sandbox first; code-level live validation uses mocked provider responses and does not submit a live payment.
+
+`PAYFAST_MODE` applies to the whole API service. Existing sandbox subscriptions are not converted into live subscriptions. Before changing a service with stored subscriptions to live mode, reconcile the sandbox test records or use separate production data so sandbox subscription tokens are not sent to live PayFast APIs.
 
 Apply the database migration before deploying the backend and web app:
 
@@ -182,9 +197,9 @@ npx prisma migrate deploy
 npx prisma generate
 ```
 
-Checkout stays unavailable unless sandbox mode, all credentials, and all three HTTPS URLs are configured. The return and cancel URLs only send the browser back to the app; access is granted only after the backend validates the signed PayFast notification against the sandbox validation endpoint. Keep the existing Admin billing-enforcement switch disabled during sandbox testing.
+Checkout stays unavailable unless a supported mode, its credentials, and all three HTTPS URLs are configured. The return and cancel URLs only send the browser back to the app; access is granted only after the backend validates the signed PayFast notification against the matching sandbox or live validation endpoint. Keep the existing Admin billing-enforcement switch disabled during sandbox testing.
 
-Customers with a PayFast subscription can schedule cancellation for the end of their current paid period from **Settings → Plan & usage**. Access remains available through that date. The customer can undo the request until the scheduled PayFast API request begins; plan upgrades and downgrades remain support-managed. The backend only enables cancellation dispatch when `PAYFAST_MODE=sandbox` and sends the PayFast API request with `testing=true`, so it cannot cancel a live subscription.
+Customers with a PayFast subscription can schedule cancellation for the end of their current paid period from **Settings → Plan & usage**. Access remains available through that date. The customer can undo the request until the scheduled PayFast API request begins; plan upgrades and downgrades remain support-managed. Sandbox cancellation requests use the PayFast API `testing=true` parameter; live requests omit it and cancel the matching live subscription.
 
 Configure `PAYFAST_CANCELLATION_CRON_SECRET` on the FastAPI service, then create a separate cron job to call the cancellation processor every five minutes. Set `JOBHUNTER_API_URL` to the API base URL ending in `/api/v1` and give the cron job the same secret:
 
@@ -193,7 +208,7 @@ curl --fail --silent --show-error -X POST "$JOBHUNTER_API_URL/internal/payfast/c
   -H "X-PayFast-Cancellation-Cron-Secret: $PAYFAST_CANCELLATION_CRON_SECRET"
 ```
 
-The processor only sends requests for due sandbox subscriptions. Failed requests are logged, return HTTP 502 so the cron failure is visible, and become eligible for retry after 30 minutes. Review API and cron logs for repeated failures. Apply the migration above before deploying these changes; it adds cancellation scheduling state and permits cancellation notifications without a payment amount.
+The processor only sends requests for due subscriptions in the configured PayFast mode. Failed requests are logged, return HTTP 502 so the cron failure is visible, and become eligible for retry after 30 minutes. Review API and cron logs for repeated failures. Apply the migration above before deploying these changes; it adds cancellation scheduling state and permits cancellation notifications without a payment amount.
 
 ### Password requirements
 
