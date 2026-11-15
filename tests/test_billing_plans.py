@@ -23,7 +23,7 @@ class _BillingDatabase:
         if 'FROM "UserSubscription"' in query:
             return [self.subscription] if self.subscription else []
         if 'COUNT(*)' in query:
-            return [{"used": 0}]
+            return [{"feature": "job_fit", "used": 0}]
         return []
 
     async def execute_raw(self, query, *values):
@@ -31,6 +31,35 @@ class _BillingDatabase:
 
 
 class BillingPlanTests(unittest.TestCase):
+    def test_raw_iso_subscription_dates_preserve_active_billing_status(self):
+        period_start = datetime.now(timezone.utc).replace(microsecond=0)
+        period_end = period_start + timedelta(days=30)
+        db = _BillingDatabase(
+            {
+                "plan": "standard",
+                "status": "ACTIVE",
+                "provider": "payfast",
+                "billingInterval": "monthly",
+                "currentPeriodStart": period_start.isoformat().replace("+00:00", "Z"),
+                "currentPeriodEnd": period_end.isoformat().replace("+00:00", "Z"),
+            }
+        )
+
+        with patch.object(main, "db", db):
+            with patch.object(main, "billing_is_enabled", AsyncMock(return_value=True)):
+                result = asyncio.run(main.get_billing_status(user_id="user-123"))
+
+        self.assertEqual(result["status"], "ACTIVE")
+        self.assertEqual(
+            datetime.fromisoformat(result["currentPeriodStart"]),
+            period_start,
+        )
+        self.assertEqual(
+            datetime.fromisoformat(result["currentPeriodEnd"]),
+            period_end,
+        )
+        self.assertTrue(result["features"]["job_fit"]["available"])
+
     def test_feature_floors_include_starter_and_lite_tiers(self):
         self.assertTrue(main._feature_available("starter", "job_fit"))
         self.assertFalse(main._feature_available("starter", "role_suggestions"))
