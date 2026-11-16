@@ -21,7 +21,7 @@ export function ActionHint({
       {children}
       <span
         aria-hidden="true"
-        className={`pointer-events-none invisible absolute z-50 w-max max-w-64 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-left text-xs font-normal leading-5 text-slate-100 opacity-0 shadow-xl transition-opacity duration-150 group-hover/action-hint:visible group-hover/action-hint:opacity-100 group-focus-within/action-hint:visible group-focus-within/action-hint:opacity-100 ${tooltipPosition}`}
+        className={`pointer-events-none invisible absolute z-50 hidden w-max max-w-64 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-left text-xs font-normal leading-5 text-slate-100 opacity-0 shadow-xl transition-opacity duration-150 group-hover/action-hint:visible group-hover/action-hint:opacity-100 group-focus-within/action-hint:visible group-focus-within/action-hint:opacity-100 sm:block ${tooltipPosition}`}
       >
         {label}
       </span>

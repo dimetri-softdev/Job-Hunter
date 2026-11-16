@@ -96,7 +96,7 @@ export function Sidebar() {
   return (
     <>
       <aside
-        className={`relative z-30 h-full shrink-0 overflow-hidden border-r border-[#1f212d] bg-[#0d0e14] transition-[width,border-color] duration-300 ease-in-out ${
+        className={`relative z-30 hidden h-full shrink-0 overflow-hidden border-r border-[#1f212d] bg-[#0d0e14] transition-[width,border-color] duration-300 ease-in-out md:block ${
           collapsed ? "w-0 border-transparent" : "w-[4.75rem] md:w-64"
         }`}
       >
@@ -189,5 +189,39 @@ export function Sidebar() {
         </ActionHint>
       ) : null}
     </>
+  );
+}
+
+export function MobileNavigation() {
+  const pathname = usePathname();
+
+  return (
+    <nav
+      className="flex w-full shrink-0 items-center gap-2 overflow-x-auto border-b border-[#1f212d] bg-[#0d0e14] px-3 py-2 md:hidden"
+      aria-label="Dashboard navigation"
+    >
+      {navItems.map((item) => {
+        const isActive =
+          pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const Icon = item.icon;
+
+        return (
+          <Link
+            key={item.name}
+            href={item.href}
+            title={item.description}
+            aria-current={isActive ? "page" : undefined}
+            className={`flex min-h-10 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors ${
+              isActive
+                ? "border-blue-500/20 bg-blue-600/10 text-blue-400"
+                : "border-transparent text-slate-400 hover:bg-[#141620] hover:text-slate-200"
+            }`}
+          >
+            <Icon className="size-4 shrink-0" aria-hidden="true" />
+            {item.name}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }

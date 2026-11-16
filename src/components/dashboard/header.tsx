@@ -11,11 +11,12 @@ export function Header() {
   const initial = user?.email ? user.email[0].toUpperCase() : "U";
 
   return (
-    <header className="h-16 shrink-0 border-b border-[#1f212d] bg-[#0d0e14] px-4 sm:px-6 lg:px-8">
+    <header className="h-14 shrink-0 border-b border-[#1f212d] bg-[#0d0e14] px-3 sm:h-16 sm:px-6 lg:px-8">
       <div className="mx-auto flex h-full w-full max-w-[1600px] items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          {/* slightly larger wordmark for better visibility in header */}
-          <BrandLogo className="h-16 w-[300px]" />
+        <div className="flex min-w-0 items-center gap-2">
+          <BrandLogo compact className="size-9 md:hidden" />
+          <BrandLogo className="hidden h-12 w-[252px] md:block" />
+          <span className="text-sm font-bold text-white md:hidden">JobHunter</span>
         </div>
 
         <div className="flex min-w-0 items-center gap-3 text-xs text-slate-400 sm:gap-4">

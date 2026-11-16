@@ -31,7 +31,7 @@ export function AuthSidebar({ mode }: AuthSidebarProps) {
             aria-label="JobHunter home"
             className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
-            <BrandLogo className="h-14 w-[252px]" alt="" />
+            <BrandLogo className="h-10 w-[180px] sm:h-14 sm:w-[252px]" alt="" />
           </Link>
           <Link
             href="/"
