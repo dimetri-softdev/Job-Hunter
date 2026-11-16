@@ -1,24 +1,27 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
+import { siteUrl } from "@/lib/site-url";
 
 function getSafeDestination(next: string | null): string {
   return next === "/reset-password" ? next : "/dashboard";
 }
 
-function getCallbackFailureUrl(requestUrl: URL): URL {
+function getCallbackFailureUrl(requestUrl: URL, redirectOrigin: string): URL {
   const isSignup = requestUrl.searchParams.get("intent") === "signup";
   return new URL(
     `/${isSignup ? "signup" : "login"}?error=oauth_callback_failed`,
-    requestUrl.origin,
+    redirectOrigin,
   );
 }
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
+  const redirectOrigin =
+    process.env.NODE_ENV === "production" ? siteUrl.origin : requestUrl.origin;
   const code = requestUrl.searchParams.get("code");
   if (!code) {
-    return NextResponse.redirect(getCallbackFailureUrl(requestUrl));
+    return NextResponse.redirect(getCallbackFailureUrl(requestUrl, redirectOrigin));
   }
 
   const cookieStore = await cookies();
@@ -41,7 +44,7 @@ export async function GET(request: NextRequest) {
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
-    return NextResponse.redirect(getCallbackFailureUrl(requestUrl));
+    return NextResponse.redirect(getCallbackFailureUrl(requestUrl, redirectOrigin));
   }
 
   if (requestUrl.searchParams.get("intent") === "signup") {
@@ -61,6 +64,9 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.redirect(
-    new URL(getSafeDestination(requestUrl.searchParams.get("next")), requestUrl.origin),
+    new URL(
+      getSafeDestination(requestUrl.searchParams.get("next")),
+      redirectOrigin,
+    ),
   );
 }
