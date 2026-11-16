@@ -293,6 +293,7 @@ export function BillingOverview() {
   }
 
   const activeTrial = status.status === "TRIALING";
+  const environmentMismatch = status.status === "ENVIRONMENT_MISMATCH";
   const entitled =
     status.isAdmin ||
     ["TRIALING", "ACTIVE", "CANCELED", "PAST_DUE"].includes(status.status);
@@ -332,8 +333,8 @@ export function BillingOverview() {
                   ? `Your Standard trial is active${trialEnd ? ` until ${trialEnd}` : ""}.`
                   : status.status === "EXPIRED"
                     ? "Your access period has ended. Your saved information remains available to view and export."
-                    : status.status === "ENVIRONMENT_MISMATCH"
-                      ? `This PayFast subscription belongs to ${titleCase(status.providerEnvironment ?? "unknown")} mode and does not provide access under the current PayFast configuration. You can use the Basic plan or start a new checkout.`
+                    : environmentMismatch
+                      ? `Your existing subscription was created in ${titleCase(status.providerEnvironment ?? "another")} mode. It does not carry over to the configured PayFast mode, so this account currently has Basic access.`
                     : entitled
                       ? `Your access is ${titleCase(status.status)}${periodEnd ? ` through ${periodEnd}` : ""}.`
                       : "No plan or trial is assigned. Your saved information remains available to view and export; ask the administrator about a tester trial."}
@@ -356,35 +357,26 @@ export function BillingOverview() {
               ? "Free pilot"
               : entitled
                 ? titleCase(status.status)
-                : status.status === "ENVIRONMENT_MISMATCH"
+                : environmentMismatch
                   ? "PayFast mode mismatch"
                 : status.status === "EXPIRED"
                   ? "Expired"
                   : "Read-only"}
           </span>
         </div>
-        {status.billingEnabled && !entitled && (
+        {status.billingEnabled && !entitled && !status.isAdmin && (
           <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-5 text-amber-100">
             <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             {!status.checkoutEnabled
               ? "Checkout is not configured. An administrator must grant a tester trial."
               : status.checkoutMode === "live"
-                ? "Complete live checkout to subscribe. PayFast will charge the selected amount and recurring payments."
-                : "Complete sandbox checkout to test the payment flow. Access changes only after PayFast's server-verified notification."}
+                ? environmentMismatch
+                  ? "Starting Live checkout creates a separate recurring subscription and charges the selected price. Continue only if you intend to make a real payment."
+                  : "Live checkout creates a recurring payment. Your plan changes only after PayFast confirms payment."
+                : "Sandbox checkout is for testing only. Your plan changes after PayFast confirms payment."}
           </p>
         )}
-        {status.checkoutEnabled ? (
-          <p className="mt-3 text-xs text-emerald-200">
-            {status.checkoutMode === "live"
-              ? "Live checkout is enabled. PayFast will process real payments and recurring charges; feature enforcement remains separate. Access changes only after the backend verifies PayFast's notification, not from the return page."
-              : "Sandbox checkout is enabled. No real charge will be made, and paid feature enforcement remains separate. Access changes only after the backend verifies PayFast's notification, not from the return page."}
-          </p>
-        ) : (
-          <p className="mt-3 text-xs text-slate-500">
-            PayFast checkout is not configured. No payment will be started.
-          </p>
-        )}
-        {status.provider === "payfast" && (
+        {status.provider === "payfast" && !environmentMismatch && (
           <div className="mt-4 rounded-lg border border-[#252735] bg-[#0d0e14] p-3">
             <p className="text-xs leading-5 text-slate-300">
               {status.cancellationRequestSentAt
