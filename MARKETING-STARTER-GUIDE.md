@@ -20,14 +20,14 @@ Job Hunter helps people prepare and organize. It does not guarantee a job or int
 
 ## 2. Important launch check before promoting
 
-The current billing integration is still **PayFast sandbox-only**. Do not market the paid plans as ready to purchase, direct customers to complete sandbox checkout, or describe sandbox payments as real subscriptions.
+PayFast supports both sandbox and live checkout. The owner reports that live checkout is enabled; before promoting paid plans, verify that the deployed Admin → Billing status says **PayFast live**, the displayed prices are current, and cancellation handling is configured. Sandbox payments are tests, not real subscriptions.
 
 Before sharing the site widely:
 
 - Confirm what a new visitor can actually use today, including sign-up and free access.
-- Use a clear call to action such as **“Try the free pilot”** only if new users can currently sign up and use it. Otherwise use **“Request early access”** or **“Join the waitlist.”**
-- Hide, disable, or clearly label any sandbox checkout links before sending prospects to the Plans & usage page. A customer-facing sandbox payment flow is for testing, not public sales.
-- Keep billing enforcement and live payments off until live readiness is completed.
+- Use a clear call to action that accurately describes the available access and plans.
+- Do not direct customers to sandbox checkout. Only promote paid plans after verifying live mode, prices, cancellation handling, and the customer-facing terms.
+- Keep billing enforcement aligned with the payment mode and behavior you have tested.
 - Check the current plan limits in the deployed app before mentioning exact limits or prices. Starter limits recently changed in the code and may need to be deployed.
 
 ## 3. Make one Supademo
@@ -48,7 +48,7 @@ Show one complete, useful workflow in about **60–90 seconds**. Avoid trying to
 2. Fill it with fictional information, for example: **Amani Ndlovu**, aiming for **Junior Data Analyst**.
 3. Use a fictional job post and fictional resume. Do not upload a real person's CV or contact details.
 4. Remove or hide email addresses, account identifiers, browser notifications, private tabs, and unrelated personal data.
-5. Avoid recording the checkout flow. The current PayFast experience is sandbox testing, not a public payment offer.
+5. Avoid recording checkout or showing payment details. If you demonstrate paid plans, verify that the deployed checkout is in live mode and use fictional account/payment data.
 6. If AI consent appears, demonstrate it honestly; do not imply that a user's resume is processed without their choice.
 
 ### Capture these steps
@@ -111,11 +111,11 @@ For each step:
 
 Choose **one** CTA that matches the real sign-up experience:
 
-- If public sign-up is working: **Try the free pilot**
+- If public sign-up and Basic access are working: **Start free**
 - If access is limited: **Request early access**
 - If you are gathering feedback first: **Watch the demo and tell me what would help**
 
-Do not use “Buy now,” “Subscribe,” or paid-plan promises while checkout is sandbox-only.
+Only promote paid plans when the deployed checkout is confirmed live and the displayed prices and customer-facing terms are current. Never describe sandbox payments as real subscriptions.
 
 ## 5. A simple first-week plan
 
@@ -155,14 +155,14 @@ Before every post or demo, check:
 - [ ] AI output is described as something to review, not guaranteed to be correct.
 - [ ] No employment, interview, or salary outcome is promised.
 - [ ] It is clear that users submit applications themselves.
-- [ ] Paid plans are not presented as live while checkout is sandbox-only.
+- [ ] Paid plans, prices, and payment status match the deployed checkout mode.
 - [ ] Prices and usage limits match the currently deployed billing page.
 - [ ] Any testimonial or customer result is genuine and shared with permission.
 
 ## 8. Suggested next steps
 
-1. Confirm public sign-up and the free pilot are ready for new visitors.
-2. Make the sandbox/live billing status clear or hide sandbox checkout from marketing traffic.
+1. Confirm public sign-up and free Basic access are ready for new visitors.
+2. Verify the deployed payment mode, prices, cancellation handling, and customer-facing terms before promoting paid plans.
 3. Build and test the single Supademo workflow above.
 4. Publish one post and invite a small group to give feedback.
 5. Use what people say to improve the onboarding and demo before investing in ads.

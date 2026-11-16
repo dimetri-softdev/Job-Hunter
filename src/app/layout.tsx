@@ -5,6 +5,10 @@ import { RouteTransition } from "@/components/dashboard/route-transition";
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { siteUrl } from "@/lib/site-url";
 import { ADSENSE_CLIENT_ID } from "@/lib/ads";
+import Script from "next/script";
+
+const cloudflareAnalyticsToken =
+  process.env.NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN;
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
@@ -43,6 +47,17 @@ export default function RootLayout({
           <RouteTransition>{children}</RouteTransition>
           <AssistantWidget />
         </AuthProvider>
+        {process.env.NODE_ENV === "production" && cloudflareAnalyticsToken ? (
+          <Script
+            id="cloudflare-web-analytics"
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            strategy="afterInteractive"
+            type="module"
+            data-cf-beacon={JSON.stringify({
+              token: cloudflareAnalyticsToken,
+            })}
+          />
+        ) : null}
       </body>
     </html>
   );

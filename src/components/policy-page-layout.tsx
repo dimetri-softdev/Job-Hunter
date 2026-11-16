@@ -25,7 +25,7 @@ export function PolicyPageLayout({
           <div className="mx-auto max-w-7xl px-6 py-12 sm:px-10 sm:py-16 lg:px-16">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-400/[0.07] px-3 py-1.5 text-xs font-semibold text-blue-100">
               <span className="size-1.5 rounded-full bg-blue-300" />
-              Policy · Updated 22 October 2026
+              Policy · Updated 16 November 2026
             </div>
             <h1 className="mt-5 text-3xl font-semibold tracking-tight text-white sm:text-5xl">
               {title}
@@ -70,9 +70,9 @@ export function PolicyPageLayout({
                 Current service status
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                JobHunter is in pilot mode. Paid checkout is disabled; paid
-                subscriptions and one-time purchases are not available, and
-                users are not currently charged for access.
+                JobHunter offers paid subscription plans. Current plan prices
+                and billing periods are shown before checkout. Review the
+                cancellation and refund information below before subscribing.
               </p>
             </div>
 

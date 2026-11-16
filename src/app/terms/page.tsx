@@ -5,7 +5,7 @@ import { SupportContactLink } from "@/components/support-contact-link";
 export const metadata = {
   title: "Terms of Service",
   description:
-    "Terms for using JobHunter, including current pilot access and future paid plans.",
+    "Terms for using JobHunter, including subscriptions, cancellation, and account use.",
 };
 
 const sections = [
@@ -64,40 +64,29 @@ const sections = [
   },
   {
     id: "paid-plans",
-    title: "Future paid plans",
+    title: "Subscriptions and payment",
     content: (
       <>
         <p>
-          This section is for a future launch only and does not make paid access
-          available now. If paid plans are introduced, the price, currency,
-          included features, billing interval, and any applicable taxes will be
-          shown before you confirm a purchase. Future plans may include monthly
-          or annual subscriptions that renew automatically until cancelled, as
-          well as optional one-time purchases that do not renew. The purchase
-          screen will state the access period and terms for each one-time
-          purchase.
+          JobHunter currently offers monthly and annual subscription plans.
+          The selected plan, price, billing period, and included features are
+          shown in Plans &amp; usage before checkout. Subscription payments are
+          processed through PayFast and renew at the selected interval until
+          cancelled.
         </p>
         <p>
-          We may also offer non-expiring, one-time feature top-ups after an
-          account reaches its included quota. A top-up will identify the
-          feature and the additional use it buys, and will not run until payment
-          is confirmed. Top-ups will not renew automatically. The price shown
-          before purchase may depend on the user’s plan.
-        </p>
-        <p>
-          Cancelling a paid subscription will stop future renewals. Unless the
-          purchase screen says otherwise or applicable law requires otherwise,
-          paid access will remain available until the end of the period already
-          paid for. A cancellation does not itself incur a penalty. One-time
-          purchases and top-ups will not renew. Any refund and usage-based
-          deduction rules will be published in the{" "}
+          When available, you can schedule cancellation from Plans &amp; usage.
+          A scheduled cancellation stops future renewals, and access continues
+          through the paid period. If self-service cancellation is unavailable,
+          contact support. Refund requests and applicable rights are described
+          in the{" "}
           <Link
             href="/refunds"
             className="text-blue-300 underline decoration-blue-300/40 underline-offset-4 hover:text-blue-200"
           >
             Refunds and Cancellation policy
-          </Link>{" "}
-          before checkout is enabled.
+          </Link>
+          .
         </p>
       </>
     ),
@@ -121,12 +110,10 @@ const sections = [
     title: "Changes and governing law",
     content: (
       <p>
-        These draft terms are intended to be governed by the laws of South
-        Africa, subject to any mandatory consumer protections that apply to
-        you. Final terms will state when they take effect and how material
-        changes will be communicated. Nothing in these terms is intended to
-        exclude a right or remedy that applicable law does not allow to be
-        excluded.
+        These terms are intended to be governed by the laws of South Africa,
+        subject to any mandatory consumer protections that apply to you.
+        Nothing in these terms is intended to exclude a right or remedy that
+        applicable law does not allow to be excluded.
       </p>
     ),
   },
@@ -148,7 +135,7 @@ export default function TermsPage() {
   return (
     <PolicyPageLayout
       title="Terms of Service"
-      description="The rules for using JobHunter, including the current free pilot and how any future paid plans are intended to work."
+      description="The rules for using JobHunter, including current subscription billing, cancellation, and account use."
       sections={sections}
     />
   );

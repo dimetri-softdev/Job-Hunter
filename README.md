@@ -178,6 +178,10 @@ npx prisma migrate deploy
 npx prisma generate
 ```
 
+### Public website analytics
+
+Cloudflare Web Analytics is free and can track the site without moving its DNS to Cloudflare. In the Cloudflare dashboard, open **Web Analytics**, add a site for the hostname visitors use, and copy its JavaScript beacon token. Set `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` to that token in the web app's deployment environment, then redeploy. Leave the variable unset to keep the analytics beacon disabled. The integration records pageviews and does not configure custom events; the Privacy page describes the data processed.
+
 ### PayFast subscriptions
 
 The integration supports sandbox and live PayFast subscriptions. Sandbox is the default. Configure these variables on the FastAPI service (for Render, use the service's private environment settings):

@@ -201,6 +201,31 @@ export default function PrivacyPage() {
             </p>
           </section>
 
+          <section aria-labelledby="analytics-heading">
+            <h2
+              id="analytics-heading"
+              className="text-xl font-semibold text-white"
+            >
+              Website analytics
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              When configured, JobHunter uses Cloudflare Web Analytics to
+              understand aggregate visits and website performance. The
+              analytics beacon may process pageviews, page paths, referral
+              sources, browser and device categories, and country-level visit
+              information. This integration does not send account, profile, or
+              application data, and JobHunter does not configure custom event
+              tracking. See{" "}
+              <a
+                href="https://developers.cloudflare.com/web-analytics/"
+                className="font-medium text-blue-300 underline decoration-blue-300/40 underline-offset-4 hover:text-blue-200"
+              >
+                Cloudflare Web Analytics documentation
+              </a>{" "}
+              for details.
+            </p>
+          </section>
+
           <section aria-labelledby="advertising-heading">
             <h2
               id="advertising-heading"
