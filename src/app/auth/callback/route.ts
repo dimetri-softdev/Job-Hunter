@@ -6,13 +6,19 @@ function getSafeDestination(next: string | null): string {
   return next === "/reset-password" ? next : "/dashboard";
 }
 
+function getCallbackFailureUrl(requestUrl: URL): URL {
+  const isSignup = requestUrl.searchParams.get("intent") === "signup";
+  return new URL(
+    `/${isSignup ? "signup" : "login"}?error=oauth_callback_failed`,
+    requestUrl.origin,
+  );
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   if (!code) {
-    return NextResponse.redirect(
-      new URL("/login?error=oauth_callback_failed", requestUrl.origin),
-    );
+    return NextResponse.redirect(getCallbackFailureUrl(requestUrl));
   }
 
   const cookieStore = await cookies();
@@ -35,9 +41,23 @@ export async function GET(request: NextRequest) {
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
-    return NextResponse.redirect(
-      new URL("/login?error=oauth_callback_failed", requestUrl.origin),
-    );
+    return NextResponse.redirect(getCallbackFailureUrl(requestUrl));
+  }
+
+  if (requestUrl.searchParams.get("intent") === "signup") {
+    const { error: metadataError } = await supabase.auth.updateUser({
+      data: { age_confirmed: true },
+    });
+    if (metadataError) {
+      console.error(
+        "Failed to save OAuth signup age confirmation:",
+        metadataError.message,
+      );
+      return NextResponse.json(
+        { error: "Could not save your signup details. Please try again." },
+        { status: 500 },
+      );
+    }
   }
 
   return NextResponse.redirect(

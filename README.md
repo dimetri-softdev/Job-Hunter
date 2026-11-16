@@ -105,6 +105,20 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
+### Google and GitHub sign-in
+
+The login and signup pages use Supabase Auth OAuth for Google and GitHub. Enable
+each provider in **Supabase Dashboard → Authentication → Sign In / Providers**
+and enter the OAuth client credentials from Google Cloud Console or GitHub.
+For each provider's OAuth application, use the Supabase callback URL shown in
+that provider's Supabase settings as its authorized redirect URI.
+
+In **Supabase Dashboard → Authentication → URL Configuration**, add the app
+callback URL for every environment, for example
+`http://localhost:3000/auth/callback` and
+`https://your-site.example/auth/callback`. Google and GitHub signup also
+requires confirming the 18+ checkbox before continuing.
+
 ### Admin dashboard
 
 The dashboard at `/admin` is available to an authenticated Supabase account whose email is listed in the server-only `ADMIN_EMAILS` environment variable, or to an account granted database-managed admin access. Set `ADMIN_EMAILS` to one or more comma-separated email addresses on the Node service (or in `.env.local` for local development), then sign in with that account. Do not expose this variable with a `NEXT_PUBLIC_` prefix.

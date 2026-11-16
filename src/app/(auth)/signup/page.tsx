@@ -1,23 +1,32 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SiGithub, SiGoogle } from "@icons-pack/react-simple-icons";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { AuthSidebar } from "@/components/auth/auth-sidebar";
 import { validatePassword } from "@/lib/password-validation";
 import { getAuthErrorMessage } from "@/lib/user-facing-errors";
+import { OAuthButtons } from "@/components/auth/oauth-buttons";
 
-export default function SignupPage() {
+export default function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string | string[] }>;
+}) {
+  const { error } = use(searchParams);
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(
+    (Array.isArray(error) ? error[0] : error) === "oauth_callback_failed"
+      ? "Sign-up could not be completed. Please try again."
+      : null,
+  );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -111,30 +120,26 @@ export default function SignupPage() {
             </div>
           )}
 
-          <p role="status" className="text-center text-xs text-slate-500">
-            Create your account with email and password.
-          </p>
+          <label className="flex items-start gap-3 text-xs leading-5 text-slate-400">
+            <input
+              type="checkbox"
+              checked={ageConfirmed}
+              onChange={(event) => setAgeConfirmed(event.target.checked)}
+              className="mt-1 size-4 shrink-0 accent-blue-500"
+            />
+            <span>I confirm that I am at least 18 years old.</span>
+          </label>
 
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              disabled
-              aria-label="GitHub sign-up unavailable"
-              className="flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-500 opacity-70"
-            >
-              <SiGithub className="size-4" aria-hidden="true" />
-              GitHub
-            </button>
-            <button
-              type="button"
-              disabled
-              aria-label="Google sign-up unavailable"
-              className="flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-500 opacity-70"
-            >
-              <SiGoogle className="size-4" aria-hidden="true" />
-              Google
-            </button>
-          </div>
+          <OAuthButtons
+            mode="signup"
+            disabled={!ageConfirmed || loading}
+            onError={setErrorMsg}
+          />
+          {!ageConfirmed && (
+            <p role="status" className="text-center text-xs text-slate-500">
+              Confirm that you are at least 18 to continue with Google or GitHub.
+            </p>
+          )}
 
           <div className="relative flex items-center justify-center">
             <div className="w-full border-t border-[#1f212d]" />
@@ -215,19 +220,6 @@ export default function SignupPage() {
                 symbol (for example, ! or #).
               </p>
             </div>
-
-            <label className="flex items-start gap-3 text-xs leading-5 text-slate-400">
-              <input
-                type="checkbox"
-                required
-                checked={ageConfirmed}
-                onChange={(event) => setAgeConfirmed(event.target.checked)}
-                className="mt-1 size-4 shrink-0 accent-blue-500"
-              />
-              <span>
-                I confirm that I am at least 18 years old.
-              </span>
-            </label>
 
             <button
               type="submit"

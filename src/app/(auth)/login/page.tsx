@@ -2,11 +2,11 @@
 
 import React, { use, useState } from "react";
 import Link from "next/link";
-import { SiGithub, SiGoogle } from "@icons-pack/react-simple-icons";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { AuthSidebar } from "@/components/auth/auth-sidebar";
 import { getAuthErrorMessage } from "@/lib/user-facing-errors";
+import { OAuthButtons } from "@/components/auth/oauth-buttons";
 
 export default function LoginPage({
   searchParams,
@@ -87,30 +87,7 @@ export default function LoginPage({
             </div>
           )}
 
-          <p role="status" className="text-center text-xs text-slate-500">
-            Email and password are currently the only sign-in option.
-          </p>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              disabled
-              aria-label="GitHub sign-in unavailable"
-              className="flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-500 opacity-70"
-            >
-              <SiGithub className="size-4" aria-hidden="true" />
-              GitHub
-            </button>
-            <button
-              type="button"
-              disabled
-              aria-label="Google sign-in unavailable"
-              className="flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[#2b2e3b] bg-[#12131a] px-4 text-sm font-medium text-slate-500 opacity-70"
-            >
-              <SiGoogle className="size-4" aria-hidden="true" />
-              Google
-            </button>
-          </div>
+          <OAuthButtons mode="login" onError={setErrorMsg} />
 
           <div className="relative flex items-center justify-center">
             <div className="w-full border-t border-[#1f212d]" />
