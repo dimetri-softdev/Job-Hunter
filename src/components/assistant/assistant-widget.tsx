@@ -20,7 +20,7 @@ export function AssistantWidget() {
   const [prompt, setPrompt] = useState("");
   const hidden =
     pathname === "/assistant" ||
-    ["/login", "/signup", "/forgot-password", "/reset-password", "/admin"].some(
+    ["/login", "/signup", "/forgot-password", "/reset-password"].some(
       (route) => pathname === route || pathname.startsWith(`${route}/`),
     );
 

@@ -55,10 +55,8 @@ Use one caption per captured step. Keep the caption on screen long enough to rea
 
 ## CTA
 
-Choose the line that is true for the live product:
+Use the live site's current call to action: **Get started**.
 
-- **Try the free pilot** — only if public sign-up and free use are confirmed working.
-- **Watch the demo and share feedback** — best for an early feedback campaign.
-- **Request early access** — if access is limited.
+Website: https://job-hunter-nmln.onrender.com/
 
-Do not use a paid-subscription CTA while the payment integration is sandbox-only.
+Do not promise a job, describe AI guidance as a hiring prediction, or suggest that JobHunter submits applications on a user's behalf.

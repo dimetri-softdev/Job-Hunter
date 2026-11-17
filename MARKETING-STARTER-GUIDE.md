@@ -167,6 +167,16 @@ Before every post or demo, check:
 4. Publish one post and invite a small group to give feedback.
 5. Use what people say to improve the onboarding and demo before investing in ads.
 
+## 9. Launch campaign assets
+
+- [Product showcase and screenshot notes](./docs/marketing/jobhunter-product-showcase.md)
+- [Signed-in dashboard capture](./docs/marketing/jobhunter-dashboard-showcase.png)
+- [Applications capture with fictional demo data](./docs/marketing/jobhunter-applications-showcase.png)
+- [Founder launch posts](./docs/marketing/founder-launch-posts.md)
+- [30-second promo video script and storyboard](./docs/marketing/short-promo-video.md)
+- [Rendered vertical promo video](./docs/marketing/jobhunter-launch-promo.mp4)
+- [Launch poster PNG](./docs/marketing/jobhunter-launch-poster.png)
+
 ## Product references
 
 - Public homepage: https://job-hunter-nmln.onrender.com/

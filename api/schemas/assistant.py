@@ -28,11 +28,13 @@ class AssistantChatRequest(BaseModel):
     context: Optional[str] = Field(default=None, max_length=6000)
     savedContext: Optional[str] = Field(default=None, max_length=15000)
     savedContextConsent: bool = False
+    page: Optional[str] = Field(default=None, max_length=200)
 
 
 class PublicAssistantRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     history: list[AssistantMessage] = Field(default_factory=list, max_length=8)
+    page: Optional[str] = Field(default=None, max_length=200)
 
 
 class ApplicationPackRequest(BaseModel):

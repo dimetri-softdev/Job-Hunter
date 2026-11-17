@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350" role="img" aria-labelledby="title description">
+  <title id="title">JobHunter is now live</title>
+  <desc id="description">JobHunter launch poster: Take control of your job search. A smarter way to organise your journey towards your next career opportunity. Visit job-hunter-nmln.onrender.com.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1080" y2="1350" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#090A0F"/>
+      <stop offset="1" stop-color="#111522"/>
+    </linearGradient>
+    <linearGradient id="headline" x1="88" y1="480" x2="880" y2="680" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#93C5FD"/>
+      <stop offset="0.55" stop-color="#A5B4FC"/>
+      <stop offset="1" stop-color="#C4B5FD"/>
+    </linearGradient>
+    <linearGradient id="cta" x1="88" y1="1080" x2="992" y2="1190" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1D4ED8"/>
+      <stop offset="1" stop-color="#6D28D9"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="matrix(520 0 0 520 844 360)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B82F6" stop-opacity=".17"/>
+      <stop offset="1" stop-color="#3B82F6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="poster-lynx" x1="14" y1="10" x2="65" y2="68" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#86EFAC"/>
+      <stop offset="1" stop-color="#0F766E"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1080" height="1350" fill="url(#background)"/>
+  <rect width="1080" height="1350" fill="url(#glow)"/>
+
+  <circle cx="922" cy="294" r="170" fill="none" stroke="#334155" stroke-opacity=".28"/>
+  <circle cx="922" cy="294" r="126" fill="none" stroke="#3B82F6" stroke-opacity=".22"/>
+  <circle cx="922" cy="294" r="82" fill="none" stroke="#8B5CF6" stroke-opacity=".2"/>
+  <circle cx="922" cy="294" r="8" fill="#93C5FD"/>
+  <path d="M922 294 1000 216" stroke="#93C5FD" stroke-opacity=".56" stroke-width="2"/>
+  <path d="m994 215 10-2-2 10" fill="none" stroke="#93C5FD" stroke-opacity=".75" stroke-width="2"/>
+
+  <svg x="88" y="76" width="360" height="80" viewBox="0 0 360 80">
+    <rect x="4" y="4" width="72" height="72" rx="22" fill="#111827"/>
+    <path d="m20 31 3-17 11 10c4-1 8-1 12 0l11-10 3 17c4 5 6 10 6 16 0 13-11 21-26 24-15-3-26-11-26-24 0-6 2-11 6-16Z" fill="url(#poster-lynx)"/>
+    <path d="m23 14 8 12-9 3 1-15Zm34 0-8 12 9 3-1-15Z" fill="#D1FAE5"/>
+    <path d="m24 38 11 4-11 4m32-8-11 4 11 4" fill="none" stroke="#ECFDF5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m40 43-4 5 4 3 4-3-4-5Z" fill="#FDE68A"/>
+    <path d="M32 57c5 3 11 3 16 0" fill="none" stroke="#CCFBF1" stroke-width="2" stroke-linecap="round"/>
+    <path d="m63 19 1.5 4L69 25l-4.5 1.5L63 31l-1.5-4.5L57 25l4.5-2L63 19Z" fill="#FDE68A"/>
+    <text x="94" y="47" fill="#F8FAFC" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="27" font-weight="700" letter-spacing="-1.1">JobHunter</text>
+    <text x="96" y="64" fill="#94A3B8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="600" letter-spacing="2.1">SPOT YOUR OPPORTUNITY</text>
+  </svg>
+
+  <g transform="translate(790 100)">
+    <rect width="202" height="52" rx="26" fill="#052E24" stroke="#34D399" stroke-opacity=".46"/>
+    <circle cx="27" cy="26" r="6" fill="#34D399"/>
+    <text x="47" y="33" fill="#A7F3D0" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" letter-spacing="1.1">NOW LIVE</text>
+  </g>
+
+  <path d="M88 206H992" stroke="#FFFFFF" stroke-opacity=".1"/>
+  <text x="88" y="318" fill="#93C5FD" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" letter-spacing="3.2">A CLEARER JOB SEARCH STARTS HERE</text>
+
+  <text x="84" y="470" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="750" letter-spacing="-3.8">Take control of</text>
+  <text x="84" y="565" fill="url(#headline)" font-family="Arial, Helvetica, sans-serif" font-size="82" font-weight="750" letter-spacing="-4">your job search.</text>
+
+  <text x="88" y="658" fill="#CBD5E1" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="400">
+    <tspan x="88" dy="0">A smarter way to organise your journey</tspan>
+    <tspan x="88" dy="46">towards your next career opportunity.</tspan>
+  </text>
+
+  <g transform="translate(88 816)">
+    <rect width="278" height="142" rx="20" fill="#121722" stroke="#334155" stroke-opacity=".72"/>
+    <circle cx="31" cy="36" r="5" fill="#60A5FA"/>
+    <text x="50" y="42" fill="#93C5FD" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="1.4">REVIEW</text>
+    <text x="26" y="94" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600">Job fit</text>
+    <text x="26" y="120" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="15">See strengths and gaps</text>
+  </g>
+  <g transform="translate(401 816)">
+    <rect width="278" height="142" rx="20" fill="#121722" stroke="#334155" stroke-opacity=".72"/>
+    <circle cx="31" cy="36" r="5" fill="#A78BFA"/>
+    <text x="50" y="42" fill="#C4B5FD" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="1.4">ORGANISE</text>
+    <text x="26" y="94" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600">Applications</text>
+    <text x="26" y="120" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="15">Keep next steps in view</text>
+  </g>
+  <g transform="translate(714 816)">
+    <rect width="278" height="142" rx="20" fill="#121722" stroke="#334155" stroke-opacity=".72"/>
+    <circle cx="31" cy="36" r="5" fill="#34D399"/>
+    <text x="50" y="42" fill="#6EE7B7" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="1.4">PLAN</text>
+    <text x="26" y="94" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600">Next steps</text>
+    <text x="26" y="120" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="15">Move forward your way</text>
+  </g>
+
+  <rect x="88" y="1030" width="904" height="144" rx="24" fill="#111827" stroke="#3B82F6" stroke-opacity=".48"/>
+  <rect x="88" y="1030" width="904" height="144" rx="24" fill="url(#cta)" fill-opacity=".12"/>
+  <text x="128" y="1088" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing="2">YOUR NEXT STEP STARTS HERE</text>
+  <text x="128" y="1137" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="700">Visit JobHunter</text>
+  <circle cx="934" cy="1102" r="30" fill="url(#cta)"/>
+  <path d="M920 1102h26m-10-10 10 10-10 10" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M88 1224H992" stroke="#FFFFFF" stroke-opacity=".1"/>
+  <text x="88" y="1277" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="500">job-hunter-nmln.onrender.com</text>
+  <text x="992" y="1277" fill="#64748B" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" text-anchor="end" letter-spacing="1.4">FIND YOUR FIT. BUILD PROOF. MOVE FORWARD.</text>
+</svg>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Bot,
   BriefcaseBusiness,
@@ -61,6 +62,7 @@ export function AssistantChat({
   compact = false,
 }: AssistantChatProps) {
   const { user, loading: authLoading } = useAuth();
+  const pathname = usePathname();
   const [mode, setMode] = useState<AssistantMode>("career");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState(initialPrompt);
@@ -93,9 +95,9 @@ export function AssistantChat({
           "How should I prepare for an interview?",
         ]
       : [
-          "What can JobHunter help me do?",
-          "How does a job-fit review work?",
-          "How do I organize my applications?",
+          "I’m stuck on this page. What should I do?",
+          "How do I use JobHunter for my job search?",
+          "I’m having trouble with my account. Where do I start?",
         ];
 
   useEffect(() => {
@@ -257,6 +259,7 @@ export function AssistantChat({
         formData.append("message", message);
         formData.append("history", JSON.stringify(history));
         formData.append("mode", activeMode);
+        formData.append("page", pathname);
         formData.append("documentProcessingConsent", "true");
         if (context) formData.append("context", context);
         if (savedContext) {
@@ -275,6 +278,7 @@ export function AssistantChat({
             message,
             history,
             mode: activeMode,
+            page: pathname,
             context,
             savedContext,
             savedContextConsent: Boolean(savedContext),
@@ -283,7 +287,7 @@ export function AssistantChat({
       } else {
         result = await fetcher<{ reply: string }>("/assistant/public", {
           method: "POST",
-          body: JSON.stringify({ message, history }),
+          body: JSON.stringify({ message, history, page: pathname }),
         });
       }
       setMessages([...submittedMessages, { role: "assistant", content: result.reply }]);
@@ -355,7 +359,7 @@ export function AssistantChat({
             </div>
             <p className="mt-0.5 text-xs text-slate-300">
               {activeMode === "career"
-                ? "Practical career guidance, at your pace"
+                ? "Career guidance and help using JobHunter"
                 : "Friendly help using JobHunter"}
             </p>
           </div>
@@ -429,13 +433,13 @@ export function AssistantChat({
               </span>
               <p className="mt-3 text-base font-semibold text-white">
                 {activeMode === "career"
-                  ? "Let’s work through your next career step."
+                  ? "What would you like help with?"
                   : "What would you like help with?"}
               </p>
               <p className="mt-1.5 text-xs leading-5 text-slate-300">
                 {activeMode === "career"
-                  ? "Ask a question or choose a prompt to get started."
-                  : "Ask about job-fit checks, applications, or learning plans."}
+                  ? "Ask about JobHunter or your career, or choose a prompt to get started."
+                  : "Get help navigating the website, using a feature, or troubleshooting a problem."}
               </p>
               {!user && (
                 <p className="mt-3 text-xs text-slate-300">
@@ -753,9 +757,9 @@ export function AssistantChat({
           </div>
         )}
         <p className="text-[11px] leading-4 text-slate-400">
-          Your message and recent chat history are processed by our AI provider.
-          Don’t include passwords, verification codes, or financial account
-          details.{" "}
+          Your message, recent chat history, and the JobHunter page you’re on are
+          processed by our AI provider. Don’t include passwords, verification
+          codes, or financial account details.{" "}
           <Link
             href="/privacy"
             className="text-blue-300 underline decoration-blue-300/40 underline-offset-2 hover:text-blue-200"

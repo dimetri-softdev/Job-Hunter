@@ -14,6 +14,7 @@ Job Hunter is a web application designed to streamline the job search process. I
 *   **Resume Optimization**: Tools to help you craft and refine your resume for different positions.
 *   **Cover Letter Studio**: Generate a tailored cover letter from your resume and completed roadmap proof.
 *   **Interview Practice**: Generate role-focused mock questions and get optional, consent-based coaching on your answers.
+*   **Website and Career Assistant**: Ask for page-aware help navigating JobHunter, understanding its features, or getting career guidance. It cannot change account data or take actions for you.
 *   **Follow-up Sequences**: Prepare editable, stage-aware email drafts, with optional opt-in application reminders by email or browser notification.
 *   **Portfolio Management**: Manage and showcase your GitHub portfolio and professional projects.
 *   **Profile Enhancement**: Resources to optimize your LinkedIn and other professional profiles.

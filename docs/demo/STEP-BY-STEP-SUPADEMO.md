@@ -16,7 +16,7 @@ The demo should show one story, not every feature: **review a role → compare e
 3. Use the fictional resume in [DEMO-RESUME.md](./DEMO-RESUME.md). Copy it into Word or Google Docs and save it as a text-based `.docx` or PDF. The fit-check upload accepts PDF, DOCX, JPEG, PNG, or WebP up to 5 MB.
 4. Use the fictional posting in [DEMO-JOB-POSTING.md](./DEMO-JOB-POSTING.md). Paste its text into the job-description field; that field requires at least 80 characters.
 5. Make sure the app is responsive and the test account can complete the fit check. Review the result before recording. AI results can vary, so narrate only what the screen actually shows.
-6. Avoid checkout, billing settings, admin screens, browser notifications, and unrelated tabs. The PayFast integration is sandbox-only and is not part of this product demo.
+6. Avoid checkout, billing settings, admin screens, browser notifications, and unrelated tabs. Payments are not needed for this product demo; do not make a purchase or show payment details.
 7. Close private tabs and hide bookmarks, email addresses, account identifiers, and browser extensions that are not part of the story.
 
 ### Set up Supademo
@@ -61,10 +61,7 @@ Use steps 1, 2, 3, 5, 7, 8, and 10. Keep the product story intact; skip the proo
 4. Keep important result text on screen long enough to read. Do not crop out consent, uncertainty, or relevant limitations.
 5. Use captions even if you also record voice-over; many viewers watch with sound off.
 6. Keep the final demo between 60 and 90 seconds. Prefer clear over fast.
-7. Add a final card with the appropriate call to action:
-   - **Try the free pilot** only if public sign-up and free use are working.
-   - Otherwise use **Watch the demo and share feedback** or **Request early access**.
-8. Do not add a purchase CTA while PayFast is sandbox-only.
+7. Add a final card using the live site's current call to action: **Get started**, with the homepage URL.
 
 ## Final quality check
 
@@ -74,7 +71,7 @@ Before sharing the link:
 - [ ] Test it on a phone-sized screen and on desktop.
 - [ ] Confirm every interactive step works and captions match the screen.
 - [ ] Confirm no real resume, email, customer data, credentials, or account details are exposed.
-- [ ] Confirm no sandbox checkout or payment page appears.
+- [ ] Confirm no checkout or payment page appears.
 - [ ] Confirm claims are limited to what Job Hunter actually does.
 - [ ] Ask one person unfamiliar with the product to watch without explanation. Ask: “What does this help you do?” If they cannot answer, simplify the opening and steps.
 

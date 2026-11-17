@@ -121,9 +121,10 @@ export default function PrivacyPage() {
               When you use AI features
             </h2>
             <p className="mt-3 text-sm leading-6 text-slate-400">
-              When you send an assistant message, the message and recent chat
-              history are processed by Groq; there is no separate agreement
-              checkbox. The chat displays this before you send. JobHunter does
+              When you send an assistant message, the message, recent chat
+              history, and the JobHunter page you are viewing are processed by
+              Groq; there is no separate agreement checkbox. The chat displays
+              this before you send. JobHunter does
               not fetch saved career or application information unless you
               enable saved-data sharing and select the information to include.
               That choice is remembered on your device until you turn it off.
