@@ -57,8 +57,10 @@ export function AssistantWidget() {
         <DialogHeader className="sr-only">
           <DialogTitle>JobHunter AI assistant</DialogTitle>
           <DialogDescription>
-            Ask for product help or career guidance. Each message is sent to
-            JobHunter&apos;s AI provider only after you consent.
+            Ask for product help or career guidance. Your message and current
+            page context are sent to JobHunter&apos;s AI provider when you
+            submit them; saved career information is included only if you
+            choose to share it.
           </DialogDescription>
         </DialogHeader>
         <AssistantChat

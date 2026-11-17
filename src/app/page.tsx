@@ -171,7 +171,8 @@ export default function HomePage() {
               </div>
               <p className="mt-5 flex items-center gap-2 text-xs text-slate-500">
                 <ShieldCheck className="size-4 shrink-0 text-emerald-300" aria-hidden="true" />
-                AI features ask for your consent. You stay in control of every decision.
+                Some AI features ask before using saved information. You choose
+                what to share and stay in control of every decision.
               </p>
             </div>
 
@@ -366,9 +367,9 @@ export default function HomePage() {
                   You stay in control
                 </h2>
                 <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-400">
-                  AI-assisted features ask for your consent before processing
-                  selected information. Suggestions are a starting point;
-                  JobHunter does not apply to jobs on your behalf.
+                  Some AI features ask for consent before processing saved
+                  information. Review every suggestion; JobHunter does not
+                  apply to jobs on your behalf.
                 </p>
                 <p className="mt-3 text-[11px] font-medium text-slate-500">
                   Created by Dimetri SoftDev

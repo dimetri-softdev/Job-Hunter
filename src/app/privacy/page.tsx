@@ -28,7 +28,7 @@ const dataWeStore = [
   {
     title: "Reminder preferences and delivery",
     description:
-      "Email reminders are off until enabled by an administrator after delivery setup is complete. Once enabled, users can opt in from Settings. JobHunter stores the preference and whether a reminder was sent for each application follow-up date. Browser reminder history is stored locally in your browser.",
+      "Email reminder availability depends on whether an administrator has enabled delivery after setup is complete. Users can opt in from Settings when available. JobHunter stores the preference and whether a reminder was sent for each application follow-up date. Browser reminder history is stored locally in your browser.",
   },
 ];
 
@@ -173,9 +173,9 @@ export default function PrivacyPage() {
               Follow-up reminders
             </h2>
             <p className="mt-3 text-sm leading-6 text-slate-400">
-              Email reminders are disabled until an administrator enables the
-              feature after delivery setup is complete; users must then opt in
-              from Settings. To deliver them, JobHunter sends your account
+              Email reminder availability depends on whether an administrator
+              has enabled delivery after setup is complete; users must then opt
+              in from Settings. To deliver them, JobHunter sends your account
               email address and the application company, role, and follow-up
               date to Resend. Delivery status and attempt time are recorded to
               prevent duplicate emails and permit retries after a failure. You

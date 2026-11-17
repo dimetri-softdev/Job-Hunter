@@ -24,6 +24,14 @@ const sections = [
           through the paid period. If self-service cancellation is unavailable,
           contact support for help.
         </p>
+        <p>
+          When plan changes are available, upgrades take effect only after a
+          new PayFast payment succeeds. Downgrades are scheduled for renewal;
+          you keep your current access through the paid period and must return
+          to complete checkout for the lower plan. Scheduling a downgrade does
+          not authorize a future payment. Sandbox subscriptions do not transfer
+          to live checkout.
+        </p>
       </>
     ),
   },

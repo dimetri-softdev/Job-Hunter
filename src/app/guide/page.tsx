@@ -2,16 +2,19 @@ import Link from "next/link";
 import {
   ArrowRight,
   BarChart3,
+  Bot,
   BriefcaseBusiness,
   Check,
   CheckCircle2,
   ChevronRight,
   CircleUserRound,
+  CreditCard,
   FileText,
   MessageSquareText,
   Plus,
   Sparkles,
   Target,
+  Video,
 } from "lucide-react";
 import { PublicSiteFooter } from "@/components/public-site-footer";
 import { PublicSiteHeader } from "@/components/public-site-header";
@@ -19,7 +22,7 @@ import { PublicSiteHeader } from "@/components/public-site-header";
 export const metadata = {
   title: "How to use JobHunter",
   description:
-    "A visual walkthrough of JobHunter: first steps, career milestones, dashboard controls, application drafts, job-fit checks, and learning plans.",
+    "A beginner-friendly guide to setting up JobHunter, tracking applications, using career tools, managing plans, and finding help.",
   alternates: {
     canonical: "/guide",
   },
@@ -29,12 +32,12 @@ const guides = [
   {
     number: "01",
     label: "Start here",
-    title: "Tell JobHunter a little about you",
-    body: "Use the dashboard checklist to get oriented, then add a few details about your experience and the kind of work you want. You can leave optional fields blank and update everything later.",
+    title: "Create an account and add the basics",
+    body: "Start with only the information you are comfortable sharing. You can leave optional profile fields blank and update them later.",
     steps: [
-      "Open Settings from the left menu.",
-      "Add your skills, experience, and the roles you are interested in.",
-      "Save your profile. Want ideas? Choose Suggest job roles and review the suggestions.",
+      "Choose Get started and create an account. Your password must be 7–128 characters and include a number and a symbol.",
+      "After signing in, open Account settings and add a short career summary, a few skills, or roles you want to explore.",
+      "Choose Save profile. Role suggestions are optional and require your agreement before your profile is sent to AI.",
     ],
     href: "/signup",
     linkLabel: "Create your account",
@@ -44,114 +47,150 @@ const guides = [
   {
     number: "02",
     label: "Keep things organized",
-    title: "Save jobs you are interested in",
-    body: "Use Applications as your job-search list. Keep the company, role, status, and next step together so nothing slips through the cracks. Import a CSV backup or download your list whenever you need it.",
+    title: "Save a job and track what happens next",
+    body: "Job applications is your personal job-search list. Track roles you are considering as well as jobs you have already applied for.",
     steps: [
-      "Open Applications and choose Add application.",
-      "Enter the company and job title. Add a link or a reminder if you have one.",
-      "Optionally record where you found each role. Analytics groups recorded sources to show your search mix; it does not claim that one source causes better hiring outcomes.",
-      "Update the status as you move through the process. Use Import CSV or Export CSV to move a list in or out.",
-      "Choose Draft follow-up for a quick editable message, or explicitly opt in to generate a three-step follow-up sequence for after applying, after an interview, or when you have not received a response. Edit each draft, then copy it, open it in your email app, or save it to history; JobHunter never sends these drafts.",
-      "For reminders about saved follow-up dates, open Settings and grant browser notification permission. Browser alerts require JobHunter to stay open in that browser. Email reminders are currently off; an administrator can enable them in Admin after email delivery is configured, after which you can opt in from Settings.",
-      "Choose Interview prep on a saved application to record interview details, practice role-specific examples, and save notes to that job’s history. You can also open Interview practice from the dashboard navigation to practice for any role without adding it to your applications. Enter a role and optionally paste a job description for tailored questions. Private prompts are available without AI. If you opt in, generate questions and request coaching on answers you choose to send; the scorecard reviews relevance, clarity, problem-solving, and specific examples, then highlights strengths and practice targets. Earn points for answering, requesting feedback, and improving on a retry—points reward practice, not hiring potential. The optional camera is a live preview only; JobHunter does not record or upload video. Browser speech recognition may send audio to its provider, depending on browser settings. AI only receives role details and answers you explicitly request feedback on, after consent. AI practice uses its own monthly allowance.",
-      "You can delete an AI-generated job summary and fit check while keeping the application, or delete the whole application when you no longer need it.",
-      "For saved jobs with posting details, choose Prepare application to create a cover letter, resume summary and bullet suggestions, profile-supported job terms, and items to verify before claiming. Review and edit every resume suggestion. Choose Save drafts to this job if you want them kept in that application's History & updates. JobHunter does not fill or submit third-party application forms; open the listing to apply yourself.",
+      "Open Job applications and choose Add application. Company and job title are the main details; status, contact, source, notes, link, and reminder date are optional.",
+      "Choose a status that matches where you are, then update it and your next action as things change.",
+      "Use Import CSV or Export all CSV to move or back up your list. Follow-up drafts are for you to review and send; JobHunter never sends applications or emails for you.",
+      "If reminders are available, configure them in Account settings. Browser notifications require permission and the site to remain open; email reminders require administrator setup and your opt-in.",
     ],
-    href: "/login",
-    linkLabel: "Sign in to track applications",
+    href: "/applications",
+    linkLabel: "Open job applications",
     visual: "applications" as const,
     icon: BriefcaseBusiness,
   },
   {
     number: "03",
     label: "Before you apply",
-    title: "See how your experience fits a job",
-    body: "Compare your resume with a job posting to get a helpful review of your strengths, possible gaps, and questions to check. It is guidance—not a hiring prediction.",
+    title: "Review how your experience fits a role",
+    body: "A job-fit review highlights evidence in your resume, possible gaps, and details worth checking. It is a prompt for your judgment—not a hiring prediction.",
     steps: [
-      "In Applications, choose Check job fit.",
-      "Add your resume (PDF, DOCX, or image) and provide the job description as at least 80 characters of text or a PDF/DOCX/TXT document. You can also add a poster image.",
-      "Give consent to the AI check, then review the result. Save the job if you want to track it.",
-      "For a saved job with posting details, choose Check saved job fit whenever you want to run the check again with an updated resume. Give consent for each check; the new fit assessment updates that job.",
+      "In Job applications, choose Check job fit, or open a saved job and choose Check saved job fit.",
+      "Add your resume and the job posting. You can paste a description or use a supported document or image option shown in the form.",
+      "Review the consent notice and agree before analysis. Check the evidence and unknowns yourself; rerun a saved job with updated information when needed.",
     ],
-    href: "/login",
-    linkLabel: "Check a job fit",
+    href: "/applications",
+    linkLabel: "Review a job fit",
     visual: "fit" as const,
     icon: Target,
   },
   {
     number: "04",
     label: "Make a plan",
-    title: "Turn a goal into small steps",
-    body: "A roadmap breaks a role you are aiming for into projects and tasks. Work through it at your own pace and tick off tasks as you finish them.",
+    title: "Turn a career goal into a learning plan",
+    body: "Learning plans break a target role and level into projects and tasks. Work at your own pace; there are no streaks or application quotas.",
     steps: [
-      "Open Roadmaps and choose New Roadmap.",
-      "Enter a job role and your target level.",
-      "Open your plan, complete tasks, and record a link or notes as proof of what you built.",
-      "After every task is complete, choose Generate next stage. JobHunter uses your completed work and proof notes to create more advanced tasks and improve your readiness score.",
-      "Use Delete roadmap on a saved plan you no longer want. Its projects and tasks are deleted, but a linked job application stays in your tracker.",
+      "Open Learning plans and choose New Roadmap. Enter the role and target level.",
+      "Open the plan, complete tasks, and add project links or notes as proof of your work.",
+      "When all tasks in a stage are complete, choose Generate next stage. Delete a plan you no longer need; linked job applications remain in your tracker.",
     ],
-    href: "/login",
-    linkLabel: "Explore roadmaps",
+    href: "/roadmaps",
+    linkLabel: "Explore learning plans",
     visual: "roadmap" as const,
     icon: CheckCircle2,
   },
   {
     number: "05",
     label: "Turn a gap into a project",
-    title: "Build a small project to practice a missing skill",
-    body: "After a job-fit check, you can turn a skill gap into a focused Proof Sprint or a learning roadmap. It gives you manageable tasks and a way to show what you learned.",
+    title: "Practice a skill with a focused project",
+    body: "A Proof Sprint turns a gap from a saved job-fit review into a short set of practical tasks.",
     steps: [
-      "Save a job-fit check that shows a skill gap.",
-      "In Applications, expand the fit-check result and choose Build proof sprint.",
-      "Work through the tasks, then add a link or notes to show what you made.",
+      "Save a job-fit result that identifies a skill to practice.",
+      "In Job applications, open the result and choose Build proof sprint.",
+      "Complete the tasks and add a link or notes to show what you made.",
     ],
-    href: "/login",
-    linkLabel: "Find a skill gap",
+    href: "/applications",
+    linkLabel: "Explore job applications",
     visual: "proof" as const,
     icon: Target,
   },
   {
     number: "06",
-    label: "Show what you can do",
-    title: "Create resume updates from completed work",
-    body: "Use completed roadmap tasks and project notes to draft resume suggestions. You stay in control: edit the wording, check every claim, and download a text draft.",
+    label: "Prepare your materials",
+    title: "Create drafts you can review and edit",
+    body: "JobHunter can help prepare materials, but you stay responsible for checking every claim and sending or submitting them yourself.",
     steps: [
-      "Finish at least one roadmap task and save any useful project proof.",
-      "Open Resume update and choose the projects you want to include.",
-      "Add your resume and target role, consent to the AI draft, review the suggestions, then download your draft.",
+      "For a saved job with posting details, choose Prepare application to draft a cover letter, resume summary and bullets, and profile-supported job terms.",
+      "For a broader resume draft, open Resume update and choose completed roadmap work, then add your resume and target role. For a cover-letter-only draft, open Cover letter.",
+      "Review and edit every suggestion. Save drafts to a job only if you want them in its history. JobHunter does not fill in external forms or submit applications.",
     ],
-    href: "/login",
+    href: "/resume-update",
     linkLabel: "Open resume update",
     visual: "resume" as const,
     icon: FileText,
   },
   {
     number: "07",
-    label: "Learn as you go",
-    title: "Track progress and make the dashboard yours",
-    body: "Your dashboard starts with a first-steps checklist and Career Momentum milestones based on real learning and preparation progress—not streaks or application quotas. You can hide or show dashboard sections individually or all at once; your choices are saved on this device.",
+    label: "Practice for interviews",
+    title: "Prepare for a role with interview practice",
+    body: "Practice from a saved application or start a practice round for any role.",
     steps: [
-      "Start with Your first steps on the Career Dashboard; completed items are recognized from your saved profile, applications, roadmaps, and tasks.",
-      "Use Career Momentum to recognize milestones as you make progress.",
-      "Choose Hide or Show on a section, or use Show all and Hide all to adjust the dashboard layout. Your selection is stored in this browser.",
-      "Open Analytics to see your current application pipeline, follow-ups due soon, the mix of sources you record, and stage-to-stage conversion based on saved status changes. Existing applications start from a snapshot when tracking is deployed; older transitions are not reconstructed. These personal samples are not proof that a source or fit assessment caused an outcome. If you have offers, compare factors like pay, commute, learning, and work-life balance—the scores do not make the choice for you.",
+      "Choose Interview prep on a saved job or open Interview practice from the navigation.",
+      "Enter a role and optionally a company or job description. Agree before sending these details to AI to generate questions.",
+      "Answer by typing or voice, then request AI coaching only on answers you choose to share. Camera is a local preview; browser speech recognition may process audio through its provider.",
     ],
-    href: "/login",
-    linkLabel: "Explore your dashboard",
+    href: "/interview-practice",
+    linkLabel: "Open interview practice",
+    visual: "interview" as const,
+    icon: Video,
+  },
+  {
+    number: "08",
+    label: "See your progress",
+    title: "Use your dashboard and search insights",
+    body: "Progress views summarize what you have recorded. They are personal tracking tools, not forecasts or proof that one action caused an outcome.",
+    steps: [
+      "Start with Your first steps and Career Momentum on the Career dashboard.",
+      "Open Search insights to review your application pipeline, due follow-ups, saved sources, and status changes.",
+      "Hide or show dashboard sections to make the workspace easier to use. Your layout choice is saved in this browser.",
+    ],
+    href: "/dashboard",
+    linkLabel: "Open your dashboard",
     visual: "insights" as const,
     icon: BarChart3,
   },
   {
-    number: "08",
-    label: "Help us improve",
-    title: "Tell us what worked for you",
-    body: "When you have tried the app, share what helped or got in your way. Feedback is optional, and your survey answers are saved without your account email.",
+    number: "09",
+    label: "Plans and billing",
+    title: "Understand your plan before checkout",
+    body: "Plans & usage shows your access, included allowances, and subscription status. The price and interval are shown before checkout.",
     steps: [
-      "Choose Share feedback from the left menu.",
-      "Rate the parts you tried; leave the rest as Not tried.",
-      "Tell us what was useful or what you would change, then submit.",
+      "Open Plans & usage to review access and available plans. Live PayFast checkout creates real recurring charges; sandbox subscriptions do not transfer to live mode.",
+      "An upgrade starts a new checkout and takes effect only after payment succeeds. The existing renewal is then canceled.",
+      "A downgrade is scheduled for renewal. Your current plan stays active through its paid period; return at renewal and complete checkout for the lower plan. Scheduling does not authorize a future payment. If available, Schedule cancellation stops renewal while access continues through the paid period.",
     ],
-    href: "/login",
+    href: "/billing",
+    linkLabel: "Review plans and usage",
+    visual: "billing" as const,
+    icon: CreditCard,
+  },
+  {
+    number: "10",
+    label: "Get help",
+    title: "Ask the assistant or contact support",
+    body: "The assistant can explain how to use JobHunter and give general career guidance. It cannot see your account or make changes for you.",
+    steps: [
+      "Open the assistant from the page you are using and describe what you are trying to do. It can use the current page as a navigation hint.",
+      "Do not share passwords, verification codes, or full payment details. Choose saved career information only when you want it included in a career message.",
+      "For account-specific or payment problems, contact support; the assistant cannot access or change account records.",
+    ],
+    href: "/contact",
+    linkLabel: "Contact support",
+    visual: "assistant" as const,
+    icon: Bot,
+  },
+  {
+    number: "11",
+    label: "Help us improve",
+    title: "Share feedback when you are ready",
+    body: "Feedback is optional. Your survey answers are saved without your account email.",
+    steps: [
+      "Choose Send feedback from the dashboard navigation.",
+      "Rate only features you tried; leave others as Not tried.",
+      "Describe what helped or what you would change, then submit.",
+    ],
+    href: "/feedback",
     linkLabel: "Share feedback",
     visual: "feedback" as const,
     icon: MessageSquareText,
@@ -197,7 +236,7 @@ function MockField({ label, value }: { label: string; value: string }) {
 function GuideVisual({ kind }: { kind: VisualKind }) {
   if (kind === "profile") {
     return (
-      <MockWindow title="Settings / Career profile">
+      <MockWindow title="Account settings / Career profile">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-white">Career profile</p>
@@ -471,6 +510,84 @@ function GuideVisual({ kind }: { kind: VisualKind }) {
     );
   }
 
+  if (kind === "interview") {
+    return (
+      <MockWindow title="Interview practice">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-white">
+              Product Support Specialist
+            </p>
+            <p className="mt-1 text-[10px] text-slate-500">
+              Practice at your own pace
+            </p>
+          </div>
+          <Video className="size-5 text-cyan-300" />
+        </div>
+        <div className="mt-4 rounded-lg border border-[#252836] bg-[#101119] p-3">
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+            Practice question
+          </p>
+          <p className="mt-2 text-[10px] leading-4 text-slate-300">
+            Tell me about a time you helped someone solve a difficult problem.
+          </p>
+        </div>
+        <p className="mt-3 rounded-lg border border-blue-400/15 bg-blue-500/[0.05] p-3 text-[9px] leading-4 text-blue-100/80">
+          Your answer is only shared for AI coaching when you request feedback.
+        </p>
+      </MockWindow>
+    );
+  }
+
+  if (kind === "billing") {
+    return (
+      <MockWindow title="Plans & usage">
+        <div className="flex items-center gap-2">
+          <CreditCard className="size-5 text-violet-300" />
+          <div>
+            <p className="text-xs font-semibold text-white">Your plan</p>
+            <p className="mt-1 text-[10px] text-slate-500">
+              Check access and usage before checkout
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 rounded-lg border border-[#252836] bg-[#101119] p-3">
+          <p className="text-[10px] font-medium text-slate-200">
+            Current access
+          </p>
+          <p className="mt-1 text-[9px] leading-4 text-slate-400">
+            Plan status · monthly AI allowances · renewal details
+          </p>
+        </div>
+        <p className="mt-3 text-[9px] leading-4 text-amber-100/80">
+          Review the price and billing interval before paying.
+        </p>
+      </MockWindow>
+    );
+  }
+
+  if (kind === "assistant") {
+    return (
+      <MockWindow title="JobHunter AI assistant">
+        <div className="flex items-center gap-2">
+          <Bot className="size-5 text-indigo-300" />
+          <p className="text-xs font-semibold text-white">
+            Ask about the page you are on
+          </p>
+        </div>
+        <div className="mt-4 rounded-lg border border-blue-400/15 bg-blue-500/[0.06] p-3">
+          <p className="text-[10px] text-blue-100">
+            How do I add a job and set a follow-up?
+          </p>
+        </div>
+        <p className="mt-3 text-[9px] leading-4 text-slate-400">
+          The assistant can explain features, but cannot access or change your
+          account.
+        </p>
+      </MockWindow>
+    );
+  }
+
   return (
     <MockWindow title="Share feedback">
       <div className="flex items-start justify-between gap-3">
@@ -542,6 +659,65 @@ export default function GuidePage() {
         </section>
 
         <section
+          aria-labelledby="quick-start-heading"
+          className="mx-auto max-w-7xl px-6 py-8 sm:px-10 sm:py-10 lg:px-16"
+        >
+          <div className="mb-5">
+            <h2
+              id="quick-start-heading"
+              className="text-xl font-semibold text-white"
+            >
+              Your first steps
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Start with one or two of these. Skip anything that is not useful
+              right now and come back whenever you like.
+            </p>
+          </div>
+          <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                title: "Create an account",
+                description: "Sign up to save your work.",
+                href: "/signup",
+              },
+              {
+                title: "Add a few career details",
+                description: "Share skills or roles you want to explore.",
+                href: "/settings",
+              },
+              {
+                title: "Track a job you like",
+                description: "Save the role and your next step.",
+                href: "/applications",
+              },
+              {
+                title: "Make a small learning plan",
+                description: "Choose a role and try one task.",
+                href: "/roadmaps",
+              },
+            ].map((step, index) => (
+              <li key={step.title}>
+                <Link
+                  href={step.href}
+                  className="block h-full rounded-xl border border-white/[0.08] bg-[#101119] p-4 transition hover:border-blue-400/30 hover:bg-[#141620] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300"
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-300">
+                    Step {index + 1}
+                  </span>
+                  <h3 className="mt-2 text-sm font-semibold text-white">
+                    {step.title}
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    {step.description}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section
           id="walkthrough"
           className="mx-auto max-w-7xl scroll-mt-8 px-6 py-8 sm:px-10 sm:py-12 lg:px-16"
         >
@@ -556,6 +732,7 @@ export default function GuidePage() {
               return (
                 <li
                   key={guide.number}
+                  id={`guide-step-${guide.number}`}
                   className="grid items-center gap-6 rounded-2xl border border-white/[0.08] bg-[#101119] p-5 sm:gap-8 sm:p-8 lg:grid-cols-2 lg:gap-12 lg:p-10"
                 >
                   <div className={visualOnLeft ? "lg:order-2" : ""}>

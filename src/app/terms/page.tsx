@@ -88,6 +88,15 @@ const sections = [
           </Link>
           .
         </p>
+        <p>
+          When plan changes are available, an upgrade takes effect after a new
+          PayFast payment succeeds; the previous subscription renewal is then
+          cancelled. A downgrade is scheduled for the end of the current paid
+          period. You must return at renewal and complete checkout for the
+          lower plan; scheduling a downgrade does not authorize a future
+          payment. Sandbox subscriptions are for testing and do not transfer to
+          live checkout.
+        </p>
       </>
     ),
   },
