@@ -6,21 +6,27 @@
 
 I’m excited to share that JobHunter is live.
 
-I built it to make the job search feel more organized and actionable. You can keep opportunities and follow-ups together, review how your experience relates to a role, and turn possible skill gaps into practical learning or project steps.
+I built JobHunter to make the job search feel more organized and actionable. Keep opportunities, application statuses, and follow-up steps together in one workspace.
 
-JobHunter offers guidance, not a hiring prediction. AI-assisted features ask for your consent, and you stay in control of every decision—including submitting your own applications.
+Whether you’re applying for your next role or planning your next move, JobHunter helps you keep the process organized. You stay in control of your search and submit applications yourself.
 
-Take a look: https://job-hunter-nmln.onrender.com/
+Explore JobHunter: https://job-hunter-nmln.onrender.com/
 
-If you’re job searching, I’d love to hear: what part of the process is hardest to keep organized?
+**Image:** Attach [the launch poster](./jobhunter-launch-poster.png), which focuses on application tracking, reminders, and next steps.
 
 ## Facebook
 
-JobHunter is live! I built it to help bring job opportunities, application follow-ups, role-fit reviews, and practical next steps into one workspace.
+JobHunter is live!
 
-It’s there to help you prepare and stay organized—not to promise a job or apply on your behalf. You stay in control.
+I built it to help keep job opportunities, application statuses, follow-ups, and next steps together in one place.
 
-Have a look and tell me what you think: https://job-hunter-nmln.onrender.com/
+If you’re job searching, take a look. JobHunter helps you stay organized; you stay in control and submit your own applications.
+
+Explore JobHunter: https://job-hunter-nmln.onrender.com/
+
+Know someone who might find it useful? Feel free to share this with them.
+
+**Image:** Attach [the launch poster](./jobhunter-launch-poster.png).
 
 ## WhatsApp
 

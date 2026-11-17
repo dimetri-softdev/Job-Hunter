@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350" role="img" aria-labelledby="title description">
   <title id="title">JobHunter is now live</title>
-  <desc id="description">JobHunter launch poster: Take control of your job search. A smarter way to organise your journey towards your next career opportunity. Visit job-hunter-nmln.onrender.com.</desc>
+  <desc id="description">JobHunter launch poster: Take control of your job search. Track applications, follow-ups, and next steps. Visit job-hunter-nmln.onrender.com.</desc>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1080" y2="1350" gradientUnits="userSpaceOnUse">
       <stop stop-color="#090A0F"/>
@@ -67,16 +67,16 @@
   <g transform="translate(88 816)">
     <rect width="278" height="142" rx="20" fill="#121722" stroke="#334155" stroke-opacity=".72"/>
     <circle cx="31" cy="36" r="5" fill="#60A5FA"/>
-    <text x="50" y="42" fill="#93C5FD" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="1.4">REVIEW</text>
-    <text x="26" y="94" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600">Job fit</text>
-    <text x="26" y="120" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="15">See strengths and gaps</text>
+    <text x="50" y="42" fill="#93C5FD" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="1.4">TRACK</text>
+    <text x="26" y="94" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600">Applications</text>
+    <text x="26" y="120" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="15">Keep each opportunity together</text>
   </g>
   <g transform="translate(401 816)">
     <rect width="278" height="142" rx="20" fill="#121722" stroke="#334155" stroke-opacity=".72"/>
     <circle cx="31" cy="36" r="5" fill="#A78BFA"/>
-    <text x="50" y="42" fill="#C4B5FD" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="1.4">ORGANISE</text>
-    <text x="26" y="94" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600">Applications</text>
-    <text x="26" y="120" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="15">Keep next steps in view</text>
+    <text x="50" y="42" fill="#C4B5FD" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="1.4">FOLLOW UP</text>
+    <text x="26" y="94" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600">Reminders</text>
+    <text x="26" y="120" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="15">Know what needs attention</text>
   </g>
   <g transform="translate(714 816)">
     <rect width="278" height="142" rx="20" fill="#121722" stroke="#334155" stroke-opacity=".72"/>

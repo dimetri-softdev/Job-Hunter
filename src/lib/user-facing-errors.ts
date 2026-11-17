@@ -13,6 +13,10 @@ const FALLBACK_BY_STATUS: Record<number, string> = {
 };
 
 export function getApiErrorMessage(payload: unknown, status: number): string {
+  if (status === 503) {
+    return "This feature is temporarily unavailable. Please try again shortly.";
+  }
+
   if (status >= 500) {
     return "Something went wrong on our end. Please try again shortly.";
   }

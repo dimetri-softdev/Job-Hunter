@@ -112,18 +112,47 @@ if frontend_origin:
 
 # 4. Pydantic Models & Auth Helpers
 def gemini_generate_with_retry(**kwargs: Any):
-    models = [GEMINI_MODEL, "gemini-3.5-flash-lite"]
+    if gemini_client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="The AI service is not configured. Please try again later.",
+        )
+
+    fallback_model = "gemini-3.5-flash-lite"
+    models = [GEMINI_MODEL]
+    if GEMINI_MODEL != fallback_model:
+        models.append(fallback_model)
+
     last_error: Optional[Exception] = None
-    for attempt in range(3):
-        model = models[0] if attempt < 2 else models[-1]
-        try:
-            return gemini_client.models.generate_content(model=model, **kwargs)
-        except Exception as exc:
-            if getattr(exc, "code", None) not in (429, 500, 503, 504):
-                raise
-            last_error = exc
-            time.sleep(2 * (attempt + 1))
-    raise last_error  # type: ignore[misc]
+    for model_index, model in enumerate(models):
+        for attempt in range(2):
+            try:
+                return gemini_client.models.generate_content(model=model, **kwargs)
+            except Exception as exc:
+                if getattr(exc, "code", None) not in (429, 500, 503, 504):
+                    raise
+                last_error = exc
+                if attempt == 0:
+                    time.sleep(2)
+
+        if model_index == 0 and len(models) > 1:
+            logger.warning(
+                "Gemini model %s is unavailable after retries; trying fallback model %s",
+                model,
+                models[1],
+            )
+
+    if last_error is None:
+        raise RuntimeError("Gemini generation ended without a response or provider error.")
+
+    logger.warning(
+        "Gemini generation remains unavailable after retries (status %s)",
+        getattr(last_error, "code", "unknown"),
+    )
+    raise HTTPException(
+        status_code=503,
+        detail="The AI service is temporarily unavailable. Please try again shortly.",
+    ) from last_error
 
 
 def serialize_offer_details(details: Optional[OfferDetailsRequest]) -> Optional[str]:

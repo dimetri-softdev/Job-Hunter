@@ -176,6 +176,8 @@ Before every post or demo, check:
 - [30-second promo video script and storyboard](./docs/launch-campaign/short-promo-video.md)
 - [Rendered vertical promo video](./docs/launch-campaign/jobhunter-launch-promo.mp4)
 - [Launch poster PNG](./docs/launch-campaign/jobhunter-launch-poster.png)
+- [Captions and posting plan for the six feature videos](./docs/launch-campaign/video-posting-plan.md)
+- [LinkedIn, Facebook, and WhatsApp bios](./docs/launch-campaign/social-platform-bios.md)
 
 ## Product references
 
