@@ -2,7 +2,7 @@
 
 This is a practical first campaign for introducing Job Hunter without overpromising or needing a marketing team. Start with one short interactive product demo, share it with a small audience, learn from responses, and improve it.
 
-For ready-to-record materials, use the [step-by-step Supademo guide](./docs/demo/STEP-BY-STEP-SUPADEMO.md), [voice-over and captions](./docs/demo/VOICEOVER-STORYBOARD.md), [fictional demo resume](./docs/demo/DEMO-RESUME.md), and [fictional job posting](./docs/demo/DEMO-JOB-POSTING.md).
+For ready-to-record materials, use the [step-by-step Supademo guide](./docs/launch-campaign/STEP-BY-STEP-SUPADEMO.md), [voice-over and captions](./docs/launch-campaign/VOICEOVER-STORYBOARD.md), [fictional demo resume](./docs/launch-campaign/DEMO-RESUME.md), and [fictional job posting](./docs/launch-campaign/DEMO-JOB-POSTING.md).
 
 ## 1. What Job Hunter does
 
@@ -169,13 +169,13 @@ Before every post or demo, check:
 
 ## 9. Launch campaign assets
 
-- [Product showcase and screenshot notes](./docs/marketing/jobhunter-product-showcase.md)
-- [Signed-in dashboard capture](./docs/marketing/jobhunter-dashboard-showcase.png)
-- [Applications capture with fictional demo data](./docs/marketing/jobhunter-applications-showcase.png)
-- [Founder launch posts](./docs/marketing/founder-launch-posts.md)
-- [30-second promo video script and storyboard](./docs/marketing/short-promo-video.md)
-- [Rendered vertical promo video](./docs/marketing/jobhunter-launch-promo.mp4)
-- [Launch poster PNG](./docs/marketing/jobhunter-launch-poster.png)
+- [Product showcase and screenshot notes](./docs/launch-campaign/jobhunter-product-showcase.md)
+- [Signed-in dashboard capture](./docs/launch-campaign/jobhunter-dashboard-showcase.png)
+- [Applications capture with fictional demo data](./docs/launch-campaign/jobhunter-applications-showcase.png)
+- [Founder launch posts](./docs/launch-campaign/founder-launch-posts.md)
+- [30-second promo video script and storyboard](./docs/launch-campaign/short-promo-video.md)
+- [Rendered vertical promo video](./docs/launch-campaign/jobhunter-launch-promo.mp4)
+- [Launch poster PNG](./docs/launch-campaign/jobhunter-launch-poster.png)
 
 ## Product references
 
