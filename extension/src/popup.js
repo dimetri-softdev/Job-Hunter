@@ -4,8 +4,14 @@ const signInForm = document.querySelector("#sign-in-form");
 const signedInPanel = document.querySelector("#signed-in-panel");
 const signInButton = document.querySelector("#sign-in");
 const accountEmail = document.querySelector("#account-email");
+const consentPanel = document.querySelector("#consent-panel");
+const consentDenied = document.querySelector("#consent-denied");
+const changeConsentButton = document.querySelector("#change-consent");
+const scanButton = document.querySelector("#scan-page");
 
 let clientConfig = null;
+let autofillConsent = null;
+let editingConsent = false;
 
 function showError(message) {
   errorElement.textContent = message;
@@ -44,7 +50,26 @@ function renderSignedIn(email) {
   signInForm.hidden = true;
   signedInPanel.hidden = false;
   accountEmail.textContent = email || "JobHunter account";
-  statusElement.textContent = "Ready when you are.";
+  renderConsent();
+}
+
+function renderConsent() {
+  consentPanel.hidden = autofillConsent !== null && !editingConsent;
+  consentDenied.hidden = autofillConsent !== false || editingConsent;
+  changeConsentButton.hidden = autofillConsent !== false || editingConsent;
+  scanButton.hidden = autofillConsent !== true;
+  statusElement.textContent = autofillConsent === true
+    ? "Ready when you are."
+    : autofillConsent === false
+      ? "Autofill assistance is off."
+      : "Choose whether to allow autofill assistance.";
+}
+
+async function saveConsent(accepted) {
+  await sendMessage({ type: "SET_AUTOFILL_CONSENT", accepted });
+  autofillConsent = accepted;
+  editingConsent = false;
+  renderConsent();
 }
 
 async function initialize() {
@@ -54,6 +79,8 @@ async function initialize() {
     const session = await sendMessage({ type: "GET_SESSION" });
     if (session?.email) {
       renderSignedIn(session.email);
+      autofillConsent = await sendMessage({ type: "GET_AUTOFILL_CONSENT" });
+      renderConsent();
     } else {
       renderSignedOut();
     }
@@ -86,6 +113,8 @@ signInForm.addEventListener("submit", async (event) => {
     });
     signInForm.reset();
     renderSignedIn(session.email);
+    autofillConsent = await sendMessage({ type: "GET_AUTOFILL_CONSENT" });
+    renderConsent();
   } catch (error) {
     showError(error instanceof Error ? error.message : "Sign-in failed.");
   } finally {
@@ -104,11 +133,29 @@ document.querySelector("#sign-out").addEventListener("click", async () => {
   }
 });
 
-document.querySelector("#scan-page").addEventListener("click", async () => {
+document.querySelector("#consent-yes").addEventListener("click", () => {
+  saveConsent(true).catch((error) =>
+    showError(error instanceof Error ? error.message : "Unable to save your choice."),
+  );
+});
+
+document.querySelector("#consent-no").addEventListener("click", () => {
+  saveConsent(false).catch((error) =>
+    showError(error instanceof Error ? error.message : "Unable to save your choice."),
+  );
+});
+
+changeConsentButton.addEventListener("click", () => {
+  editingConsent = true;
+  renderConsent();
+});
+
+scanButton.addEventListener("click", async () => {
+  if (autofillConsent !== true) return;
   clearError();
-  const button = document.querySelector("#scan-page");
+  const button = scanButton;
   button.disabled = true;
-  button.textContent = "Opening review...";
+  button.textContent = "Scanning page...";
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -135,7 +182,7 @@ document.querySelector("#scan-page").addEventListener("click", async () => {
     showError(error instanceof Error ? error.message : "Unable to inspect this page.");
   } finally {
     button.disabled = false;
-    button.textContent = "Review fields on this page";
+    button.textContent = "Scan and autofill this page";
   }
 });
 

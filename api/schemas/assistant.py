@@ -12,6 +12,22 @@ class CareerRecommendationsRequest(BaseModel):
     aiProcessingConsent: bool
 
 
+class AutofillQuestion(BaseModel):
+    fieldId: str = Field(pattern=r"^field-\d{1,4}$", max_length=16)
+    label: Optional[str] = Field(default=None, max_length=300)
+    name: Optional[str] = Field(default=None, max_length=160)
+    id: Optional[str] = Field(default=None, max_length=160)
+    placeholder: Optional[str] = Field(default=None, max_length=200)
+    autocomplete: Optional[str] = Field(default=None, max_length=100)
+    type: Optional[str] = Field(default=None, max_length=40)
+    options: list[str] = Field(default_factory=list, max_length=25)
+
+
+class ExtensionAutofillSuggestionsRequest(BaseModel):
+    aiProcessingConsent: bool
+    fields: list[AutofillQuestion] = Field(min_length=1, max_length=250)
+
+
 class JobPostingAnalyzeRequest(BaseModel):
     description: str = Field(min_length=80, max_length=20000)
 

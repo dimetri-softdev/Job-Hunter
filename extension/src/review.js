@@ -47,22 +47,29 @@ function renderSuggestion(match) {
 
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
-  checkbox.checked = !match.requiresReview;
+  checkbox.checked = false;
+  checkbox.disabled = match.suggestedValue === null;
   checkbox.dataset.fieldId = match.fieldId;
 
   const copy = document.createElement("span");
   copy.className = "suggestion-copy";
   const value = document.createElement("strong");
-  value.textContent = match.suggestedValue;
+  value.textContent = match.suggestedValue || "No safe profile match";
   const detail = document.createElement("small");
-  detail.textContent = `${match.profileKey} · ${Math.round(match.confidence * 100)}% confidence`;
+  detail.textContent = match.source === "ai"
+    ? `${match.fieldLabel || "Form field"} · AI draft · ${Math.round(match.confidence * 100)}% model confidence`
+    : match.suggestedValue
+      ? `${match.fieldLabel || "Form field"} · ${match.profileKey} · ${Math.round(match.confidence * 100)}% confidence`
+    : `${match.fieldLabel || "Form field"} · ${match.reason.replaceAll("-", " ")}`;
   copy.append(value, detail);
 
   const badge = document.createElement("span");
   badge.className = `review-badge${match.requiresReview ? "" : " ready"}`;
-  badge.textContent = match.requiresReview
-    ? match.reason.replaceAll("-", " ")
-    : "Ready to fill";
+  badge.textContent = match.source === "ai"
+    ? "AI draft · review required"
+    : match.requiresReview
+      ? match.reason.replaceAll("-", " ")
+      : "Ready to fill";
 
   row.append(checkbox, copy, badge);
   return row;
@@ -74,12 +81,14 @@ function renderReview(data) {
   linkElement.href = data.pageUrl;
   linkElement.title = data.pageUrl;
 
-  const matches = data.matches.filter((match) => match.suggestedValue !== null);
+  const matches = data.matches;
   matchCountElement.textContent = String(matches.length);
   if (matches.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = "No profile matches found. Check that your JobHunter autofill profile has values saved, then scan the page again.";
+    empty.textContent = data.autoFilledCount > 0
+      ? "High-confidence matches were filled. No additional fields need review."
+      : "No profile matches found. Check that your JobHunter autofill profile has values saved, then scan the page again.";
     suggestionsElement.replaceChildren(empty);
   } else {
     suggestionsElement.replaceChildren(...matches.map(renderSuggestion));
@@ -92,8 +101,17 @@ function renderReview(data) {
     ? "LinkedIn"
     : "Job board";
 
-  fillButton.disabled = matches.length === 0;
-  setStatus(`${matches.length} suggested match${matches.length === 1 ? "" : "es"}. Review before filling.`, "success");
+  fillButton.disabled = !matches.some((match) => match.suggestedValue !== null);
+  const autoFillMessage = data.autoFilledCount > 0
+    ? `${data.autoFilledCount} high-confidence field${data.autoFilledCount === 1 ? " was" : "s were"} filled. `
+    : "";
+  const reviewMessage = matches.length > 0
+    ? `${matches.length} sensitive or uncertain field${matches.length === 1 ? "" : "s"} need review.`
+    : "No additional fields need review.";
+  const aiWarning = data.aiError
+    ? `AI suggestions unavailable: ${String(data.aiError).slice(0, 240)} Profile-based suggestions remain available. `
+    : "";
+  setStatus(`${aiWarning}${autoFillMessage}${reviewMessage}`, data.aiError ? "info" : "success");
 }
 
 fillButton.addEventListener("click", async () => {

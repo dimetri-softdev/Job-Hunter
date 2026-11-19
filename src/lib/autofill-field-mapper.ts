@@ -6,6 +6,7 @@ export interface DetectedApplicationField {
   placeholder?: string | null;
   autocomplete?: string | null;
   type?: string | null;
+  options?: string[] | null;
 }
 
 export interface AutofillProfileData {
@@ -48,6 +49,7 @@ export type AutofillMatchReason =
 
 export interface AutofillFieldMatch {
   fieldId: string;
+  fieldLabel: string | null;
   profileKey: string | null;
   suggestedValue: string | null;
   confidence: number;
@@ -232,13 +234,31 @@ function scoreField(field: DetectedApplicationField, value: ProfileValue): numbe
   return Math.min(bestScore, value.confidenceCap ?? 1);
 }
 
+function isSensitiveField(field: DetectedApplicationField): boolean {
+  const fieldText = normalize(
+    [field.type, field.label, field.name, field.id, field.placeholder, field.autocomplete]
+      .filter(Boolean)
+      .join(" "),
+  );
+  return /\b(password|salary|compensation|work authorization|authorized to work|visa|sponsorship|citizenship|immigration|gender|race|ethnicity|disability|veteran|pronouns|date of birth|birth date|age|social security|ssn|national id|criminal|background check|religion|sexual orientation)\b/.test(
+    fieldText,
+  );
+}
+
+function exactOption(options: string[] | null | undefined, value: string): string | null {
+  const normalizedValue = normalize(value);
+  return options?.find((option) => normalize(option) === normalizedValue) ?? null;
+}
+
 function makeUnmatched(
   fieldId: string,
   reason: AutofillMatchReason,
   confidence = 0,
+  fieldLabel: string | null = null,
 ): AutofillFieldMatch {
   return {
     fieldId,
+    fieldLabel,
     profileKey: null,
     suggestedValue: null,
     confidence,
@@ -253,7 +273,7 @@ export function mapApplicationFields(
 ): AutofillFieldMatch[] {
   if (!profile.privacyConsentAccepted) {
     return fields.map((field) =>
-      makeUnmatched(field.fieldId, "profile-consent-required"),
+      makeUnmatched(field.fieldId, "profile-consent-required", 0, field.label ?? null),
     );
   }
 
@@ -266,16 +286,17 @@ export function mapApplicationFields(
       .sort((left, right) => right.confidence - left.confidence);
 
     const best = ranked[0];
-    if (!best) return makeUnmatched(field.fieldId, "no-match");
+    if (!best) return makeUnmatched(field.fieldId, "no-match", 0, field.label ?? null);
 
     const second = ranked[1];
     if (second && best.confidence - second.confidence < 0.05) {
-      return makeUnmatched(field.fieldId, "ambiguous", best.confidence);
+      return makeUnmatched(field.fieldId, "ambiguous", best.confidence, field.label ?? null);
     }
 
     if (!best.value.consentGiven) {
       return {
         fieldId: field.fieldId,
+        fieldLabel: field.label ?? null,
         profileKey: best.value.key,
         suggestedValue: null,
         confidence: best.confidence,
@@ -287,6 +308,19 @@ export function mapApplicationFields(
     if (best.value.sensitive) {
       return {
         fieldId: field.fieldId,
+        fieldLabel: field.label ?? null,
+        profileKey: best.value.key,
+        suggestedValue: best.value.value,
+        confidence: best.confidence,
+        requiresReview: true,
+        reason: "sensitive-review",
+      };
+    }
+
+    if (isSensitiveField(field)) {
+      return {
+        fieldId: field.fieldId,
+        fieldLabel: field.label ?? null,
         profileKey: best.value.key,
         suggestedValue: best.value.value,
         confidence: best.confidence,
@@ -298,6 +332,7 @@ export function mapApplicationFields(
     if (best.confidence < AUTOFILL_AUTO_MATCH_THRESHOLD) {
       return {
         fieldId: field.fieldId,
+        fieldLabel: field.label ?? null,
         profileKey: best.value.key,
         suggestedValue: best.value.value,
         confidence: best.confidence,
@@ -306,8 +341,33 @@ export function mapApplicationFields(
       };
     }
 
+    if (["select", "combobox"].includes(normalize(field.type))) {
+      const option = exactOption(field.options, best.value.value);
+      if (!option) {
+        return {
+          fieldId: field.fieldId,
+          fieldLabel: field.label ?? null,
+          profileKey: best.value.key,
+          suggestedValue: best.value.value,
+          confidence: best.confidence,
+          requiresReview: true,
+          reason: "low-confidence",
+        };
+      }
+      return {
+        fieldId: field.fieldId,
+        fieldLabel: field.label ?? null,
+        profileKey: best.value.key,
+        suggestedValue: option,
+        confidence: best.confidence,
+        requiresReview: false,
+        reason: "matched",
+      };
+    }
+
     return {
       fieldId: field.fieldId,
+      fieldLabel: field.label ?? null,
       profileKey: best.value.key,
       suggestedValue: best.value.value,
       confidence: best.confidence,

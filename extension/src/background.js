@@ -3,6 +3,7 @@ import { mapApplicationFields } from "./autofill-field-mapper.js";
 const API_BASE_URL = "https://jobhunter-api-6c47.onrender.com/api/v1";
 const SESSION_KEY = "jobhunterSupabaseSession";
 const CONFIG_KEY = "jobhunterPublicClientConfig";
+const AUTOFILL_CONSENT_KEY = "jobhunterAutofillAiConsentV1";
 
 async function getConfig() {
   const stored = await chrome.storage.local.get(CONFIG_KEY);
@@ -92,6 +93,21 @@ async function signOut() {
   }).catch(() => undefined);
 }
 
+async function getAutofillConsent() {
+  const stored = await chrome.storage.local.get(AUTOFILL_CONSENT_KEY);
+  return typeof stored[AUTOFILL_CONSENT_KEY] === "boolean"
+    ? stored[AUTOFILL_CONSENT_KEY]
+    : null;
+}
+
+async function setAutofillConsent(accepted) {
+  if (typeof accepted !== "boolean") {
+    throw new Error("Choose Yes or No to save your autofill consent.");
+  }
+  await chrome.storage.local.set({ [AUTOFILL_CONSENT_KEY]: accepted });
+  return accepted;
+}
+
 async function apiRequest(path, options = {}) {
   const session = await getSession();
   if (!session) throw new Error("Sign in to JobHunter to continue.");
@@ -113,6 +129,9 @@ async function apiRequest(path, options = {}) {
 }
 
 async function mapPageFields(fields) {
+  if (await getAutofillConsent() !== true) {
+    throw new Error("Allow autofill assistance in the extension before scanning or matching fields.");
+  }
   if (!Array.isArray(fields) || fields.length > 250) {
     throw new Error("This page has too many form fields to review at once.");
   }
@@ -159,7 +178,89 @@ async function openReview(message) {
     throw new Error("Only http and https application pages can be reviewed.");
   }
 
-  const matches = await mapPageFields(fields);
+  const profileMatches = await mapPageFields(fields);
+  const fieldsById = new Map(fields.map((field) => [field.fieldId, field]));
+  let aiSuggestions = [];
+  let aiError = null;
+  if (fields.length > 0) {
+    try {
+      const aiResult = await apiRequest("/extension/autofill-suggestions", {
+        method: "POST",
+        body: JSON.stringify({
+          aiProcessingConsent: true,
+          fields: fields.map((field) => ({
+            fieldId: String(field.fieldId || "").slice(0, 16),
+            label: typeof field.label === "string" ? field.label.slice(0, 300) : null,
+            name: typeof field.name === "string" ? field.name.slice(0, 160) : null,
+            id: typeof field.id === "string" ? field.id.slice(0, 160) : null,
+            placeholder:
+              typeof field.placeholder === "string" ? field.placeholder.slice(0, 200) : null,
+            autocomplete:
+              typeof field.autocomplete === "string" ? field.autocomplete.slice(0, 100) : null,
+            type: typeof field.type === "string" ? field.type.slice(0, 40) : null,
+            options: Array.isArray(field.options)
+              ? field.options.filter((option) => typeof option === "string").slice(0, 25)
+              : [],
+          })),
+        }),
+      });
+      aiSuggestions = Array.isArray(aiResult?.suggestions) ? aiResult.suggestions : [];
+    } catch (error) {
+      aiError = error instanceof Error ? error.message : "AI suggestions are unavailable.";
+    }
+  }
+
+  const aiByFieldId = new Map(
+    aiSuggestions
+      .filter(
+        (suggestion) =>
+          typeof suggestion?.fieldId === "string" &&
+          typeof suggestion?.suggestedValue === "string" &&
+          typeof suggestion?.confidence === "number",
+      )
+      .map((suggestion) => [suggestion.fieldId, suggestion]),
+  );
+  const matches = profileMatches.map((match) => {
+    const aiSuggestion = aiByFieldId.get(match.fieldId);
+    if (
+      !aiSuggestion ||
+      match.reason === "matched" ||
+      match.reason === "sensitive-review" ||
+      match.reason === "sensitive-consent-required" ||
+      match.reason === "profile-consent-required"
+    ) {
+      return match;
+    }
+
+    return {
+      ...match,
+      fieldLabel: fieldsById.get(match.fieldId)?.label || match.fieldLabel || null,
+      profileKey: "AI suggestion",
+      suggestedValue: aiSuggestion.suggestedValue,
+      confidence: aiSuggestion.confidence,
+      requiresReview: true,
+      reason: "ai-suggestion",
+      source: "ai",
+    };
+  });
+  const autoFills = matches
+    .filter((match) => match.reason === "matched" && !match.requiresReview && match.suggestedValue !== null)
+    .map((match) => ({ fieldId: match.fieldId, value: match.suggestedValue }));
+  let autoFilledCount = 0;
+  if (autoFills.length > 0) {
+    const page = await chrome.tabs.get(tabId);
+    if (page.url !== pageUrl.href) {
+      throw new Error("The application page changed. Scan it again before filling fields.");
+    }
+    const fillResponse = await chrome.tabs.sendMessage(tabId, {
+      type: "FILL_FIELDS",
+      fills: autoFills,
+    });
+    if (!fillResponse?.ok) {
+      throw new Error(fillResponse?.error || "The application page is no longer available.");
+    }
+    autoFilledCount = Number(fillResponse.data?.filled) || 0;
+  }
   const reviewId = crypto.randomUUID();
   const storageKey = `jobhunterReview:${reviewId}`;
   await chrome.storage.session.set({
@@ -167,7 +268,9 @@ async function openReview(message) {
       tabId,
       pageUrl: pageUrl.href,
       pageTitle: String(message.pageTitle || "Job application").slice(0, 300),
-      matches,
+      matches: matches.filter((match) => match.requiresReview),
+      autoFilledCount,
+      aiError,
     },
   });
 
@@ -189,6 +292,9 @@ async function getReviewData(reviewId) {
 }
 
 async function fillReviewFields(message) {
+  if (await getAutofillConsent() !== true) {
+    throw new Error("Autofill assistance is off. Change your consent in the extension to continue.");
+  }
   const review = await getReviewData(message.reviewId);
   const selectedIds = new Set(
     Array.isArray(message.fieldIds)
@@ -222,6 +328,10 @@ async function handleMessage(message) {
       const session = await getSession();
       return session ? { email: session.email } : null;
     }
+    case "GET_AUTOFILL_CONSENT":
+      return getAutofillConsent();
+    case "SET_AUTOFILL_CONSENT":
+      return setAutofillConsent(message.accepted);
     case "SIGN_IN":
       return signIn(String(message.email || "").trim(), String(message.password || ""));
     case "SIGN_OUT":

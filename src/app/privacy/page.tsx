@@ -36,7 +36,7 @@ const aiFeatures = [
   {
     title: "Google Gemini",
     description:
-      "Used for resume-to-job fit reviews and resume-update suggestions. When you request these features and agree, the resume and relevant job or project information are sent for processing.",
+      "Used for resume-to-job fit reviews, resume-update suggestions, and AI suggestions in the browser extension. For extension suggestions, only after you opt in, visible form question labels and field metadata (names, placeholders, types, and options) plus a limited non-sensitive career profile (work history, education, skills, and non-sensitive saved answers) are sent for processing. Current field values, contact details, and sensitive saved answers are excluded; sensitive questions are not sent to AI. AI suggestions always require your review. This request counts against the Application drafts allowance.",
   },
   {
     title: "Groq",

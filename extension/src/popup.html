@@ -32,12 +32,22 @@
       <section id="signed-in-panel" class="panel" hidden>
         <p class="eyebrow">SIGNED IN</p>
         <p id="account-email" class="account-email"></p>
-        <button id="scan-page" class="primary" type="button">Review fields on this page</button>
-        <p class="hint">Only the active tab is inspected, and only after you click.</p>
+        <section id="consent-panel" class="consent-panel" hidden aria-labelledby="consent-heading">
+          <h2 id="consent-heading">Allow AI and autofill?</h2>
+          <p class="hint">When you scan, visible question labels and field metadata (names, placeholders, types, and dropdown options), plus a limited non-sensitive career profile (work history, education, skills, and non-sensitive saved answers), are sent to Google Gemini for draft suggestions. Current field values and contact details are not sent. Sensitive saved answers are excluded, and sensitive questions are not sent to AI. AI suggestions are never filled automatically and always require your review. Direct high-confidence, non-sensitive profile matches may be filled. Each AI scan uses one Application drafts allowance; your plan may limit access. Employer forms are never submitted.</p>
+          <div class="consent-actions">
+            <button id="consent-yes" class="primary" type="button">Yes, allow</button>
+            <button id="consent-no" class="secondary" type="button">No, thanks</button>
+          </div>
+        </section>
+        <p id="consent-denied" class="hint" hidden>Autofill assistance is off. No page scan or profile matching will occur.</p>
+        <button id="change-consent" class="quiet" type="button" hidden>Change consent</button>
+        <button id="scan-page" class="primary" type="button">Scan and autofill this page</button>
+        <p class="hint">Only the active tab is inspected after you click. High-confidence matches may be filled immediately.</p>
         <button id="sign-out" class="quiet" type="button">Sign out</button>
       </section>
 
-      <footer>Nothing is submitted automatically.</footer>
+      <footer>The extension never submits employer forms.</footer>
     </main>
     <script src="popup.js"></script>
   </body>
