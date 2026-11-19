@@ -65,7 +65,10 @@ export function JobGapRoadmap({
         if (nextOpen) setError(null);
       }}
     >
-      <DialogTrigger className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-600/10 px-2.5 text-[11px] font-medium text-blue-300 hover:bg-blue-600/20">
+      <DialogTrigger
+        type="button"
+        className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-600/10 px-2.5 text-[11px] font-medium text-blue-300 hover:bg-blue-600/20"
+      >
         <Sparkles className="h-3.5 w-3.5" />
         Build roadmap from gaps
       </DialogTrigger>

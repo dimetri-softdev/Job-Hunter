@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   CheckCircle2,
   FileSearch,
@@ -27,8 +28,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { fetcher } from "@/lib/api";
+import { JobGapRoadmap } from "@/components/dashboard/job-gap-roadmap";
 import type { CreatedApplication } from "@/components/dashboard/job-posting-modal";
-import type { FitAssessment, FitVerdict } from "@/lib/application-types";
+import type {
+  ApplicationRoadmap,
+  FitAssessment,
+  FitVerdict,
+} from "@/lib/application-types";
 import { APPLICATION_SOURCES, type ApplicationSource } from "@/lib/application-types";
 
 const verdictDetails: Record<FitVerdict, { label: string; className: string }> = {
@@ -58,6 +64,7 @@ export function JobFitModal({
   onApplicationSaved,
   savedApplication,
   onSavedJobFitUpdated,
+  onRoadmapCreated,
 }: {
   onApplicationSaved: (application: CreatedApplication) => void;
   savedApplication?: {
@@ -69,6 +76,10 @@ export function JobFitModal({
   onSavedJobFitUpdated?: (
     applicationId: string,
     assessment: FitAssessment,
+  ) => void;
+  onRoadmapCreated?: (
+    applicationId: string,
+    roadmap: ApplicationRoadmap,
   ) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -84,6 +95,11 @@ export function JobFitModal({
   const [followUpAt, setFollowUpAt] = useState("");
   const [consent, setConsent] = useState(false);
   const [assessment, setAssessment] = useState<FitAssessment | null>(null);
+  const [createdApplicationId, setCreatedApplicationId] = useState<string | null>(
+    null,
+  );
+  const [createdRoadmap, setCreatedRoadmap] =
+    useState<ApplicationRoadmap | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -105,6 +121,8 @@ export function JobFitModal({
     setFollowUpAt("");
     setConsent(false);
     setAssessment(null);
+    setCreatedApplicationId(null);
+    setCreatedRoadmap(null);
     setSaved(false);
     setError(null);
     setSaveError(null);
@@ -180,6 +198,7 @@ export function JobFitModal({
           followUpAt: followUpAt || null,
         }),
       });
+      setCreatedApplicationId(application.id);
       onApplicationSaved(application);
       setSaved(true);
     } catch (saveError: unknown) {
@@ -194,6 +213,7 @@ export function JobFitModal({
   }
 
   const verdict = assessment ? verdictDetails[assessment.verdict] : null;
+  const roadmapApplicationId = savedApplication?.id ?? createdApplicationId;
 
   return (
     <Dialog
@@ -530,6 +550,60 @@ export function JobFitModal({
                     <MessageCircleQuestion className="size-4 text-blue-300" />
                   }
                 />
+              )}
+              {assessment.gaps.length > 0 && (
+                <section className="space-y-2 rounded-lg border border-blue-500/20 bg-blue-500/[0.04] p-3">
+                  <h4 className="text-xs font-semibold text-slate-100">
+                    Turn skill and requirement gaps into a learning plan
+                  </h4>
+                  <p className="text-[11px] leading-5 text-slate-400">
+                    Generate a focused roadmap to learn the skills identified
+                    in this fit check. Missing resume details may not reflect
+                    your full experience.
+                  </p>
+                  {roadmapApplicationId ? (
+                    <>
+                      <JobGapRoadmap
+                        applicationId={roadmapApplicationId}
+                        position={position || assessment.roleTitle}
+                        onRoadmapCreated={(roadmap) => {
+                          setCreatedRoadmap(roadmap);
+                          onRoadmapCreated?.(roadmapApplicationId, roadmap);
+                        }}
+                      />
+                      {createdRoadmap && (
+                        <Link
+                          href={`/roadmaps#roadmap-${createdRoadmap.id}`}
+                          className="block text-[11px] text-blue-300 hover:text-blue-200"
+                        >
+                          Open roadmap · {createdRoadmap.title}
+                        </Link>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[11px] leading-5 text-slate-500">
+                        Save this job and fit check first to attach the roadmap
+                        to it.
+                      </p>
+                      <Button
+                        type="button"
+                        onClick={() => void saveApplication()}
+                        disabled={
+                          saving || !company.trim() || !position.trim()
+                        }
+                        className="bg-blue-600 text-white hover:bg-blue-500"
+                      >
+                        {saving ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                        {saving ? "Saving job..." : "Save job to build roadmap"}
+                      </Button>
+                    </div>
+                  )}
+                </section>
               )}
               <p className="flex items-start gap-2 text-[11px] leading-5 text-slate-500">
                 <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />

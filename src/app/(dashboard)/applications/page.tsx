@@ -514,7 +514,10 @@ export default function ApplicationsPage() {
           </Button>
         </ActionHint>
         <ApplicationCsvImport onImported={handleApplicationsImported} />
-        <JobFitModal onApplicationSaved={handleApplicationCreated} />
+        <JobFitModal
+          onApplicationSaved={handleApplicationCreated}
+          onRoadmapCreated={handleRoadmapCreated}
+        />
         <JobPostingModal onApplicationCreated={handleApplicationCreated} />
         <Dialog
           open={dialogOpen}
@@ -1090,6 +1093,7 @@ export default function ApplicationsPage() {
                             onApplicationSaved={handleApplicationCreated}
                             savedApplication={app}
                             onSavedJobFitUpdated={handleSavedJobFitUpdated}
+                            onRoadmapCreated={handleRoadmapCreated}
                           />
                         )}
                         <Button

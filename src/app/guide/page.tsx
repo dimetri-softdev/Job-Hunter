@@ -68,7 +68,7 @@ const guides = [
     steps: [
       "In Job applications, choose Check job fit, or open a saved job and choose Check saved job fit.",
       "Add your resume and the job posting. You can paste a description or use a supported document or image option shown in the form.",
-      "Review the consent notice and agree before analysis. Check the evidence and unknowns yourself; rerun a saved job with updated information when needed.",
+      "Review the consent notice and agree before analysis. Check the evidence and unknowns yourself; when gaps are identified, save the role and choose Build roadmap from gaps to create a learning plan.",
     ],
     href: "/applications",
     linkLabel: "Review a job fit",
