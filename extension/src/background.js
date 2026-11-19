@@ -108,24 +108,38 @@ async function setAutofillConsent(accepted) {
   return accepted;
 }
 
-async function apiRequest(path, options = {}) {
+async function apiRequest(path, options = {}, timeoutMs = 15000) {
   const session = await getSession();
   if (!session) throw new Error("Sign in to JobHunter to continue.");
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.accessToken}`,
-      ...options.headers,
-    },
-  });
-  const result = await response.json().catch(() => null);
-  if (!response.ok) {
-    const message = typeof result?.detail === "string" ? result.detail : "JobHunter could not complete that request.";
-    throw new Error(message);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.accessToken}`,
+        ...options.headers,
+      },
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message = typeof result?.detail === "string" ? result.detail : "JobHunter could not complete that request.";
+      throw new Error(message);
+    }
+    return result;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        "JobHunter took too long to respond. Check your connection and try scanning again.",
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return result;
 }
 
 async function mapPageFields(fields) {
@@ -205,7 +219,7 @@ async function openReview(message) {
               : [],
           })),
         }),
-      });
+      }, 30000);
       aiSuggestions = Array.isArray(aiResult?.suggestions) ? aiResult.suggestions : [];
     } catch (error) {
       aiError = error instanceof Error ? error.message : "AI suggestions are unavailable.";
