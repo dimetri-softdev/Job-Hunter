@@ -148,6 +148,90 @@ class ExtensionAutofillAITests(unittest.TestCase):
         self.assertNotIn("work authorization", prompt.lower())
         self.assertNotIn("Gender", prompt)
 
+    def test_generates_open_ended_drafts_from_role_context_without_exact_profile_match(self):
+        database = _AutofillDatabase()
+        payload = ExtensionAutofillSuggestionsRequest(
+            aiProcessingConsent=True,
+            pageTitle="Software Engineer II - Frontend @ Kraken",
+            siteHost="jobs.kraken.com",
+            fields=[
+                AutofillQuestion(
+                    fieldId="field-0",
+                    label="What is your favorite aspect of our platform?",
+                    type="textarea",
+                ),
+            ],
+        )
+        completion = SimpleNamespace(
+            text=json.dumps(
+                {
+                    "suggestions": [
+                        {
+                            "fieldId": "field-0",
+                            "suggestedValue": (
+                                "A starting point: I'm interested in thoughtful "
+                                "product design and reliable technology."
+                            ),
+                            "confidence": 0.72,
+                        }
+                    ]
+                }
+            )
+        )
+        reserve = AsyncMock()
+        generate = MagicMock(return_value=completion)
+        with (
+            patch.object(main, "db", database),
+            patch.object(main, "gemini_client", object()),
+            patch.object(main, "reserve_billing_usage", reserve),
+            patch.object(main, "gemini_generate_with_retry", generate),
+        ):
+            result = asyncio.run(
+                _endpoint()(request=_request(), payload=payload, user_id="user-1")
+            )
+
+        self.assertEqual(len(result["suggestions"]), 1)
+        self.assertEqual(result["suggestions"][0]["fieldId"], "field-0")
+        prompt = generate.call_args.kwargs["contents"][0]
+        self.assertIn("Software Engineer II - Frontend @ Kraken", prompt)
+        self.assertIn("jobs.kraken.com", prompt)
+        self.assertIn("even when the profile has no", prompt)
+        reserve.assert_awaited_once_with(ANY, "user-1", "application_drafts")
+
+    def test_does_not_generate_personal_yes_no_or_product_usage_answers(self):
+        database = _AutofillDatabase()
+        payload = ExtensionAutofillSuggestionsRequest(
+            aiProcessingConsent=True,
+            fields=[
+                AutofillQuestion(
+                    fieldId="field-0",
+                    label="Have you used a Kraken product in the last six months?",
+                    type="custom-yes-no",
+                    options=["Yes", "No"],
+                ),
+                AutofillQuestion(
+                    fieldId="field-1",
+                    label="Have you managed a team before?",
+                    type="textarea",
+                ),
+            ],
+        )
+        reserve = AsyncMock()
+        generate = MagicMock()
+        with (
+            patch.object(main, "db", database),
+            patch.object(main, "gemini_client", object()),
+            patch.object(main, "reserve_billing_usage", reserve),
+            patch.object(main, "gemini_generate_with_retry", generate),
+        ):
+            result = asyncio.run(
+                _endpoint()(request=_request(), payload=payload, user_id="user-1")
+            )
+
+        self.assertEqual(result, {"suggestions": []})
+        reserve.assert_not_awaited()
+        generate.assert_not_called()
+
     def test_usage_limit_blocks_ai_generation(self):
         database = _AutofillDatabase()
         payload = ExtensionAutofillSuggestionsRequest(

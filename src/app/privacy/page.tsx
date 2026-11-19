@@ -36,7 +36,7 @@ const aiFeatures = [
   {
     title: "Google Gemini",
     description:
-      "Used for resume-to-job fit reviews, resume-update suggestions, and AI suggestions in the browser extension. For extension suggestions, only after you opt in, visible form question labels and field metadata (names, placeholders, types, and options) plus a limited non-sensitive career profile (work history, education, skills, and non-sensitive saved answers) are sent for processing. Current field values, contact details, and sensitive saved answers are excluded; sensitive questions are not sent to AI. AI suggestions always require your review. This request counts against the Application drafts allowance.",
+      "Used for resume-to-job fit reviews, resume-update suggestions, and AI suggestions in the browser extension. For extension suggestions, only after you opt in, visible form question labels and field metadata (names, placeholders, types, and options), the page title and website hostname, plus a limited non-sensitive career profile (work history, education, skills, and non-sensitive saved answers) are sent for processing. Current field values, contact details, and sensitive saved answers are excluded; sensitive questions and personal yes/no facts are not sent to AI. For open-ended motivation or preference questions, AI may create an editable draft from the role/company context and relevant profile details; it must not invent personal history or unsupported experience. AI suggestions always require your review. This request counts against the Application drafts allowance.",
   },
   {
     title: "Groq",

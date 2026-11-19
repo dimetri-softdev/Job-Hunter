@@ -25,6 +25,8 @@ class AutofillQuestion(BaseModel):
 
 class ExtensionAutofillSuggestionsRequest(BaseModel):
     aiProcessingConsent: bool
+    pageTitle: Optional[str] = Field(default=None, max_length=300)
+    siteHost: Optional[str] = Field(default=None, max_length=253)
     fields: list[AutofillQuestion] = Field(min_length=1, max_length=250)
 
 

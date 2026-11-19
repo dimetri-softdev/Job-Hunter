@@ -188,6 +188,8 @@ async function openReview(message) {
         method: "POST",
         body: JSON.stringify({
           aiProcessingConsent: true,
+          pageTitle: String(message.pageTitle || "").slice(0, 300),
+          siteHost: pageUrl.hostname.slice(0, 253),
           fields: fields.map((field) => ({
             fieldId: String(field.fieldId || "").slice(0, 16),
             label: typeof field.label === "string" ? field.label.slice(0, 300) : null,
