@@ -78,7 +78,13 @@ class FollowUpSequenceDraft(BaseModel):
 
 class InterviewPracticeRequest(BaseModel):
     aiProcessingConsent: bool
-    action: Literal["questions", "feedback", "exercise", "exercise-feedback"]
+    action: Literal[
+        "study",
+        "questions",
+        "feedback",
+        "exercise",
+        "exercise-feedback",
+    ]
     question: Optional[str] = Field(default=None, min_length=1, max_length=1000)
     answer: Optional[str] = Field(default=None, min_length=1, max_length=4000)
     role: Optional[str] = Field(default=None, max_length=160)
@@ -121,6 +127,38 @@ class InterviewPracticeExercise(BaseModel):
     instructions: str = Field(min_length=1, max_length=1800)
     material: str = Field(default="", max_length=10000)
     debriefQuestions: list[str] = Field(min_length=2, max_length=5)
+
+
+class InterviewStudyTopic(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    summary: str = Field(min_length=1, max_length=700)
+    keyPoints: list[str] = Field(min_length=2, max_length=6)
+    commonPitfalls: list[str] = Field(default_factory=list, max_length=4)
+
+
+class InterviewStudyExample(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    scenario: str = Field(min_length=1, max_length=500)
+    exampleResponse: str = Field(min_length=1, max_length=1000)
+    personalizeBy: str = Field(min_length=1, max_length=400)
+
+
+class InterviewStudyFlashcard(BaseModel):
+    question: str = Field(min_length=1, max_length=300)
+    answer: str = Field(min_length=1, max_length=600)
+
+
+class InterviewStudyPlanStep(BaseModel):
+    activity: str = Field(min_length=1, max_length=300)
+    minutes: int = Field(ge=1, le=120)
+
+
+class InterviewStudyGuide(BaseModel):
+    overview: str = Field(min_length=1, max_length=800)
+    topics: list[InterviewStudyTopic] = Field(min_length=2, max_length=8)
+    workedExamples: list[InterviewStudyExample] = Field(min_length=1, max_length=4)
+    flashcards: list[InterviewStudyFlashcard] = Field(min_length=4, max_length=10)
+    studyPlan: list[InterviewStudyPlanStep] = Field(min_length=3, max_length=6)
 
 
 class InterviewAnswerRating(BaseModel):

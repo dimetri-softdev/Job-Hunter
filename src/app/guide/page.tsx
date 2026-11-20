@@ -128,6 +128,7 @@ const guides = [
     steps: [
       "Choose Interview prep on a saved job or open Interview practice from the navigation.",
       "Enter any role and optionally a company, job description, interview invitation or outline, and focus areas. Agree before sending these details to AI.",
+      "Optionally generate a study guide first with role-specific topics, worked examples, flashcards, and a short study plan. This step is not required.",
       "Generate and answer tailored questions by typing or voice. You can also create a timed code review, case study, portfolio presentation, role-specific task, or custom exercise.",
       "Request coaching only on answers or exercise notes you choose to share. Camera is a local preview; browser speech recognition may process audio through its provider.",
     ],

@@ -14,6 +14,7 @@ from api.schemas.assistant import (
     InterviewAnswerFeedback,
     InterviewPracticeExercise,
     InterviewPracticeRequest,
+    InterviewStudyGuide,
 )
 
 
@@ -113,6 +114,83 @@ class ApplicationSchemaTests(unittest.TestCase):
                 role="Operations Manager",
                 exerciseType="case-study",
                 exerciseDurationMinutes=90,
+            )
+
+    def test_interview_study_action_and_guide_accept_role_agnostic_content(self):
+        request = InterviewPracticeRequest(
+            aiProcessingConsent=True,
+            action="study",
+            role="Product Designer",
+            interviewOutline="Discuss a portfolio project and design decisions.",
+        )
+        guide = InterviewStudyGuide(
+            overview="Prepare to explain your decisions and their impact.",
+            topics=[
+                {
+                    "title": "Design decisions",
+                    "summary": "Explain the evidence behind your choices.",
+                    "keyPoints": ["State the user need.", "Discuss trade-offs."],
+                    "commonPitfalls": ["Skipping the outcome."],
+                },
+                {
+                    "title": "Portfolio storytelling",
+                    "summary": "Present a project as a clear narrative.",
+                    "keyPoints": ["Set context.", "Describe your contribution."],
+                },
+            ],
+            workedExamples=[
+                {
+                    "title": "Illustrative project response",
+                    "scenario": "A hypothetical redesign with competing needs.",
+                    "exampleResponse": "I compared the options against user needs.",
+                    "personalizeBy": "Replace this with a project you actually worked on.",
+                },
+            ],
+            flashcards=[
+                {"question": f"Question {index}", "answer": f"Answer {index}"}
+                for index in range(4)
+            ],
+            studyPlan=[
+                {"activity": f"Study activity {index}", "minutes": 10}
+                for index in range(3)
+            ],
+        )
+
+        self.assertEqual(request.action, "study")
+        self.assertEqual(len(guide.flashcards), 4)
+        self.assertEqual(guide.studyPlan[0].minutes, 10)
+
+    def test_interview_study_guide_rejects_out_of_range_plan_duration(self):
+        with self.assertRaises(ValidationError):
+            InterviewStudyGuide(
+                overview="Prepare for the conversation.",
+                topics=[
+                    {
+                        "title": f"Topic {index}",
+                        "summary": "A useful topic.",
+                        "keyPoints": ["First point.", "Second point."],
+                    }
+                    for index in range(2)
+                ],
+                workedExamples=[
+                    {
+                        "title": "Example",
+                        "scenario": "A hypothetical scenario.",
+                        "exampleResponse": "An illustrative response.",
+                        "personalizeBy": "Use a truthful personal example.",
+                    }
+                ],
+                flashcards=[
+                    {"question": f"Question {index}", "answer": f"Answer {index}"}
+                    for index in range(4)
+                ],
+                studyPlan=[
+                    {
+                        "activity": f"Study activity {index}",
+                        "minutes": 121 if index == 0 else 10,
+                    }
+                    for index in range(3)
+                ],
             )
 
 

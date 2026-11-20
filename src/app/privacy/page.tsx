@@ -41,7 +41,7 @@ const aiFeatures = [
   {
     title: "Groq",
     description:
-      "Used for the assistant, job-post analysis, career-role suggestions, learning roadmaps, Proof Sprints, application drafts, interview practice, and follow-up sequences. When you explicitly opt in to interview practice, the role, company, job description, interview outline, and focus areas you provide are sent to Groq to create questions or practical exercises. If you request feedback, the answer or notes you submit and the related exercise material are sent for review. When you explicitly opt in to an AI follow-up sequence, saved details for that application are sent to draft messages. When you request application drafts, the saved career profile and relevant job details are sent to prepare a cover letter, resume-tailoring suggestions, and profile-supported job terms.",
+      "Used for the assistant, job-post analysis, career-role suggestions, learning roadmaps, Proof Sprints, application drafts, interview practice, and follow-up sequences. When you explicitly opt in to interview practice, the role, company, job description, interview outline, and focus areas you provide are sent to Groq to create an optional study guide, questions, or practical exercises. Study guides can include topic explanations, illustrative worked examples, flashcards, and a study plan. If you request feedback, the answer or notes you submit and the related exercise material are sent for review. When you explicitly opt in to an AI follow-up sequence, saved details for that application are sent to draft messages. When you request application drafts, the saved career profile and relevant job details are sent to prepare a cover letter, resume-tailoring suggestions, and profile-supported job terms.",
   },
 ];
 

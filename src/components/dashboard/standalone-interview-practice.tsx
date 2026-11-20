@@ -15,6 +15,7 @@ import {
 } from "@/components/dashboard/mock-interview-room";
 import { fetcher } from "@/lib/api";
 import { InterviewExerciseStudio } from "@/components/dashboard/interview-exercise-studio";
+import { InterviewStudyGuide } from "@/components/dashboard/interview-study-guide";
 
 const availableFocusAreas = [
   "Behavioral examples",
@@ -368,10 +369,10 @@ export function StandaloneInterviewPractice() {
                 className="mt-0.5 size-4 shrink-0 rounded border-slate-500 bg-slate-900"
               />
               I agree to send the role details, selected focus areas, and any
-              interview outline above to AI to generate practice questions or
-              exercises. I also agree to send only the answers or exercise notes
-              and the exercise material needed to review them if I request
-              coaching.
+              interview outline above to AI to generate study guides, practice
+              questions, or practical exercises. I also agree to send only
+              the answers or exercise notes and the exercise material needed
+              to review them if I request coaching.
             </label>
             <p className="text-[10px] leading-4 text-slate-500">
               No job application is required. Video is a local preview only.
@@ -405,6 +406,15 @@ export function StandaloneInterviewPractice() {
         </form>
 
         <div className="min-w-0 space-y-4">
+          <InterviewStudyGuide
+            role={role}
+            company={company}
+            jobDescription={jobDescription.trim()}
+            interviewOutline={interviewOutline.trim()}
+            focusAreas={focusAreas}
+            aiConsent={aiConsent}
+          />
+
           {questions.length > 0 ? (
             <MockInterviewRoom
               key={sessionKey}
