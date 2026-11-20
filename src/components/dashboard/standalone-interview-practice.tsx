@@ -14,11 +14,25 @@ import {
   type MockInterviewQuestion,
 } from "@/components/dashboard/mock-interview-room";
 import { fetcher } from "@/lib/api";
+import { InterviewExerciseStudio } from "@/components/dashboard/interview-exercise-studio";
+
+const availableFocusAreas = [
+  "Behavioral examples",
+  "Role-specific skills",
+  "Technical or professional concepts",
+  "Practical exercises",
+  "Leadership and collaboration",
+  "Communication",
+  "Culture and motivation",
+  "Portfolio or case study",
+];
 
 export function StandaloneInterviewPractice() {
   const [role, setRole] = useState("");
   const [company, setCompany] = useState("");
   const [jobDescription, setJobDescription] = useState("");
+  const [interviewOutline, setInterviewOutline] = useState("");
+  const [focusAreas, setFocusAreas] = useState<string[]>([]);
   const [aiConsent, setAiConsent] = useState(false);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [feedbackFor, setFeedbackFor] = useState<string | null>(null);
@@ -66,6 +80,8 @@ export function StandaloneInterviewPractice() {
             role: cleanRole,
             company: company.trim(),
             jobDescription: jobDescription.trim(),
+            interviewOutline: interviewOutline.trim(),
+            focusAreas,
           }),
         },
       );
@@ -115,6 +131,8 @@ export function StandaloneInterviewPractice() {
             role: role.trim(),
             company: company.trim(),
             jobDescription: jobDescription.trim(),
+            interviewOutline: interviewOutline.trim(),
+            focusAreas,
             question,
             answer: cleanAnswer,
           }),
@@ -162,6 +180,10 @@ export function StandaloneInterviewPractice() {
     const lines = [
       `Mock interview practice · ${role.trim()}`,
       company.trim() ? `Company: ${company.trim()}` : "",
+      interviewOutline.trim()
+        ? `Interview outline:\n${interviewOutline.trim()}`
+        : "",
+      focusAreas.length ? `Focus areas: ${focusAreas.join(", ")}` : "",
       `Practice points: ${sessionSummary.points}`,
       `Answers: ${sessionSummary.answered} · Coached: ${sessionSummary.reviewed} · Improved on retry: ${sessionSummary.improved}`,
       sessionSummary.averageScore === null
@@ -285,6 +307,58 @@ export function StandaloneInterviewPractice() {
             />
           </div>
 
+          <div className="space-y-2">
+            <label
+              htmlFor="standalone-interview-outline"
+              className="text-xs font-medium text-slate-300"
+            >
+              Interview outline or invitation{" "}
+              <span className="text-slate-500">(optional, for tailored practice)</span>
+            </label>
+            <Textarea
+              id="standalone-interview-outline"
+              value={interviewOutline}
+              onChange={(event) => setInterviewOutline(event.target.value)}
+              maxLength={12000}
+              rows={6}
+              placeholder="Paste an interview email, agenda, exercise instructions, or topics you expect. Remove private details you do not want to share."
+              className="resize-y border-[#2b2e3b] bg-[#090a0f] text-sm text-white placeholder:text-slate-500"
+            />
+          </div>
+
+          <fieldset className="space-y-2">
+            <legend className="text-xs font-medium text-slate-300">
+              What would you like to practice?{" "}
+              <span className="text-slate-500">(optional)</span>
+            </legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {availableFocusAreas.map((area) => (
+                <label
+                  key={area}
+                  className="flex items-start gap-2 rounded-lg border border-white/[0.06] bg-black/10 p-2 text-[11px] leading-4 text-slate-300"
+                >
+                  <input
+                    type="checkbox"
+                    checked={focusAreas.includes(area)}
+                    onChange={(event) =>
+                      setFocusAreas((current) =>
+                        event.target.checked
+                          ? [...current, area]
+                          : current.filter((item) => item !== area),
+                      )
+                    }
+                    className="mt-0.5 size-3.5 shrink-0 accent-violet-500"
+                  />
+                  {area}
+                </label>
+              ))}
+            </div>
+            <p className="text-[10px] leading-4 text-slate-500">
+              Leave all unchecked to let the AI choose a balanced mix suited
+              to the role and outline.
+            </p>
+          </fieldset>
+
           <div className="space-y-3 rounded-xl border border-violet-400/15 bg-violet-500/[0.04] p-3">
             <label className="flex items-start gap-2 text-[11px] leading-5 text-slate-300">
               <input
@@ -293,8 +367,11 @@ export function StandaloneInterviewPractice() {
                 onChange={(event) => setAiConsent(event.target.checked)}
                 className="mt-0.5 size-4 shrink-0 rounded border-slate-500 bg-slate-900"
               />
-              I agree to send the role details above to AI to generate practice
-              questions, and answers I choose to review for coaching.
+              I agree to send the role details, selected focus areas, and any
+              interview outline above to AI to generate practice questions or
+              exercises. I also agree to send only the answers or exercise notes
+              and the exercise material needed to review them if I request
+              coaching.
             </label>
             <p className="text-[10px] leading-4 text-slate-500">
               No job application is required. Video is a local preview only.
@@ -371,6 +448,15 @@ export function StandaloneInterviewPractice() {
               </p>
             </div>
           )}
+
+          <InterviewExerciseStudio
+            role={role.trim()}
+            company={company.trim()}
+            jobDescription={jobDescription.trim()}
+            interviewOutline={interviewOutline.trim()}
+            focusAreas={focusAreas}
+            aiConsent={aiConsent}
+          />
 
           {sessionSummary ? (
             <Button

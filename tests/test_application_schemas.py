@@ -10,7 +10,11 @@ from api.schemas.applications import (
     ApplicationUpdate,
     OfferDetailsRequest,
 )
-from api.schemas.assistant import InterviewAnswerFeedback, InterviewPracticeRequest
+from api.schemas.assistant import (
+    InterviewAnswerFeedback,
+    InterviewPracticeExercise,
+    InterviewPracticeRequest,
+)
 
 
 class ApplicationSchemaTests(unittest.TestCase):
@@ -77,10 +81,39 @@ class ApplicationSchemaTests(unittest.TestCase):
             role="Product Designer",
             company="Example Co",
             jobDescription="Own product discovery and collaborate with engineering.",
+            interviewOutline="Discuss a recent project and the product case exercise.",
+            focusAreas=["Portfolio or case study", "Communication"],
         )
 
         self.assertEqual(request.role, "Product Designer")
         self.assertEqual(request.company, "Example Co")
+        self.assertIn("product case", request.interviewOutline)
+        self.assertEqual(len(request.focusAreas), 2)
+
+    def test_interview_exercise_supports_varied_practical_formats(self):
+        exercise = InterviewPracticeExercise(
+            exerciseType="case-study",
+            title="Prioritize a customer issue",
+            instructions="Clarify assumptions and explain your approach.",
+            material="Customers report a rising number of failed orders.",
+            debriefQuestions=[
+                "What would you clarify first?",
+                "How would you measure success?",
+            ],
+        )
+
+        self.assertEqual(exercise.exerciseType, "case-study")
+        self.assertEqual(len(exercise.debriefQuestions), 2)
+
+    def test_interview_exercise_timebox_is_bounded(self):
+        with self.assertRaises(ValidationError):
+            InterviewPracticeRequest(
+                aiProcessingConsent=True,
+                action="exercise",
+                role="Operations Manager",
+                exerciseType="case-study",
+                exerciseDurationMinutes=90,
+            )
 
 
 if __name__ == "__main__":

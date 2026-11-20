@@ -78,12 +78,25 @@ class FollowUpSequenceDraft(BaseModel):
 
 class InterviewPracticeRequest(BaseModel):
     aiProcessingConsent: bool
-    action: Literal["questions", "feedback"]
+    action: Literal["questions", "feedback", "exercise", "exercise-feedback"]
     question: Optional[str] = Field(default=None, min_length=1, max_length=1000)
     answer: Optional[str] = Field(default=None, min_length=1, max_length=4000)
     role: Optional[str] = Field(default=None, max_length=160)
     company: Optional[str] = Field(default=None, max_length=160)
     jobDescription: Optional[str] = Field(default=None, max_length=12000)
+    interviewOutline: Optional[str] = Field(default=None, max_length=12000)
+    focusAreas: list[str] = Field(default_factory=list, max_length=8)
+    exerciseType: Optional[
+        Literal[
+            "code-review",
+            "case-study",
+            "portfolio-presentation",
+            "role-specific-task",
+            "custom",
+        ]
+    ] = None
+    exerciseDurationMinutes: int = Field(default=15, ge=5, le=60)
+    exerciseMaterial: Optional[str] = Field(default=None, max_length=12000)
 
 
 class InterviewPracticeQuestion(BaseModel):
@@ -94,6 +107,20 @@ class InterviewPracticeQuestion(BaseModel):
 
 class InterviewPracticeQuestionSet(BaseModel):
     questions: list[InterviewPracticeQuestion] = Field(min_length=4, max_length=6)
+
+
+class InterviewPracticeExercise(BaseModel):
+    exerciseType: Literal[
+        "code-review",
+        "case-study",
+        "portfolio-presentation",
+        "role-specific-task",
+        "custom",
+    ]
+    title: str = Field(min_length=1, max_length=160)
+    instructions: str = Field(min_length=1, max_length=1800)
+    material: str = Field(default="", max_length=10000)
+    debriefQuestions: list[str] = Field(min_length=2, max_length=5)
 
 
 class InterviewAnswerRating(BaseModel):
