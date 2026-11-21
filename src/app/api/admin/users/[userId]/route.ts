@@ -45,6 +45,7 @@ export async function GET(
     roadmapCount,
     usage,
     featureUsage,
+    featureGrants,
     recentAdminActions,
   ] = await Promise.all([
     db.user.findUnique({
@@ -85,6 +86,18 @@ export async function GET(
         createdAt: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) },
       },
       _count: { _all: true },
+    }),
+    db.userFeatureGrant.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        feature: true,
+        expiresAt: true,
+        revokedAt: true,
+        createdAt: true,
+      },
     }),
     db.billingAuditLog.findMany({
       where: { subjectUserId: userId },
@@ -128,6 +141,12 @@ export async function GET(
       trackedApplications: applicationCount,
       savedRoadmaps: roadmapCount,
     },
+    featureGrants: featureGrants.map((grant) => ({
+      ...grant,
+      expiresAt: grant.expiresAt.toISOString(),
+      revokedAt: grant.revokedAt?.toISOString() ?? null,
+      createdAt: grant.createdAt.toISOString(),
+    })),
     recentAdminActions,
   });
 }

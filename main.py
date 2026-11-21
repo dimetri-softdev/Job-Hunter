@@ -513,6 +513,7 @@ def _subscription_for_current_environment(
 async def require_billing_account_access(
     request: Request,
     user_id: str,
+    feature: Optional[str] = None,
 ) -> Optional[dict]:
     if not await billing_is_enabled() or await is_admin_user(request, user_id):
         return None
@@ -525,7 +526,12 @@ async def require_billing_account_access(
     )
     subscription = _subscription_for_current_environment(rows[0] if rows else None)
     now = datetime.now(timezone.utc)
-    if not _subscription_is_entitled(subscription, now):
+    feature_grant_expiry = (
+        await _active_feature_grant_expiry(user_id, feature, now)
+        if feature
+        else None
+    )
+    if not _subscription_is_entitled(subscription, now) and not feature_grant_expiry:
         raise HTTPException(
             status_code=402,
             detail=(
@@ -546,6 +552,23 @@ def _feature_available(plan: str, feature: str) -> bool:
         and feature in FEATURE_MINIMUM_PLANS
         and PLAN_ORDER[plan] >= PLAN_ORDER[FEATURE_MINIMUM_PLANS[feature]]
     )
+
+
+async def _active_feature_grant_expiry(
+    user_id: str,
+    feature: str,
+    now: datetime,
+) -> Optional[datetime]:
+    grants = await db.query_raw(
+        'SELECT MAX("expiresAt") AS "expiresAt" FROM "UserFeatureGrant" '
+        'WHERE "userId" = $1 AND "feature" = $2 AND "revokedAt" IS NULL '
+        'AND "expiresAt" > CAST($3 AS TIMESTAMP)',
+        user_id,
+        feature,
+        now,
+    )
+    expiry = grants[0].get("expiresAt") if grants else None
+    return _utc_datetime(expiry)
 
 
 async def reserve_billing_usage(
@@ -573,10 +596,20 @@ async def reserve_billing_usage(
         subscription = _subscription_for_current_environment(
             subscriptions[0] if subscriptions else None
         )
+        feature_grants = await transaction.query_raw(
+            'SELECT "id" FROM "UserFeatureGrant" '
+            'WHERE "userId" = $1 AND "feature" = $2 AND "revokedAt" IS NULL '
+            'AND "expiresAt" > CAST($3 AS TIMESTAMP) LIMIT 1',
+            user_id,
+            feature,
+            now,
+        )
+        has_feature_grant = bool(feature_grants)
         if (
             not is_admin
             and subscription is not None
             and not _subscription_is_entitled(subscription, now)
+            and not has_feature_grant
         ):
             raise HTTPException(
                 status_code=402,
@@ -587,14 +620,22 @@ async def reserve_billing_usage(
             plan = "premium"
         else:
             plan = str(subscription["plan"]).lower() if subscription else "basic"
-        if not is_admin and not _feature_available(plan, feature):
+        if (
+            not is_admin
+            and not has_feature_grant
+            and not _feature_available(plan, feature)
+        ):
             required_plan = FEATURE_MINIMUM_PLANS[feature].title()
             raise HTTPException(
                 status_code=403,
                 detail=f"{required_plan} is required to use {FEATURE_LABELS[feature]}.",
             )
 
-        limit = None if is_admin else BILLING_PLANS[plan][feature]
+        limit = (
+            None
+            if is_admin or has_feature_grant
+            else BILLING_PLANS[plan][feature]
+        )
         used = 0
         if limit is not None:
             counts = await transaction.query_raw(
@@ -644,6 +685,50 @@ async def finalize_billing_usage(request: Request, succeeded: bool) -> None:
     )
 
 
+def _billing_feature_for_path(path: str) -> Optional[str]:
+    fixed_paths = {
+        "/api/v1/extension/autofill-suggestions": "application_drafts",
+        "/api/v1/career-profile/recommendations": "role_suggestions",
+        "/api/v1/assistant/chat": "assistant_chat",
+        "/api/v1/assistant/chat/document": "assistant_chat",
+        "/api/v1/interview-practice": "interview_prep",
+        "/api/v1/roadmaps/generate": "roadmap_generation",
+        "/api/v1/roadmaps/generate-from-cv": "roadmap_generation",
+        "/api/v1/applications/analyze": "job_fit",
+        "/api/v1/applications/analyze-document": "job_fit",
+        "/api/v1/applications/match": "job_fit",
+        "/api/v1/resume/roadmap-update": "resume_updates",
+        "/api/v1/resume/cover-letter": "resume_updates",
+    }
+    if path in fixed_paths:
+        return fixed_paths[path]
+
+    segments = path.strip("/").split("/")
+    if (
+        len(segments) == 5
+        and segments[:2] == ["api", "v1"]
+        and segments[2] == "roadmaps"
+        and segments[3]
+        and segments[4] == "continue"
+    ):
+        return "roadmap_generation"
+    if (
+        len(segments) == 5
+        and segments[:2] == ["api", "v1"]
+        and segments[2] == "applications"
+        and segments[3]
+    ):
+        return {
+            "roadmaps": "roadmap_generation",
+            "proof-sprints": "job_fit",
+            "application-pack": "application_drafts",
+            "pnet-pack": "application_drafts",
+            "interview-practice": "interview_prep",
+            "follow-up-sequence": "application_drafts",
+        }.get(segments[4])
+    return None
+
+
 @app.middleware("http")
 async def enforce_billing_for_writes(request: Request, call_next):
     path = request.url.path
@@ -658,7 +743,11 @@ async def enforce_billing_for_writes(request: Request, call_next):
 
     try:
         user_id = await get_current_user(request, request.headers.get("authorization"))
-        await require_billing_account_access(request, user_id)
+        await require_billing_account_access(
+            request,
+            user_id,
+            _billing_feature_for_path(path),
+        )
     except HTTPException as exc:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     try:
@@ -727,12 +816,25 @@ async def get_billing_status(
         "USED",
     )
     usage = {row["feature"]: int(row["used"]) for row in counts}
+    grant_rows = await db.query_raw(
+        'SELECT "feature", MAX("expiresAt") AS "expiresAt" '
+        'FROM "UserFeatureGrant" WHERE "userId" = $1 AND "revokedAt" IS NULL '
+        'AND "expiresAt" > CAST($2 AS TIMESTAMP) GROUP BY "feature"',
+        user_id,
+        now,
+    )
+    grant_expiries = {
+        row["feature"]: _utc_datetime(row.get("expiresAt"))
+        for row in grant_rows
+    }
 
     features = {}
     for feature, minimum_plan in FEATURE_MINIMUM_PLANS.items():
+        grant_expiry = grant_expiries.get(feature)
+        has_feature_grant = grant_expiry is not None
         limit = (
             None
-            if is_admin
+            if is_admin or has_feature_grant
             else (BILLING_PLANS.get(plan, {}).get(feature) if plan else None)
         )
         used = usage.get(feature, 0)
@@ -741,14 +843,20 @@ async def get_billing_status(
             "limit": limit,
             "used": used,
             "remaining": max(limit - used, 0) if limit is not None else None,
-            "included": is_admin or _feature_available(plan or "", feature),
+            "included": is_admin
+            or has_feature_grant
+            or _feature_available(plan or "", feature),
             "available": is_admin
+            or has_feature_grant
             or bool(
                 enabled
                 and _subscription_is_entitled(subscription, now)
                 and _feature_available(plan or "", feature)
             ),
             "includedFrom": minimum_plan,
+            "temporaryAccessEndsAt": (
+                grant_expiry.isoformat() if grant_expiry else None
+            ),
         }
 
     def serialize_date(value: Any) -> Optional[str]:
@@ -1265,6 +1373,8 @@ async def reserve_assistant_daily_usage(
         return None
 
     now = datetime.now(timezone.utc)
+    if await _active_feature_grant_expiry(user_id, "assistant_chat", now):
+        return None
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     event_id = str(uuid.uuid4())
     async with db.tx() as transaction:

@@ -14,6 +14,10 @@ import {
   UserRoundX,
 } from "lucide-react";
 import {
+  BILLING_FEATURES,
+  type BillingFeatureKey,
+} from "@/lib/billing-features";
+import {
   getApiErrorMessage,
   getUserFacingError,
 } from "@/lib/user-facing-errors";
@@ -74,6 +78,13 @@ interface AccountDetails {
     trackedApplications: number;
     savedRoadmaps: number;
   };
+  featureGrants: {
+    id: string;
+    feature: string;
+    expiresAt: string;
+    revokedAt: string | null;
+    createdAt: string;
+  }[];
   recentAdminActions: {
     actorEmail: string;
     action: string;
@@ -114,6 +125,10 @@ export function AdminUsersPanel() {
   const [selectedDetailsId, setSelectedDetailsId] = useState<string | null>(null);
   const [accountDetails, setAccountDetails] = useState<AccountDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [selectedGrantFeatures, setSelectedGrantFeatures] = useState<
+    BillingFeatureKey[]
+  >([]);
+  const [grantDurationDays, setGrantDurationDays] = useState("14");
   const [deleteCandidate, setDeleteCandidate] = useState<{
     id: string;
     email: string;
@@ -325,6 +340,74 @@ export function AdminUsersPanel() {
     } catch (revokeError: unknown) {
       setError(
         getUserFacingError(revokeError, "Unable to revoke this trial."),
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function grantFeatureAccess(id: string) {
+    const durationDays = Number(grantDurationDays);
+    if (
+      selectedGrantFeatures.length === 0 ||
+      !Number.isInteger(durationDays) ||
+      durationDays < 1 ||
+      durationDays > 365
+    ) {
+      setError("Choose at least one feature and a duration from 1 to 365 days.");
+      return;
+    }
+
+    setBusyId(id);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/admin/users/${encodeURIComponent(id)}/feature-grants`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            features: selectedGrantFeatures,
+            durationDays,
+          }),
+        },
+      );
+      const payload = await readJson(response);
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload, response.status));
+      }
+      setSelectedGrantFeatures([]);
+      refresh();
+    } catch (grantError: unknown) {
+      setError(
+        getUserFacingError(grantError, "Unable to grant temporary feature access."),
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function revokeFeatureAccess(id: string, grantId: string) {
+    if (!window.confirm("Revoke this user's feature access now?")) return;
+    setBusyId(id);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/admin/users/${encodeURIComponent(id)}/feature-grants`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ grantId }),
+        },
+      );
+      const payload = await readJson(response);
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload, response.status));
+      }
+      refresh();
+    } catch (revokeError: unknown) {
+      setError(
+        getUserFacingError(revokeError, "Unable to revoke feature access."),
       );
     } finally {
       setBusyId(null);
@@ -664,6 +747,7 @@ export function AdminUsersPanel() {
                         type="button"
                         onClick={() => {
                           setAccountDetails(null);
+                          setSelectedGrantFeatures([]);
                           setSelectedDetailsId((current) =>
                             current === user.id ? null : user.id,
                           );
@@ -833,6 +917,135 @@ export function AdminUsersPanel() {
                               </p>
                             </div>
                           )}
+                          <section className="space-y-3 border-t border-[#252735] pt-4">
+                            <div>
+                              <h3 className="text-xs font-semibold text-slate-200">
+                                Temporary feature access
+                              </h3>
+                              <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                                Grants bypass plan and monthly usage limits for selected features until they expire. Each grant can be revoked early.
+                              </p>
+                            </div>
+                            {accountDetails.featureGrants.length > 0 ? (
+                              <ul className="space-y-2">
+                                {accountDetails.featureGrants.map((grant) => {
+                                  const active =
+                                    !grant.revokedAt &&
+                                    new Date(grant.expiresAt).getTime() >
+                                      Date.now();
+                                  const label =
+                                    BILLING_FEATURES.find(
+                                      (feature) => feature.key === grant.feature,
+                                    )?.label ?? grant.feature.replaceAll("_", " ");
+                                  return (
+                                    <li
+                                      key={grant.id}
+                                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#252735] bg-black/10 px-3 py-2"
+                                    >
+                                      <p className="text-xs text-slate-300">
+                                        {label} ·{" "}
+                                        {active
+                                          ? `active until ${new Date(grant.expiresAt).toLocaleString()}`
+                                          : grant.revokedAt
+                                            ? `revoked ${new Date(grant.revokedAt).toLocaleString()}`
+                                            : `expired ${new Date(grant.expiresAt).toLocaleString()}`}
+                                      </p>
+                                      {active && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            void revokeFeatureAccess(
+                                              accountDetails.account.id,
+                                              grant.id,
+                                            )
+                                          }
+                                          disabled={
+                                            busyId === accountDetails.account.id
+                                          }
+                                          className="min-h-8 rounded-md border border-rose-400/20 px-2 text-[11px] text-rose-200 hover:bg-rose-400/10 disabled:opacity-40"
+                                        >
+                                          Revoke
+                                        </button>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p className="text-[11px] text-slate-500">
+                                No feature grants recorded for this account.
+                              </p>
+                            )}
+                            <fieldset className="space-y-2">
+                              <legend className="text-[11px] font-medium text-slate-300">
+                                Select features to grant
+                              </legend>
+                              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                {BILLING_FEATURES.map((feature) => (
+                                  <label
+                                    key={feature.key}
+                                    className="flex items-center gap-2 rounded-md border border-[#252735] px-2 py-2 text-[11px] text-slate-300"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedGrantFeatures.includes(
+                                        feature.key,
+                                      )}
+                                      onChange={(event) =>
+                                        setSelectedGrantFeatures((current) =>
+                                          event.target.checked
+                                            ? [...current, feature.key]
+                                            : current.filter(
+                                                (item) =>
+                                                  item !== feature.key,
+                                              ),
+                                        )
+                                      }
+                                      className="size-3.5 accent-violet-500"
+                                    />
+                                    {feature.label}
+                                  </label>
+                                ))}
+                              </div>
+                            </fieldset>
+                            <div className="flex flex-wrap items-end gap-2">
+                              <label className="text-[11px] text-slate-400">
+                                Duration in days (1–365)
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={365}
+                                  step={1}
+                                  value={grantDurationDays}
+                                  onChange={(event) =>
+                                    setGrantDurationDays(event.target.value)
+                                  }
+                                  className="mt-1 block min-h-9 w-28 rounded-lg border border-[#2b2e3b] bg-[#090a0f] px-2 text-sm text-white"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void grantFeatureAccess(
+                                    accountDetails.account.id,
+                                  )
+                                }
+                                disabled={
+                                  busyId === accountDetails.account.id ||
+                                  selectedGrantFeatures.length === 0
+                                }
+                                className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-violet-600 px-3 text-xs font-medium text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {busyId === accountDetails.account.id ? (
+                                  <Loader2
+                                    className="size-3.5 animate-spin"
+                                    aria-hidden="true"
+                                  />
+                                ) : null}
+                                Grant access
+                              </button>
+                            </div>
+                          </section>
                           {accountDetails.recentAdminActions.length > 0 && (
                             <div>
                               <p className="text-xs font-medium text-slate-300">

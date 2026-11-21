@@ -12,6 +12,7 @@ interface FeatureUsage {
   included: boolean;
   available: boolean;
   includedFrom: string;
+  temporaryAccessEndsAt: string | null;
 }
 
 interface BillingStatus {
@@ -447,7 +448,11 @@ export function BillingOverview() {
         )}
       </section>
 
-      {((status.billingEnabled && status.plan) || status.isAdmin) && (
+      {((status.billingEnabled && status.plan) ||
+        status.isAdmin ||
+        Object.values(status.features).some(
+          (feature) => feature.temporaryAccessEndsAt,
+        )) && (
         <section className="rounded-xl border border-[#1f212d] bg-[#12131a] p-5">
           <div className="flex items-center gap-2">
             <Clock3 className="size-4 text-violet-300" aria-hidden="true" />
@@ -456,7 +461,7 @@ export function BillingOverview() {
           <p className="mt-1 text-xs text-slate-500">
             {status.isAdmin
               ? "Administrator accounts have unlimited feature usage."
-              : "Usage resets on the first day of each month. Job-fit allowance also covers job-post analysis and Proof Sprints. The AI assistant also has a separate daily cap."}
+              : "Usage resets on the first day of each month. Job-fit allowance also covers job-post analysis and Proof Sprints. The AI assistant normally has a separate daily cap, which a temporary assistant grant also bypasses."}
           </p>
           <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURE_ORDER.map((key) => {
@@ -479,6 +484,13 @@ export function BillingOverview() {
                         : "Not included in this plan"
                       : `${feature.used} of ${feature.limit} used`}
                   </p>
+                  {feature.temporaryAccessEndsAt && (
+                    <p className="mt-2 text-[10px] text-violet-200/80">
+                      Temporary access until{" "}
+                      {formatDate(feature.temporaryAccessEndsAt) ??
+                        "its scheduled expiry"}
+                    </p>
+                  )}
                   {feature.limit !== null && !feature.available && (
                     <p className="mt-2 inline-flex items-center gap-1 text-xs text-amber-200">
                       <LockKeyhole className="size-3" aria-hidden="true" />

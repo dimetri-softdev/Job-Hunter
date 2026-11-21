@@ -27,6 +27,7 @@ model User {
   applications      Application[]
   subscription      UserSubscription?
   billingUsage      BillingUsageEvent[]
+  featureGrants     UserFeatureGrant[]
   createdAt         DateTime       @default(now())
 }
 
@@ -255,6 +256,18 @@ model BillingUsageEvent {
   createdAt DateTime @default(now())
 
   @@index([userId, feature, createdAt])
+}
+
+model UserFeatureGrant {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature   String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, feature, expiresAt])
 }
 
 model BillingAuditLog {
